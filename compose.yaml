@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: backend-lab-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpass
+      POSTGRES_DB: backend_lab
+    ports:
+      - "5432:5432"
