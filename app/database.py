@@ -13,7 +13,11 @@ DATABASE_URL = "postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab"
 
 # Engine 是 SQLAlchemy 與 PostgreSQL 溝通的基礎設施。
 # 它也負責管理 connection pool。
-engine = create_engine(DATABASE_URL)
+# echo=True makes SQLAlchemy print the SQL statements it sends to the database.
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+)
 
 
 # Base.metadata 裡面收集了所有 SQLAlchemy Model 的 table 定義。

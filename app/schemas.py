@@ -26,3 +26,6 @@ class UserPatch(BaseModel):
     # Both fields are optional because PATCH only updates provided fields.
     name: Optional[str] = None
     email: Optional[str] = None
+    
+class OrderCreate(BaseModel):
+    user_id: int

@@ -715,94 +715,166 @@ PostgreSQL SELECT
 
 ---
 
-# Phase 4 — Migration + Testing
+# Phase 4 — Backend / API Fundamentals
 
 ## Goal
 
-開始從「能跑」進入「工程化」。
+從「能跑」進入安全、可維護、可測試的 Backend API。
 
----
+## 4.1 HTTP / REST
 
-## 4.1 Alembic Migration
+- [ ] HTTP methods、status codes、headers
+- [ ] REST resource design
+- [ ] Idempotency
+- [ ] Request / response contract
+
+## 4.2 Authentication
+
+- [ ] Password hashing（Argon2 / bcrypt）
+- [ ] JWT / Session
+- [ ] Access token / refresh token
+- [ ] Token expiration
+- [ ] Login / logout flow
+
+## 4.3 Authorization
+
+- [ ] Resource ownership
+- [ ] Permission checking
+- [ ] Role-based access control（RBAC）
+- [ ] User / Admin 權限區分
+
+## 4.4 API Security
+
+- [ ] Input validation
+- [ ] SQL Injection 防禦（SQLAlchemy / parameterized query）
+- [ ] Rate limiting
+- [ ] Request limits（request size、file size、JSON size）
+- [ ] Pagination / query limits
+- [ ] CORS
+
+## 4.5 Middleware
+
+- [ ] Request logging middleware
+- [ ] CORS middleware
+- [ ] Authentication / request context middleware
+- [ ] Middleware execution order
+
+## 4.6 Error Handling
+
+- [ ] Consistent error response format
+- [ ] HTTP exception handling
+- [ ] 不洩漏內部錯誤與敏感資訊
+- [ ] Logging server-side details
+
+## 4.7 Pagination / Filtering / Sorting
+
+- [ ] Page / limit pagination
+- [ ] 最大 page size
+- [ ] Filtering query parameters
+- [ ] Sorting query parameters
+- [ ] 防止無限制資料查詢
+
+## 4.8 API Testing
+
+- [ ] pytest
+- [ ] API endpoint tests
+- [ ] Authentication / authorization tests
+- [ ] Validation / error tests
+- [ ] Database fixture
+
+## 4.9 Backend Project Structure
+
+- [ ] `main.py`
+- [ ] `routers/`
+- [ ] `models/`
+- [ ] `schemas/`
+- [ ] `services/`
+- [ ] `dependencies/`
+- [ ] `database.py`
+- [ ] `tests/`
+
+## 4.10 Alembic Migration
 
 不要再手動修改 Production Schema。
-
-TODO：
 
 - [ ] 安裝 Alembic
 - [ ] Initial migration
 - [ ] Upgrade
 - [ ] 新增 column
 - [ ] 產生 migration
-- [ ] Upgrade
 - [ ] Downgrade
 
 理解：
 
-```text
+`	ext
 Application Version
         +
 Database Schema Version
-```
-
----
-
-## 4.2 Testing
-
-使用 pytest。
-
-TODO：
-
-- [ ] Unit Test
-- [ ] API Test
-- [ ] `/health` test
-- [ ] CRUD test
-- [ ] Database fixture
-
-至少做到：
-
-```text
-pytest
-  │
-  ├── API Test
-  └── DB Test
-```
-
----
+` 
 
 ## Phase 4 Definition of Done
 
-可以：
-
-```text
-修改 Model
-   ↓
-產生 Migration
-   ↓
-Upgrade Database
-   ↓
-pytest
-   ↓
-Tests Pass
-```
+可以完成一個具備 authentication、authorization、validation、error handling、pagination、filtering / sorting 與測試的 FastAPI API。
 
 ---
 
-# Phase 5 — DevOps / CI
+# Phase 5 — Security / CI/CD / Deployment
 
 ## Goal
 
-讓電腦替你做：
+讓應用程式可以安全、可重現地建置、部署與監控。
 
-```text
-Build
-Test
-Verify
-```
+## 5.1 Secrets Management
 
----
+- [ ] Environment variables
+- [ ] `.env` 不提交到 Git
+- [ ] `.env.example`
+- [ ] Production secrets manager
+- [ ] Secret rotation
 
-## 5.1 GitHub Actions
+## 5.2 HTTPS / TLS
+
+- [ ] TLS certificate
+- [ ] HTTPS-only production traffic
+- [ ] Reverse proxy / TLS termination
+- [ ] HTTP to HTTPS redirect
+
+## 5.3 Database Least Privilege
+
+- [ ] 建立專用 application database user
+- [ ] 只授予必要的 SELECT / INSERT / UPDATE / DELETE 權限
+- [ ] 不使用 PostgreSQL superuser 執行 API
+- [ ] Migration user 與 runtime user 分離
+
+## 5.4 Security Headers
+
+- [ ] `Content-Security-Policy`
+- [ ] `X-Content-Type-Options`
+- [ ] `Strict-Transport-Security`
+- [ ] `Referrer-Policy`
+- [ ] 依需求設定 `X-Frame-Options`
+
+## 5.5 Logging / Monitoring
+
+- [ ] Structured request logging
+- [ ] Error logging
+- [ ] Metrics
+- [ ] Request count / latency
+- [ ] Health checks
+- [ ] Alerts
+- [ ] Audit log
+
+## 5.6 Dockerize FastAPI
+
+- [ ] Production Dockerfile
+- [ ] `.dockerignore`
+- [ ] Non-root container user
+- [ ] Environment-specific configuration
+- [ ] Healthcheck
+- [ ] Image tagging
+- [ ] Build production image
+
+## 5.7 CI/CD
 
 建立：
 
@@ -816,117 +888,65 @@ Pipeline：
 
 ```text
 git push
-   │
-   ▼
-GitHub Actions
-   │
+   ↓
+CI
    ├── Checkout
-   │
-   ├── Install
-   │
+   ├── Install dependencies
    ├── Test
-   │
+   ├── Security checks
    └── Docker Build
-   ▼
-PASS / FAIL
+   ↓
+CD
+   └── Deploy
 ```
 
 TODO：
 
-- [ ] Checkout
-- [ ] Python setup
-- [ ] Install dependencies
-- [ ] pytest
+- [ ] Automated tests
+- [ ] Lint / format checks
+- [ ] Dependency / security checks
 - [ ] Docker build
-- [ ] Pipeline failure test
+- [ ] Image publish
+- [ ] Staging deployment
+- [ ] Production deployment
+- [ ] Rollback strategy
 
-故意寫一個 failing test。
+## 5.8 Kubernetes
 
-確認 CI 真的會：
+- [ ] Pod / Deployment
+- [ ] Service
+- [ ] ConfigMap / Secret
+- [ ] Readiness / liveness probes
+- [ ] Resource requests / limits
+- [ ] Ingress
+- [ ] Rolling update
 
-```text
-❌ FAIL
-```
+## 5.9 Deployment
 
-修好後：
+- [ ] Staging environment
+- [ ] Production environment
+- [ ] Database migration during deployment
+- [ ] HTTPS / TLS verification
+- [ ] Logs / metrics verification
+- [ ] Rollback procedure
 
-```text
-✅ PASS
-```
+## Phase 5 Definition of Done
 
----
-
-## 5.2 Docker Image
-
-時間允許：
-
-- [ ] API production Dockerfile
-- [ ] `.dockerignore`
-- [ ] Multi-stage build
-- [ ] Image tagging
-- [ ] Build production image
-
-理解：
-
-```text
-Source Code
-    ↓
-Docker Build
-    ↓
-Immutable Image
-```
-
----
-
-## 5.3 Basic Monitoring
-
-這週只做到基礎。
-
-不要掉進 Observability 黑洞。
-
-TODO：
-
-- [ ] FastAPI `/health`
-- [ ] Request logging
-- [ ] Container stats
-- [ ] Docker logs
-
-時間真的還有，再加入：
-
-```text
-Prometheus
-+
-Grafana
-```
-
-Optional：
-
-- [ ] Prometheus
-- [ ] `/metrics`
-- [ ] Grafana
-- [ ] Request count
-- [ ] Request latency
-
----
-
-# Phase 5 Definition of Done
-
-Push 一個 commit：
+完成一條可重現的流程：
 
 ```text
 git push
     ↓
-GitHub Actions
+CI tests
     ↓
-pytest
+Docker build / publish
     ↓
-Docker Build
+Deploy
     ↓
-PASS
+HTTPS FastAPI + PostgreSQL
+    ↓
+Logging / Monitoring
 ```
-
----
-
 # 一週時間分配
 
 ## Day 1
