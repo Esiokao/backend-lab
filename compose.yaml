@@ -1,10 +1,65 @@
 services:
+
+  # =========================
+  # PostgreSQL
+  # =========================
   postgres:
     image: postgres:17
+     # 固定 container 名稱
     container_name: backend-lab-postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpass
-      POSTGRES_DB: backend_lab
+      # 這些值來自 .env
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
     ports:
+      # Windows:5432 -> Container:5432
+      #
+      # 讓你可以在 Windows 上用 psql / DBeaver 連線
       - "5432:5432"
+
+    volumes:
+      # PostgreSQL 資料持久化
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      # 確認 PostgreSQL 已經可以接受連線
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  # =========================
+  # Redis
+  # =========================
+  redis:
+    image: redis:7
+
+    ports:
+      # Windows:6379 -> Container:6379
+      #
+      # 開發階段方便從 Windows 測試 Redis
+      - "6379:6379"
+
+    healthcheck:
+      # Redis 回 PONG 就代表正常
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+
+
+# =========================
+# Persistent Volumes
+# =========================
+volumes:
+
+  # PostgreSQL data
+  postgres_data:

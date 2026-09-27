@@ -1,34 +1,23 @@
-from sqlalchemy import create_engine
+import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base
+load_dotenv()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# PostgreSQL 的連線資訊
-#
-# 格式：
-# postgresql+psycopg://使用者:密碼@主機:Port/Database
-DATABASE_URL = "postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab"
-
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 # Engine 是 SQLAlchemy 與 PostgreSQL 溝通的基礎設施。
 # 它也負責管理 connection pool。
 # echo=True makes SQLAlchemy print the SQL statements it sends to the database.
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
 )
-
-
-# Base.metadata 裡面收集了所有 SQLAlchemy Model 的 table 定義。
-#
-# create_all()：
-# - table 不存在 → 建立 table
-# - table 已存在 → 不會重新建立
-#
-# 注意：它不是 migration tool，不會自動修改既有 table。
-Base.metadata.create_all(engine)
-
 
 # SessionLocal 是「Session 工廠」。
 #
@@ -48,10 +37,15 @@ def get_db():
     # 建立一個 SQLAlchemy Session。
     # with 可以確保 Session 最後會被 cleanup。
     with SessionLocal() as session:
-
         # 把 Session 暫時交給 FastAPI endpoint 使用。
         #
         # yield 和 return 不同：
         # yield 會暫停這個 function，
         # endpoint 使用完之後，dependency 可以繼續執行 cleanup。
         yield session
+
+
+def check_database_connection() -> None:
+    """Raise SQLAlchemyError when PostgreSQL cannot accept a query."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))

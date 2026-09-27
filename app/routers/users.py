@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
+from app.core.jwt import create_access_token
+from app.core.rate_limit import rate_limit
+from app.core.redis import check_rate_limit
+from app.core.security import hash_password, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas import UserCreate, UserPatch, UserResponse, UserUpdate
-
+from app.schemas.User import UserCreate, UserLogin, UserPatch, UserResponse, UserUpdate
 
 router = APIRouter()
 
@@ -15,10 +19,16 @@ router = APIRouter()
 def get_users(
     session: Session = Depends(get_db),
 ):
-    stmt = select(User)
-    result = session.execute(stmt)
-
+    result = session.execute(select(User))
     return result.scalars().all()
+
+
+@router.get("/users/me", response_model=UserResponse)
+def get_current_user_info(
+    current_user: User = Depends(get_current_user),
+):
+    # get_current_user 已經完成 JWT 驗證並找到 User
+    return current_user
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -26,8 +36,7 @@ def get_user(
     user_id: int,
     session: Session = Depends(get_db),
 ):
-    stmt = select(User).where(User.id == user_id)
-    result = session.execute(stmt)
+    result = session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -47,6 +56,7 @@ def create_user(
     new_user = User(
         name=user.name,
         email=user.email,
+        password_hash=hash_password(user.password),
     )
 
     session.add(new_user)
@@ -54,10 +64,8 @@ def create_user(
     try:
         session.commit()
         session.refresh(new_user)
-
     except IntegrityError:
         session.rollback()
-
         raise HTTPException(
             status_code=409,
             detail="Email already exists",
@@ -73,21 +81,14 @@ def update_user(
     session: Session = Depends(get_db),
 ):
     stmt = (
-        update(User)
-        .where(User.id == user_id)
-        .values(
-            name=user.name,
-            email=user.email,
-        )
+        update(User).where(User.id == user_id).values(name=user.name, email=user.email)
     )
 
     try:
         result = session.execute(stmt)
         session.commit()
-
     except IntegrityError:
         session.rollback()
-
         raise HTTPException(
             status_code=409,
             detail="Email already exists",
@@ -120,12 +121,7 @@ def patch_user(
             detail="No fields to update",
         )
 
-    stmt = (
-        update(User)
-        .where(User.id == user_id)
-        .values(**update_data)
-        .returning(User)
-    )
+    stmt = update(User).where(User.id == user_id).values(**update_data).returning(User)
 
     try:
         result = session.execute(stmt)
@@ -133,17 +129,14 @@ def patch_user(
 
         if updated_user is None:
             session.rollback()
-
             raise HTTPException(
                 status_code=404,
                 detail="User not found",
             )
 
         session.commit()
-
     except IntegrityError:
         session.rollback()
-
         raise HTTPException(
             status_code=409,
             detail="Email already exists",
@@ -157,8 +150,7 @@ def delete_user(
     user_id: int,
     session: Session = Depends(get_db),
 ):
-    stmt = select(User).where(User.id == user_id)
-    result = session.execute(stmt)
+    result = session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -170,13 +162,54 @@ def delete_user(
     try:
         session.delete(user)
         session.commit()
-
     except IntegrityError:
         session.rollback()
-
         raise HTTPException(
             status_code=409,
             detail="User cannot be deleted because it has related orders",
         )
 
     return {"message": "User deleted"}
+
+
+@router.post(
+    "/login",
+    responses={
+        429: {"description": "Too Many Requests"},
+    },
+)
+@rate_limit(limit=5, window=60)
+def login(
+    request: Request,
+    user: UserLogin,
+    session: Session = Depends(get_db),
+):
+    client_ip = request.client.host
+
+    rate_limit_key = f"rate_limit:login:{client_ip}"
+
+    if not check_rate_limit(rate_limit_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts",
+        )
+
+    result = session.execute(select(User).where(User.email == user.email))
+
+    db_user = result.scalar_one_or_none()
+
+    if db_user is None or not verify_password(
+        user.password,
+        db_user.password_hash,
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password",
+        )
+
+    access_token = create_access_token(db_user.id)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }

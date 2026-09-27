@@ -1224,3 +1224,85 @@ Paste
 而是：
 
 > **你可以解釋它為什麼跑得起來，也知道它壞掉時要從哪裡查。**
+---
+
+# 改善後的執行計畫（本週主線）
+
+> 若你要專門學 SDD、TDD、CI/CD、DevOps 與 AI 協作，請依照 [Learning Roadmap — SDD, TDD, CI/CD, DevOps](Learning%20Roadmap%20%E2%80%94%20SDD%2C%20TDD%2C%20CI-CD%2C%20DevOps.md) 的四週順序。這份 7-day roadmap 是該路線的第一個實作 lab。
+
+原 roadmap 的方向正確；缺口是學習主題尚未變成每日可驗收交付物。本週只追一條主線：**可在乾淨環境重現的 FastAPI + PostgreSQL 單體服務**。Kubernetes、Terraform、完整 observability stack 等主線完成再學。
+
+## 每日固定閉環
+
+```text
+一張小規格（SDD）→ 一個會失敗的測試（TDD）→ 最小實作
+→ docker compose / migration 驗證 → commit + 學習紀錄
+```
+
+每項工作寫四點：Goal（要得到什麼）、Contract（輸入輸出與錯誤）、Acceptance（證明完成的測試／命令）、Non-goals（這次刻意不做什麼）。
+
+## 調整後的 7 天交付物
+
+| Day | 主題 | 當日可驗收產物 |
+| --- | --- | --- |
+| 1 | Compose + PostgreSQL | `.env.example`、named volume、healthcheck；重建 container 後資料仍在 |
+| 2 | Schema + SQL | `users/orders` schema、seed SQL、5 個查詢練習與一個 `EXPLAIN ANALYZE` 紀錄 |
+| 3 | API 垂直切片 | `/health`、建立與讀取 user；request/response schema；至少 3 個 endpoint tests |
+| 4 | Migration + auth | Alembic 從空 DB upgrade 成功；password hash、login、order ownership tests |
+| 5 | API 品質 | 404/409/422、pagination 上限、RBAC；測試可在獨立 test DB 重複執行 |
+| 6 | CI + container | format/lint、tests、Docker build 都在 GitHub Actions 成功；API 等待 DB healthcheck |
+| 7 | Rehearsal + runbook | 乾淨 clone → env → migrate → compose → smoke test；記錄 rollback 與故障排查 |
+
+## SDD：先寫可檢查的契約
+
+規格不需要大型文件。一個 endpoint 一張 10 行內 Markdown 卡片，程式開始前先確定它。
+
+```md
+## POST /users
+Goal: 註冊使用者。
+Input: name (1–100), email, password (8–128)。
+Success: 201 + { id, name, email }，絕不回傳 password_hash。
+Failure: 重複 email → 409；格式錯誤 → 422。
+Persistence: 寫入 users，password 僅以 Argon2 hash 儲存。
+Acceptance: 成功、重複 email、無效 email 三個測試。
+Non-goal: email verification、refresh token。
+```
+
+規格改變時，先改卡片，再改測試與程式；migration 則要記錄 upgrade、downgrade 與既有資料如何安全轉換。
+
+## TDD：測試最小集合
+
+- **Unit**：hash/verify password、JWT payload、權限判斷；快、無 DB。
+- **API integration**：test DB 驗證 endpoint、validation、401/403/404/409；這是本 lab 的重心。
+- **Smoke**：container 起來後呼叫 `/health`、migration 與一條登入後 API；只留少量。
+
+先為 bug 或新 contract 寫一個失敗測試，再讓它通過。測試 API contract 和你擁有的規則，不測 FastAPI／SQLAlchemy 的內部實作。測試 DB 與開發 DB 分開；每案例 rollback 或重建 schema，避免順序污染。
+
+## DevOps 最小基線
+
+- Compose：app 與 db 都有 healthcheck；API 依賴 DB `service_healthy`，不是只有 `depends_on`。
+- Config：`.env` 不提交；`.env.example` 只放名稱與安全範例；compose 內 DB host 用 `postgres`，不是 `localhost`。
+- Migration：啟動／部署明確執行 `alembic upgrade head`；不要在 import 時跑 `Base.metadata.create_all()`，避免兩套 schema 管理者。
+- Image：`.dockerignore`、non-root user、可追溯 image tag；先完成一個 production Dockerfile，不急著拆 microservices 或上 K8s。
+- CI：format/lint → tests（含 PostgreSQL service）→ Docker build；先不 publish，穩定後再加 staging／registry。
+- Observability：先做 structured request log、request ID、`/health`、`/ready`；有 metrics 需求才加 Prometheus/Grafana。
+- Security：runtime DB user 與 migration user 分離；JWT secret 不進 repo；production 關閉 SQL echo；CORS 只列明確 origin。
+
+## 與 AI agent 協同
+
+把 agent 當作有驗收條件的 pair programmer：先貼 schema、相關 router、規格卡與限制；一次只交付一個 vertical slice；每次要求它提供變更檔案、測試命令、實際結果與未驗證假設。資料模型、auth／權限、migration、部署與 secrets 必須自己讀 diff 後決定。
+
+```text
+Context: FastAPI + SQLAlchemy + PostgreSQL；相關程式如下：...
+Task: 只完成 <endpoint/bug>。
+Contract: <貼 SDD 卡>。
+Constraints: 不加 dependency；Alembic 管 schema；不可改無關檔案。
+Done when: <測試命令與預期結果>。
+Before editing: 列檔案與風險；after editing: 列 diff 摘要、實際驗證、未驗證假設。
+```
+
+## 本週優先順序與延期項目
+
+本週必做：reproducible compose、migration、API contract tests、auth/RBAC 的基本 ownership、CI、runbook。
+
+本週延後：Kubernetes、Terraform、Ansible、Kafka/RabbitMQ、ELK、service mesh、Helm/ArgoCD，以及沒有明確需求的 microservices。它們都建立在目前這條可重現交付鏈已穩定的前提上。

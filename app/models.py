@@ -12,6 +12,17 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(255), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    # User's role for RBAC.
+    role: Mapped[str] = mapped_column(
+        String(20),
+        default="user",
+        nullable=False,
+    )
 
     # One user can have many orders.
     orders: Mapped[list["Order"]] = relationship(
@@ -26,11 +37,9 @@ class Order(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     # Store the ID of the user who owns this order.
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id")
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
-     # Each order belongs to one user.
+    # Each order belongs to one user.
     user: Mapped["User"] = relationship(
         "User",
         back_populates="orders",
