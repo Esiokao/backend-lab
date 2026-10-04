@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
 
-
 # Load environment variables from .env.
 load_dotenv()
 

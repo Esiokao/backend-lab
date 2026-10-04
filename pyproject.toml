@@ -28,3 +28,9 @@ dev = [
     "httpx2>=2.13.0",
     "pytest>=9.1.1",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["F403"]
+"app/core/dependencies.py" = ["B008"]
+"app/routers/*.py" = ["B008"]
+"alembic/versions/*.py" = ["UP007", "UP035", "I001"]
