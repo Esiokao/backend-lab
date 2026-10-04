@@ -6,13 +6,16 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.core.jwt import create_access_token
 from app.core.rate_limit import rate_limit
-from app.core.redis import check_rate_limit
+from app.core.request_size import RequestSizeRoute, request_size_limit
 from app.core.security import hash_password, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas.User import UserCreate, UserLogin, UserPatch, UserResponse, UserUpdate
+from app.schemas.Auth import UserLogin
+from app.schemas.User import UserCreate, UserPatch, UserResponse, UserUpdate
 
-router = APIRouter()
+router = APIRouter(
+    route_class=RequestSizeRoute,
+)
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -172,6 +175,7 @@ def delete_user(
     return {"message": "User deleted"}
 
 
+@request_size_limit(100 * 1024)
 @router.post(
     "/login",
     responses={
@@ -184,20 +188,12 @@ def login(
     user: UserLogin,
     session: Session = Depends(get_db),
 ):
-    client_ip = request.client.host
-
-    rate_limit_key = f"rate_limit:login:{client_ip}"
-
-    if not check_rate_limit(rate_limit_key):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many login attempts",
-        )
-
+    # 查詢登入使用者。
     result = session.execute(select(User).where(User.email == user.email))
 
     db_user = result.scalar_one_or_none()
 
+    # Email 不存在或密碼錯誤。
     if db_user is None or not verify_password(
         user.password,
         db_user.password_hash,
@@ -207,6 +203,7 @@ def login(
             detail="Invalid email or password",
         )
 
+    # 建立 Access Token。
     access_token = create_access_token(db_user.id)
 
     return {

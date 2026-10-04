@@ -1,6 +1,5 @@
 from pwdlib import PasswordHash
 
-
 # 建立 PasswordHash instance
 # recommended() 會使用推薦的安全設定
 password_hash = PasswordHash.recommended()

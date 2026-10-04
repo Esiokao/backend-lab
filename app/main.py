@@ -1,9 +1,10 @@
-from app.database import check_database_connection
-from app.routers.orders import router as order_router
-from app.routers.users import router as users_router
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
+
+from app.database import check_database_connection
+from app.routers.orders import router as order_router
+from app.routers.users import router as users_router
 
 app = FastAPI()
 

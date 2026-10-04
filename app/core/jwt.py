@@ -3,7 +3,9 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
+from app.schemas.Auth import AccessTokenPayload
 
 # 載入 .env
 load_dotenv()
@@ -54,25 +56,22 @@ def create_access_token(user_id: int) -> str:
     return token
 
 
-def decode_access_token(token: str) -> dict:
+def decode_access_token(token: str) -> AccessTokenPayload:
     """
-    驗證並解析 JWT。
-
-    如果：
-    - Signature 不正確
-    - Token 過期
-    - Token 格式錯誤
-
-    就會拋出 JWTError。
+    驗證 JWT 並驗證 Payload。
     """
+
     try:
+        # 驗證 JWT signature、algorithm、expiration。
         payload = jwt.decode(
             token,
             JWT_SECRET,
             algorithms=[JWT_ALGORITHM],
         )
 
-        return payload
+        # 驗證 JWT Payload 的結構、型別與格式。
+        return AccessTokenPayload.model_validate(payload)
 
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, ValidationError):
+        # JWT 或 Payload 驗證失敗。
         raise ValueError("Invalid or expired token")

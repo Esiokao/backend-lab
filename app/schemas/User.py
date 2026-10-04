@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # 建立 User 時，API 會接收這些資料
@@ -28,10 +26,5 @@ class UserUpdate(BaseModel):
 
 class UserPatch(BaseModel):
     # Both fields are optional because PATCH only updates provided fields.
-    name: Optional[str] = None
-    email: Optional[str] = None
-
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    name: str | None = None
+    email: str | None = None

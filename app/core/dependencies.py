@@ -7,7 +7,6 @@ from app.core.jwt import decode_access_token
 from app.database import get_db
 from app.models import User
 
-
 # 告訴 FastAPI：
 # 我需要從 Authorization: Bearer <token> 拿 JWT
 bearer_scheme = HTTPBearer()
@@ -21,31 +20,27 @@ def get_current_user(
     從 JWT 找出目前登入的 User。
     """
 
+    # 取得 Bearer Token。
     token = credentials.credentials
 
-    # 驗證並解析 JWT
+    # 驗證 JWT 與 Payload。
     try:
-        payload = decode_access_token(token)
+        token_data = decode_access_token(token)
     except ValueError:
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token",
         )
 
-    # 從 JWT payload 取得 user ID
-    user_id = payload.get("sub")
+    # Payload validation 已經保證 sub 是數字字串。
+    user_id = int(token_data.sub)
 
-    if user_id is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token",
-        )
-
-    # 根據 user ID 查詢 User
-    stmt = select(User).where(User.id == int(user_id))
+    # 根據 User ID 查詢 User。
+    stmt = select(User).where(User.id == user_id)
     result = session.execute(stmt)
     user = result.scalar_one_or_none()
 
+    # Token 對應的 User 不存在。
     if user is None:
         raise HTTPException(
             status_code=401,

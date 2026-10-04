@@ -1,19 +1,20 @@
-from typing_extensions import Literal
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user, require_admin
 from app.database import get_db
 from app.models import Order, User
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
 
 router = APIRouter()
 
 
 @router.post("/orders")
 def create_order(
-    current_user: User = Depends(get_current_user),  # noqa: B008
-    session: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
 ):
     # Order 的 owner 由 JWT 對應的 User 決定
     new_order = Order(
@@ -34,7 +35,7 @@ def get_orders(
     user_id: int | None = Query(None),
     sort_by: Literal["id", "user_id"] = "id",
     order: Literal["asc", "desc"] = "asc",
-    session: Session = Depends(get_db),  # noqa: B008
+    session: Session = Depends(get_db),
 ):
     stmt = select(Order)
     # Pagination
@@ -55,8 +56,8 @@ def get_orders(
 @router.get("/orders/{order_id}")
 def get_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),  # noqa: B008
-    session: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
 ):
     # 只允許取得目前登入者自己的 Order
 
@@ -82,8 +83,8 @@ def get_order(
 @router.get("/users/{user_id}/orders")
 def get_user_orders(
     user_id: int,
-    current_user: User = Depends(get_current_user),  # noqa: B008
-    session: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
 ):
     # 只能查自己的 Orders
     if user_id != current_user.id:
@@ -103,10 +104,12 @@ def get_user_orders(
 
 @router.get("/users-with-orders")
 def get_users_with_orders(
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(
+        require_admin
+    ),  # 只有 admin 可以查看所有使用者的 Orders
     session: Session = Depends(get_db),
 ):
-    # 只有 admin 可以查看所有使用者的 Orders
+    # 取得所有使用者的 Orders
     users = (
         session.execute(select(User).options(selectinload(User.orders))).scalars().all()
     )
