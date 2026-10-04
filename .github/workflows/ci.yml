@@ -21,9 +21,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
+      TEST_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
       JWT_SECRET: ci-only-secret-not-for-production
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      DEFAULT_RATE_LIMIT: 5
+      DEFAULT_RATE_LIMIT_WINDOW: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +46,12 @@ jobs:
       - run: pip install uv
       - run: uv sync --locked --all-groups
       - run: uv run alembic upgrade head
+      - run: >
+          uv run python -c
+          "import psycopg;
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
+          conn.execute('CREATE DATABASE backend_lab_test');
+          conn.close()"
       - run: uv run pytest -q
 
   docker-build:
