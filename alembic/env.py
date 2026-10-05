@@ -1,13 +1,11 @@
-from logging.config import fileConfig
 import os
+from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 
 from alembic import context
-from dotenv import load_dotenv
-
 from app.models import Base
-
 
 # ============================================================
 # Load environment variables
@@ -83,7 +81,7 @@ def run_migrations_online() -> None:
     """
     Run migrations in online mode.
 
-    Online mode 會真的連接 PostgreSQL，
+    Online mode 會真的連接 PostgreSQL
     然後執行 Alembic migration。
     """
 
