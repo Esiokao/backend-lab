@@ -33,7 +33,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
       TEST_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
-      JWT_SECRET: ci-only-secret-not-for-production
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       DEFAULT_RATE_LIMIT: 5
