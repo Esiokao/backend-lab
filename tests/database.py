@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base
-
 # Load environment variables from .env.
 load_dotenv()
 
@@ -42,5 +40,5 @@ def check_database_connection() -> None:
         connection.execute(text("SELECT 1"))
 
 
-# Create tables in the test database.
-Base.metadata.create_all(engine)
+# # Create tables in the test database.
+# Base.metadata.create_all(engine)
