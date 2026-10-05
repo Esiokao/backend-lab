@@ -53,8 +53,79 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # =========================
 
 
+  # =========================
+  # FastAPI
+  # =========================
+  api:
+    # 使用專案根目錄的 Dockerfile 建立 FastAPI image
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # ports:
+    #   # Windows:8000 -> Container:8000
+    #   # 開發階段可以直接從 Windows 存取 FastAPI
+    #   - "8000:8000"
+
+    environment:
+      # PostgreSQL connection string
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Test database connection string
+      # 目前 API container 不一定會使用，但保留與專案設定一致
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL}
+
+      # JWT signing secret
+      # 實際值從 .env 取得，不直接寫進 compose.yaml
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Docker Compose service name
+      # Container 內不能用 localhost 找到 Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # Rate limit configuration
+      DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT}
+      DEFAULT_RATE_LIMIT_WINDOW: ${DEFAULT_RATE_LIMIT_WINDOW}
+
+      # Maximum allowed request body size
+      DEFAULT_MAX_REQUEST_SIZE: ${DEFAULT_MAX_REQUEST_SIZE}
+
+    depends_on:
+      # API 要等 PostgreSQL 健康後才啟動
+      postgres:
+        condition: service_healthy
+
+      # API 要等 Redis 健康後才啟動
+      redis:
+        condition: service_healthy
+
+
+  # =========================
+  # Nginx
+  # =========================
+  nginx:
+    image: nginx:alpine
+
+    ports:
+      # HTTP：Windows:80 -> Nginx:80
+      - "80:80"
+
+      # HTTPS：Windows:443 -> Nginx:443
+      - "443:443"
+
+    volumes:
+      # Nginx configuration
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+      # TLS certificates
+      - ./certs:/etc/nginx/certs:ro
+
+    depends_on:
+      - api
 
 # =========================
 # Persistent Volumes

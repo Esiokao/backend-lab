@@ -7,20 +7,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:17
         env:
           POSTGRES_USER: admin
           POSTGRES_PASSWORD: adminpass
-          POSTGRES_DB: backend_lab
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U admin -d backend_lab"
+          --health-cmd "pg_isready -U admin -d postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
       redis:
         image: redis:7
         ports:
@@ -30,32 +32,84 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
     env:
       DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
-      TEST_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
+      MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
+      TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       DEFAULT_RATE_LIMIT: 5
       DEFAULT_RATE_LIMIT_WINDOW: 60
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - run: pip install uv
-      - run: uv sync --locked --all-groups
-      - run: uv run alembic upgrade head
-      - run: >
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      # Check lint rules.
+      - name: Run Ruff lint
+        run: uv run ruff check .
+
+      # Check code formatting.
+      - name: Check code format
+        run: uv run ruff format --check .
+
+      # Create the test database.
+      - name: Create test database
+        run: >
           uv run python -c
           "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/postgres', autocommit=True);
           conn.execute('CREATE DATABASE backend_lab_test');
           conn.close()"
-      - run: uv run pytest -q
+
+      # Create the test role.
+      - name: Create test role
+        run: >
+          uv run python -c
+          "import psycopg;
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/postgres', autocommit=True);
+          conn.execute(\"CREATE ROLE test_user LOGIN PASSWORD 'testuserpass'\");
+          conn.close()"
+
+      # Apply schema using the migration/admin account.
+      - name: Run database migrations
+        run: uv run alembic upgrade head
+
+      # Grant runtime test permissions.
+      - name: Grant test database permissions
+        run: >
+          uv run python -c
+          "import psycopg;
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab_test', autocommit=True);
+          conn.execute('GRANT CONNECT ON DATABASE backend_lab_test TO test_user');
+          conn.execute('GRANT USAGE ON SCHEMA public TO test_user');
+          conn.execute('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO test_user');
+          conn.execute('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO test_user');
+          conn.close()"
+
+      # Run tests using test_user.
+      - name: Run tests
+        run: uv run pytest -q
 
   docker-build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - run: docker build --tag backend-lab:${{ github.sha }} .
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --tag backend-lab:${{ github.sha }} .
