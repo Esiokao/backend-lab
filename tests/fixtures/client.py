@@ -35,6 +35,3 @@ def auth_client(test_client):
         return test_client
 
     return _auth_client
-
-
-# Redis Fixtures
