@@ -45,6 +45,11 @@ jobs:
       DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
       MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
       TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
+      TEST_ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab_test
+      ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab
+      TEST_DATABASE_NAME: backend_lab_test
+      TEST_DATABASE_USER: test_user
+      TEST_DATABASE_PASSWORD: testuserpass
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: adminpass
       POSTGRES_DB: backend_lab
@@ -54,63 +59,32 @@ jobs:
       DEFAULT_MAX_REQUEST_SIZE: 1048576
 
     steps:
-      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Install uv.
       - name: Install uv
         run: pip install uv
 
-      # Install project dependencies.
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
-      # Start the complete application environment.
       - name: Start Docker Compose
         run: docker compose up -d
 
-      # Create the test database.
-      - name: Create test database
-        run: >
-          uv run python -c
-          "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
-          conn.execute('CREATE DATABASE backend_lab_test');
-          conn.close()"
-
-      # Create the test role.
-      - name: Create test role
-        run: >
-          uv run python -c
-          "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
-          conn.execute(\"CREATE ROLE test_user LOGIN PASSWORD 'testuserpass'\");
-          conn.close()"
+      # Create the test database, role, and privileges.
+      - name: Setup test database
+        run: uv run python scripts/setup_test_db.py
 
       # Apply schema using the migration/admin account.
       - name: Run database migrations
         run: uv run alembic upgrade head
 
-      # Grant runtime test permissions.
-      - name: Grant test database permissions
-        run: >
-          uv run python -c
-          "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab_test', autocommit=True);
-          conn.execute('GRANT CONNECT ON DATABASE backend_lab_test TO test_user');
-          conn.execute('GRANT USAGE ON SCHEMA public TO test_user');
-          conn.execute('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO test_user');
-          conn.execute('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO test_user');
-          conn.close()"
-
-      # Run all tests against the Compose environment.
+      # Run all tests against the test database.
       - name: Run tests
         run: uv run pytest -q
 
@@ -124,10 +98,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Build Docker image.
       - name: Build Docker image
         run: docker build --tag backend-lab:${{ github.sha }} .
