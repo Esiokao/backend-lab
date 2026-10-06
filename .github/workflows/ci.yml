@@ -5,56 +5,26 @@ on:
   pull_request:
 
 jobs:
-  test:
+  # Check code quality without starting the application environment.
+  code-check:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: admin
-          POSTGRES_PASSWORD: adminpass
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U admin -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
-      MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
-      TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      REDIS_HOST: localhost
-      REDIS_PORT: 6379
-      DEFAULT_RATE_LIMIT: 5
-      DEFAULT_RATE_LIMIT_WINDOW: 60
-
     steps:
+      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Setup Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # Install uv.
       - name: Install uv
         run: pip install uv
 
+      # Install project dependencies.
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
@@ -66,12 +36,52 @@ jobs:
       - name: Check code format
         run: uv run ruff format --check .
 
+  # Run tests in the complete Docker Compose environment.
+  testing:
+    needs: code-check
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
+      MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
+      TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpass
+      POSTGRES_DB: backend_lab
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      DEFAULT_RATE_LIMIT: 5
+      DEFAULT_RATE_LIMIT_WINDOW: 60
+      DEFAULT_MAX_REQUEST_SIZE: 1048576
+
+    steps:
+      # Checkout repository.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Python.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # Install uv.
+      - name: Install uv
+        run: pip install uv
+
+      # Install project dependencies.
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      # Start the complete application environment.
+      - name: Start Docker Compose
+        run: docker compose up -d
+
       # Create the test database.
       - name: Create test database
         run: >
           uv run python -c
           "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/postgres', autocommit=True);
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
           conn.execute('CREATE DATABASE backend_lab_test');
           conn.close()"
 
@@ -80,7 +90,7 @@ jobs:
         run: >
           uv run python -c
           "import psycopg;
-          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/postgres', autocommit=True);
+          conn = psycopg.connect('postgresql://admin:adminpass@localhost:5432/backend_lab', autocommit=True);
           conn.execute(\"CREATE ROLE test_user LOGIN PASSWORD 'testuserpass'\");
           conn.close()"
 
@@ -100,16 +110,24 @@ jobs:
           conn.execute('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO test_user');
           conn.close()"
 
-      # Run tests using test_user.
+      # Run all tests against the Compose environment.
       - name: Run tests
         run: uv run pytest -q
 
+      # Always stop the test environment.
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose down
+
+  # Verify that the application image can be built.
   docker-build:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Build Docker image.
       - name: Build Docker image
         run: docker build --tag backend-lab:${{ github.sha }} .
