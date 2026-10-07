@@ -59,20 +59,25 @@ jobs:
       DEFAULT_MAX_REQUEST_SIZE: 1048576
 
     steps:
+      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Setup Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # Install uv.
       - name: Install uv
         run: pip install uv
 
+      # Install project dependencies.
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
+      # Start Docker Compose.
       - name: Start Docker Compose
         run: docker compose up -d
 
@@ -93,13 +98,60 @@ jobs:
         if: always()
         run: docker compose down
 
-  # Verify that the application image can be built.
+  # Build the Docker image once.
   docker-build:
+    needs: testing
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Build the Docker image.
       - name: Build Docker image
         run: docker build --tag backend-lab:${{ github.sha }} .
+
+      # Export the Docker image as a file.
+      - name: Save Docker image
+        run: docker save backend-lab:${{ github.sha }} -o backend-lab.tar
+
+      # Upload the image so the publish job can use it.
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-lab-image
+          path: backend-lab.tar
+
+  # Publish the already-built image to GitHub Container Registry.
+  publish:
+    needs: docker-build
+    runs-on: ubuntu-latest
+
+    # Allow GitHub Actions to push images to GHCR.
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Download the image artifact from the docker-build job.
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-lab-image
+
+      # Load the Docker image into this runner.
+      - name: Load Docker image
+        run: docker load -i backend-lab.tar
+
+      # Log in to GitHub Container Registry.
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Tag the existing image with its GHCR address.
+      - name: Tag Docker image
+        run: docker tag backend-lab:${{ github.sha }} ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      # Push the existing image to GHCR.
+      - name: Push Docker image
+        run: docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
