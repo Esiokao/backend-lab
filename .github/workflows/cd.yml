@@ -27,3 +27,18 @@ jobs:
       # Verify that the runner can reach the WSL deployment server.
       - name: Check deployment server
         run: ping -c 3 100.117.73.86
+
+      # Verify that the runner can log in to the WSL deployment server.
+      - name: Check SSH connection
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/backend_lab_deploy
+          chmod 600 ~/.ssh/backend_lab_deploy
+
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            perry@100.117.73.86 \
+            "echo 'SSH connection successful'"
