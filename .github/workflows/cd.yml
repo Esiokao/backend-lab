@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    # Only deploy after a successful push to main.
+    # 只在 main 的 CI 成功後執行部署。
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
@@ -17,19 +17,32 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      # CI 成功的那個 commit SHA，就是這次要部署的 Docker image tag。
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+
+      # WSL deployment workspace。
+      DEPLOY_HOST: 100.117.73.86
+      DEPLOY_USER: perry
+      DEPLOY_DIR: /home/perry/backend-lab-deploy
+
     steps:
-      # Connect this GitHub-hosted runner to the Tailscale network.
+      # Checkout repository，取得 compose 與 nginx 設定。
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 連接 GitHub-hosted runner 到 Tailscale network。
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # Verify that the runner can reach the WSL deployment server.
+      # 確認 deployment server 可以連線。
       - name: Check deployment server
-        run: ping -c 3 100.117.73.86
+        run: ping -c 3 "$DEPLOY_HOST"
 
-      # Verify that the runner can log in to the WSL deployment server.
-      - name: Check SSH connection
+      # 建立 SSH private key。
+      - name: Setup SSH key
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
@@ -37,8 +50,105 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/backend_lab_deploy
           chmod 600 ~/.ssh/backend_lab_deploy
 
+      # 確認 SSH 可以登入 WSL。
+      - name: Check SSH connection
+        run: |
           ssh \
             -i ~/.ssh/backend_lab_deploy \
             -o StrictHostKeyChecking=no \
-            perry@100.117.73.86 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
             "echo 'SSH connection successful'"
+
+      # 建立 deployment workspace。
+      - name: Prepare deployment directory
+        run: |
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$DEPLOY_DIR/nginx'"
+
+      # 傳送 production Compose 設定。
+      - name: Upload compose file
+        run: |
+          scp \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            compose.prod.yaml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/compose.prod.yaml"
+
+      # 傳送 Nginx 設定。
+      - name: Upload nginx config
+        run: |
+          scp \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            nginx/nginx.conf \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/nginx.conf"
+
+      # 在 deployment server 上產生 .env.prod。
+      - name: Generate production environment file
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          printf '%s\n' \
+            "POSTGRES_USER=admin" \
+            "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
+            "POSTGRES_DB=backend_lab" \
+            "DATABASE_URL=$DATABASE_URL" \
+            "TEST_DATABASE_URL=$TEST_DATABASE_URL" \
+            "JWT_SECRET=$JWT_SECRET" \
+            "DEFAULT_RATE_LIMIT=5" \
+            "DEFAULT_RATE_LIMIT_WINDOW=60" \
+            "DEFAULT_MAX_REQUEST_SIZE=1048576" \
+            > .env.prod
+
+          # 將產生的 .env.prod 傳到 deployment server。
+          scp \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            .env.prod \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/.env.prod"
+
+          # Runner 上的暫存檔不再需要。
+          rm -f .env.prod
+
+      # 使用這次 CI 成功建立的 immutable image。
+      - name: Deploy application
+        run: |
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && \
+             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml pull && \
+             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml up -d"
+
+      # 確認 production containers 正常運行。
+      - name: Verify deployment
+        run: |
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && \
+             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml ps"
+
+      # 顯示這次實際部署的 image。
+      - name: Verify deployed image
+        run: |
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker inspect backend-lab-api-1 \
+             --format='Deployed image: {{.Config.Image}}'"
