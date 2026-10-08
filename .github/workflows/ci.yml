@@ -81,6 +81,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
+      # Restore the TLS private key required by Nginx.
+      - name: Setup TLS private key
+        env:
+          TLS_PRIVATE_KEY: ${{ secrets.TLS_PRIVATE_KEY }}
+        run: |
+          # Restore the private key from GitHub Secrets.
+          printf '%s\n' "$TLS_PRIVATE_KEY" > certs/server.key
+
+          # Restrict access to the private key.
+          chmod 600 certs/server.key
+
       # Start Docker Compose.
       - name: Start Docker Compose
         run: docker compose up -d
@@ -163,5 +174,5 @@ jobs:
         run: docker tag backend-lab:${{ github.sha }} $IMAGE_NAME:${{ github.sha }}
 
       # Push the existing image to GHCR.
-      - name: Push Docker image
+      - name: Push the existing image to GHCR
         run: docker push $IMAGE_NAME:${{ github.sha }}
