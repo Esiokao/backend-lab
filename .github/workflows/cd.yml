@@ -21,13 +21,13 @@ jobs:
       # CI 成功的那個 commit SHA，就是這次要部署的 Docker image tag。
       IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
 
-      # WSL deployment workspace。
-      DEPLOY_HOST: 100.117.73.86
-      DEPLOY_USER: perry
-      DEPLOY_DIR: /home/perry/backend-lab-deploy
+      # Deployment server 設定由 GitHub Actions Variables 提供。
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
 
     steps:
-      # Checkout repository，取得 compose 與 nginx 設定。
+      # Checkout repository，取得 compose、nginx 與 TLS certificate。
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -66,7 +66,9 @@ jobs:
             -i ~/.ssh/backend_lab_deploy \
             -o StrictHostKeyChecking=no \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mkdir -p '$DEPLOY_DIR/nginx'"
+            "mkdir -p \
+             '$DEPLOY_DIR/nginx' \
+             '$DEPLOY_DIR/certs'"
 
       # 傳送 production Compose 設定。
       - name: Upload compose file
@@ -86,7 +88,48 @@ jobs:
             nginx/nginx.conf \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/nginx.conf"
 
-      # 在 deployment server 上產生 .env.prod。
+      # 傳送公開 TLS certificate。
+      - name: Upload TLS certificate
+        run: |
+          scp \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            certs/server.crt \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/certs/server.crt"
+
+      # 從 GitHub Secret 還原 TLS private key。
+      - name: Restore TLS private key
+        env:
+          TLS_PRIVATE_KEY: ${{ secrets.TLS_PRIVATE_KEY }}
+        run: |
+          # 將 private key 暫存到 GitHub-hosted runner。
+          printf '%s\n' "$TLS_PRIVATE_KEY" > certs/server.key
+
+          # 限制 private key 權限。
+          chmod 600 certs/server.key
+
+      # 傳送 TLS private key 到 deployment server。
+      - name: Upload TLS private key
+        run: |
+          scp \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            certs/server.key \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/certs/server.key"
+
+      # 限制 deployment server 上 private key 的權限。
+      - name: Secure TLS private key
+        run: |
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 600 '$DEPLOY_DIR/certs/server.key'"
+
+          # Runner 上的 private key 暫存檔不再需要。
+          rm -f certs/server.key
+
+      # 在 GitHub-hosted runner 上產生 production environment file。
       - name: Generate production environment file
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
@@ -101,6 +144,7 @@ jobs:
             "DATABASE_URL=$DATABASE_URL" \
             "TEST_DATABASE_URL=$TEST_DATABASE_URL" \
             "JWT_SECRET=$JWT_SECRET" \
+            "IMAGE_TAG=$IMAGE_TAG" \
             "DEFAULT_RATE_LIMIT=5" \
             "DEFAULT_RATE_LIMIT_WINDOW=60" \
             "DEFAULT_MAX_REQUEST_SIZE=1048576" \
@@ -113,10 +157,17 @@ jobs:
             .env.prod \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/.env.prod"
 
+          # 限制 production environment file 權限。
+          ssh \
+            -i ~/.ssh/backend_lab_deploy \
+            -o StrictHostKeyChecking=no \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 600 '$DEPLOY_DIR/.env.prod'"
+
           # Runner 上的暫存檔不再需要。
           rm -f .env.prod
 
-      # 使用這次 CI 成功建立的 immutable image。
+      # 使用 .env.prod 中持久化的 IMAGE_TAG 部署 immutable image。
       - name: Deploy application
         run: |
           ssh \
@@ -124,10 +175,10 @@ jobs:
             -o StrictHostKeyChecking=no \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
-             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml pull && \
-             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml up -d"
 
@@ -139,16 +190,26 @@ jobs:
             -o StrictHostKeyChecking=no \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
-             IMAGE_TAG='$IMAGE_TAG' docker compose \
+             docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml ps"
 
-      # 顯示這次實際部署的 image。
+      # 確認 Production 實際使用這次 CI 建立的 image。
       - name: Verify deployed image
         run: |
           ssh \
             -i ~/.ssh/backend_lab_deploy \
             -o StrictHostKeyChecking=no \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "docker inspect backend-lab-api-1 \
-             --format='Deployed image: {{.Config.Image}}'"
+            "cd '$DEPLOY_DIR' && \
+             EXPECTED_IMAGE='ghcr.io/esiokao/backend-lab:$IMAGE_TAG' && \
+             CONTAINER_ID=\$(docker compose \
+               --env-file .env.prod \
+               -f compose.prod.yaml \
+               ps -q api) && \
+             ACTUAL_IMAGE=\$(docker inspect \
+               \"\$CONTAINER_ID\" \
+               --format='{{.Config.Image}}') && \
+             echo \"Expected image: \$EXPECTED_IMAGE\" && \
+             echo \"Actual image:   \$ACTUAL_IMAGE\" && \
+             test \"\$ACTUAL_IMAGE\" = \"\$EXPECTED_IMAGE\""
