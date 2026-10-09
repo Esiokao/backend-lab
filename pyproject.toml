@@ -21,6 +21,9 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "deployment: tests that run against a deployed environment",
+]
 
 [dependency-groups]
 dev = [

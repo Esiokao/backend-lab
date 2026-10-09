@@ -106,7 +106,7 @@ jobs:
 
       # Run all tests against the test database.
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q -m "not deployment"
 
       # Always stop the test environment.
       - name: Stop Docker Compose

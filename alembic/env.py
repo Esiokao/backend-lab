@@ -7,62 +7,28 @@ from sqlalchemy import create_engine, pool
 from alembic import context
 from app.models import Base
 
-# ============================================================
-# Load environment variables
-# ============================================================
-
+# Load environment variables from the local .env when available.
 load_dotenv()
 
-DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL")
+# Schema changes must use the dedicated migration account.
+MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL")
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set")
+if not MIGRATION_DATABASE_URL:
+    raise RuntimeError("MIGRATION_DATABASE_URL is not set")
 
-
-# ============================================================
-# Alembic Config
-# ============================================================
-
-# Alembic 的 Config object
 config = context.config
-
-
-# ============================================================
-# Logging
-# ============================================================
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-
-# ============================================================
-# SQLAlchemy Models
-# ============================================================
-
-# Base.metadata 包含所有 SQLAlchemy Model 的 Table 定義。
-#
-# Alembic autogenerate 會拿這份 metadata
-# 跟 PostgreSQL 目前的 schema 比較。
+# Use SQLAlchemy models as the migration metadata.
 target_metadata = Base.metadata
 
 
-# ============================================================
-# Offline migration
-# ============================================================
-
-
 def run_migrations_offline() -> None:
-    """
-    Run migrations in offline mode.
-
-    Offline mode 不建立真正的 DB connection，
-    而是根據 DATABASE_URL 產生 migration SQL。
-    """
-
-    url = DATABASE_URL
-
+    """Run migrations without creating a database connection."""
     context.configure(
-        url=url,
+        url=MIGRATION_DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -72,21 +38,10 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-# ============================================================
-# Online migration
-# ============================================================
-
-
 def run_migrations_online() -> None:
-    """
-    Run migrations in online mode.
-
-    Online mode 會真的連接 PostgreSQL
-    然後執行 Alembic migration。
-    """
-
+    """Run migrations through a live database connection."""
     connectable = create_engine(
-        DATABASE_URL,
+        MIGRATION_DATABASE_URL,
         poolclass=pool.NullPool,
     )
 
@@ -99,10 +54,6 @@ def run_migrations_online() -> None:
         with context.begin_transaction():
             context.run_migrations()
 
-
-# ============================================================
-# Entry point
-# ============================================================
 
 if context.is_offline_mode():
     run_migrations_offline()

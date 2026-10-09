@@ -1,34 +1,27 @@
 name: backend-lab-prod
 
 services:
-
   # =========================
   # PostgreSQL
   # =========================
   postgres:
     image: postgres:17
-
-    # Docker restart 後自動恢復服務
     restart: unless-stopped
 
     environment:
-      # 這些值來自 .env
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
       # Windows:5432 -> Container:5432
-      #
-      # 讓你可以在 Windows 上用 psql / DBeaver 連線
       - "5432:5432"
 
     volumes:
-      # PostgreSQL 資料持久化
+      # Preserve the existing production database.
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      # 確認 PostgreSQL 已經可以接受連線
       test:
         [
           "CMD-SHELL",
@@ -38,106 +31,107 @@ services:
       timeout: 5s
       retries: 10
 
-
   # =========================
   # Redis
   # =========================
   redis:
     image: redis:7
-
-    # Docker restart 後自動恢復服務
     restart: unless-stopped
 
     ports:
       # Windows:6379 -> Container:6379
-      #
-      # 開發階段方便從 Windows 測試 Redis
       - "6379:6379"
 
     healthcheck:
-      # Redis 回 PONG 就代表正常
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  # =========================
+  # Database role provisioning
+  # =========================
+  db-roles:
+    image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
+
+    environment:
+      # Admin connection used only for initial role provisioning.
+      MIGRATION_ADMIN_DATABASE_URL: ${MIGRATION_ADMIN_DATABASE_URL}
+
+      # Passwords used to create or update the application roles.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD}
+
+    # Run the Python provisioning script as a one-shot task.
+    entrypoint: ["python", "scripts/provision_roles.py"]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # =========================
   # FastAPI
   # =========================
   api:
-    # 使用 CI 已經建立並推到 GHCR 的 image
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
-
-    # Docker restart 後自動恢復服務
     restart: unless-stopped
 
     environment:
-      # PostgreSQL connection string
+      # Runtime database connection: app_user.
       DATABASE_URL: ${DATABASE_URL}
 
-      # Test database connection string
-      # 目前 API container 不一定會使用，但保留與專案設定一致
+      # Schema migration connection: migration_user.
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL}
+
+      # Test database setting retained for project configuration consistency.
       TEST_DATABASE_URL: ${TEST_DATABASE_URL}
 
-      # JWT signing secret
-      # 實際值從 .env 取得，不直接寫進 compose.prod.yaml
+      # JWT signing secret.
       JWT_SECRET: ${JWT_SECRET}
 
-      # Docker Compose service name
-      # Container 內不能用 localhost 找到 Redis
+      # Docker Compose service name for Redis.
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
-      # Rate limit configuration
+      # Rate limit configuration.
       DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT}
       DEFAULT_RATE_LIMIT_WINDOW: ${DEFAULT_RATE_LIMIT_WINDOW}
 
-      # Maximum allowed request body size
+      # Maximum allowed request body size.
       DEFAULT_MAX_REQUEST_SIZE: ${DEFAULT_MAX_REQUEST_SIZE}
 
     depends_on:
-      # API 要等 PostgreSQL 健康後才啟動
       postgres:
         condition: service_healthy
-
-      # API 要等 Redis 健康後才啟動
       redis:
         condition: service_healthy
-
+      db-roles:
+        condition: service_completed_successfully
 
   # =========================
   # Nginx
   # =========================
   nginx:
     image: nginx:alpine
-
-    # Docker restart 後自動恢復服務
     restart: unless-stopped
 
     ports:
-      # HTTP：Windows:80 -> Nginx:80
       - "80:80"
-
-      # HTTPS：Windows:443 -> Nginx:443
       - "443:443"
 
     volumes:
-      # Nginx configuration
+      # Nginx configuration.
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
 
-      # TLS certificates
+      # TLS certificates.
       - ./certs:/etc/nginx/certs:ro
 
     depends_on:
       - api
 
-
 # =========================
 # Persistent Volumes
 # =========================
 volumes:
-
-  # PostgreSQL data
   postgres_data:
     name: backend-lab-deploy_postgres_data
