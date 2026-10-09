@@ -9,45 +9,40 @@ on:
       - main
 
 jobs:
-  # Check code quality without starting the application environment.
   code-check:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Install uv.
       - name: Install uv
         run: pip install uv
 
-      # Install project dependencies.
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
-      # Check lint rules.
       - name: Run Ruff lint
         run: uv run ruff check .
 
-      # Check code formatting.
       - name: Check code format
         run: uv run ruff format --check .
 
-  # Run tests in the complete Docker Compose environment.
   testing:
     needs: code-check
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab
+      DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
       MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
+      DOCKER_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@postgres:5432/backend_lab_test
+      DOCKER_MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@postgres:5432/backend_lab_test
+      DOCKER_ADMIN_DATABASE_URL: postgresql://admin:adminpass@postgres:5432/backend_lab
       TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
       TEST_ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab_test
       ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab
@@ -57,122 +52,155 @@ jobs:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: adminpass
       POSTGRES_DB: backend_lab
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       DEFAULT_RATE_LIMIT: 5
       DEFAULT_RATE_LIMIT_WINDOW: 60
       DEFAULT_MAX_REQUEST_SIZE: 1048576
 
     steps:
-      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Python.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Install uv.
       - name: Install uv
         run: pip install uv
 
-      # Install project dependencies.
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
-      # Restore the TLS private key required by Nginx.
-      - name: Setup TLS private key
+      - name: Restore TLS private key
         env:
           TLS_PRIVATE_KEY: ${{ secrets.TLS_PRIVATE_KEY }}
         run: |
-          # Restore the private key from GitHub Secrets.
           printf '%s\n' "$TLS_PRIVATE_KEY" > certs/server.key
-
-          # Restrict access to the private key.
           chmod 600 certs/server.key
 
-      # Start Docker Compose.
-      - name: Start Docker Compose
-        run: docker compose up -d
+      - name: Start PostgreSQL and Redis
+        run: docker compose up -d postgres redis
 
-      # Create the test database, role, and privileges.
+      - name: Wait for PostgreSQL and Redis
+        run: |
+          for attempt in {1..60}; do
+            postgres_ready=false
+            redis_ready=false
+
+            if docker compose exec -T postgres \
+              pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+              postgres_ready=true
+            fi
+
+            if docker compose exec -T redis redis-cli ping | grep -q PONG; then
+              redis_ready=true
+            fi
+
+            if [ "$postgres_ready" = true ] && [ "$redis_ready" = true ]; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker compose logs --no-color postgres redis
+          exit 1
+
       - name: Setup test database
         run: uv run python scripts/setup_test_db.py
 
-      # Apply schema using the migration/admin account.
       - name: Run database migrations
         run: uv run alembic upgrade head
 
-      # Run all tests against the test database.
+      - name: Start API and Nginx
+        run: docker compose up -d api nginx
+
+      - name: Wait for HTTP and HTTPS endpoints
+        run: |
+          for attempt in {1..30}; do
+            http_ready=false
+            https_ready=false
+
+            if curl --silent --output /dev/null \
+              --max-time 3 http://localhost/; then
+              http_ready=true
+            fi
+
+            if curl --silent --insecure --output /dev/null \
+              --max-time 3 https://localhost/; then
+              https_ready=true
+            fi
+
+            if [ "$http_ready" = true ] && [ "$https_ready" = true ]; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker compose logs --no-color api nginx
+          exit 1
+
+      - name: Show API and Nginx logs on failure
+        if: failure()
+        run: docker compose logs --no-color api nginx
+
       - name: Run tests
         run: uv run pytest -q -m "not deployment"
 
-      # Always stop the test environment.
       - name: Stop Docker Compose
         if: always()
         run: docker compose down
 
-  # Build the Docker image once.
   docker-build:
     needs: testing
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Build the Docker image.
       - name: Build Docker image
         run: docker build --tag backend-lab:${{ github.sha }} .
 
-      # Export the Docker image as a file.
       - name: Save Docker image
         run: docker save backend-lab:${{ github.sha }} -o backend-lab.tar
 
-      # Upload the image so the publish job can use it.
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-lab-image
           path: backend-lab.tar
 
-  # Publish the already-built image to GitHub Container Registry.
-  # Only publish images from pushes to main.
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: docker-build
     runs-on: ubuntu-latest
 
-    # Allow GitHub Actions to push images to GHCR.
     permissions:
       contents: read
       packages: write
 
     steps:
-      # Download the image artifact from the docker-build job.
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-lab-image
 
-      # Load the Docker image into this runner.
       - name: Load Docker image
         run: docker load -i backend-lab.tar
 
-      # Log in to GitHub Container Registry.
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      # Convert the repository name to lowercase for Docker.
       - name: Set lowercase image name
         run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      # Tag the existing image with its GHCR address.
       - name: Tag Docker image
-        run: docker tag backend-lab:${{ github.sha }} $IMAGE_NAME:${{ github.sha }}
+        run: docker tag backend-lab:${{ github.sha }} "$IMAGE_NAME:${{ github.sha }}"
 
-      # Push the existing image to GHCR.
-      - name: Push the existing image to GHCR
-        run: docker push $IMAGE_NAME:${{ github.sha }}
+      - name: Push Docker image
+        run: docker push "$IMAGE_NAME:${{ github.sha }}"

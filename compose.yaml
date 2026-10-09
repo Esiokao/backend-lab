@@ -1,30 +1,25 @@
 services:
-
   # =========================
   # PostgreSQL
   # =========================
   postgres:
     image: postgres:17
-     # 固定 container 名稱
     container_name: backend-lab-postgres
+
     environment:
-      # 這些值來自 .env
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
 
+    # 開發環境允許從 Windows 主機連線資料庫。
     ports:
-      # Windows:5432 -> Container:5432
-      #
-      # 讓你可以在 Windows 上用 psql / DBeaver 連線
       - "5432:5432"
 
     volumes:
-      # PostgreSQL 資料持久化
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      # 確認 PostgreSQL 已經可以接受連線
+      # 確認 PostgreSQL 可以接受連線。
       test:
         [
           "CMD-SHELL",
@@ -33,7 +28,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
+      start_period: 10s
 
   # =========================
   # Redis
@@ -41,68 +36,66 @@ services:
   redis:
     image: redis:7
 
+    # 開發環境允許從 Windows 主機連線 Redis。
     ports:
-      # Windows:6379 -> Container:6379
-      #
-      # 開發階段方便從 Windows 測試 Redis
       - "6379:6379"
 
     healthcheck:
-      # Redis 回 PONG 就代表正常
+      # 確認 Redis 可以正常回應。
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
-    # =========================
-
+      start_period: 5s
 
   # =========================
   # FastAPI
   # =========================
   api:
-    # 使用專案根目錄的 Dockerfile 建立 FastAPI image
     build:
       context: .
       dockerfile: Dockerfile
 
-    # ports:
-    #   # Windows:8000 -> Container:8000
-    #   # 開發階段可以直接從 Windows 存取 FastAPI
-    #   - "8000:8000"
+    ports:
+      - "8000:8000"
 
     environment:
-      # PostgreSQL connection string
-      DATABASE_URL: ${DATABASE_URL}
-
-      # Test database connection string
-      # 目前 API container 不一定會使用，但保留與專案設定一致
+      # 使用 Docker 內部網路可解析的資料庫連線位址。
+      DATABASE_URL: ${DOCKER_DATABASE_URL}
       TEST_DATABASE_URL: ${TEST_DATABASE_URL}
+      MIGRATION_DATABASE_URL: ${DOCKER_MIGRATION_DATABASE_URL}
+      ADMIN_DATABASE_URL: ${DOCKER_ADMIN_DATABASE_URL}
 
-      # JWT signing secret
-      # 實際值從 .env 取得，不直接寫進 compose.yaml
       JWT_SECRET: ${JWT_SECRET}
 
-      # Docker Compose service name
-      # Container 內不能用 localhost 找到 Redis
+      # 使用 Compose 服務名稱連線 Redis。
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
-      # Rate limit configuration
       DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT}
       DEFAULT_RATE_LIMIT_WINDOW: ${DEFAULT_RATE_LIMIT_WINDOW}
-
-      # Maximum allowed request body size
       DEFAULT_MAX_REQUEST_SIZE: ${DEFAULT_MAX_REQUEST_SIZE}
 
     depends_on:
-      # API 要等 PostgreSQL 健康後才啟動
+      # API 等待資料庫和 Redis 健康後才啟動。
       postgres:
         condition: service_healthy
-
-      # API 要等 Redis 健康後才啟動
       redis:
         condition: service_healthy
 
+    healthcheck:
+      # 透過 API health endpoint 確認服務正常。
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # =========================
   # Nginx
@@ -111,26 +104,32 @@ services:
     image: nginx:alpine
 
     ports:
-      # HTTP：Windows:80 -> Nginx:80
       - "80:80"
-
-      # HTTPS：Windows:443 -> Nginx:443
       - "443:443"
 
     volumes:
-      # Nginx configuration
+      # Nginx 設定檔唯讀掛載。
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
 
-      # TLS certificates
+      # TLS 憑證唯讀掛載。
       - ./certs:/etc/nginx/certs:ro
 
     depends_on:
-      - api
+      # API container 啟動後即可啟動 Nginx；API readiness 由測試等待。
+      api:
+        condition: service_started
+
+    healthcheck:
+      # 檢查 Nginx 設定語法與 master process 是否存在。
+      test: ["CMD-SHELL", "nginx -t && kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 # =========================
 # Persistent Volumes
 # =========================
 volumes:
-
-  # PostgreSQL data
+  # 持久化 PostgreSQL 資料，容器重建時保留資料。
   postgres_data:

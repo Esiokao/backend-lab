@@ -57,10 +57,13 @@ jobs:
         timeout-minutes: 1
         run: |
           timeout 60s ssh -vvv \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "echo SSH_OK"
+          -i ~/.ssh/backend_lab_deploy \
+          -o BatchMode=yes \
+          -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ConnectionAttempts=1 \
+          "$DEPLOY_USER@$DEPLOY_HOST" \
+          "echo SSH_OK"
 
       # 建立 deployment workspace。
       - name: Prepare deployment directory
@@ -110,10 +113,15 @@ jobs:
 
       # 傳送 TLS private key 到 deployment server。
       - name: Upload TLS private key
+        timeout-minutes: 1
         run: |
-          scp \
+          timeout 45s scp \
             -i ~/.ssh/backend_lab_deploy \
+            -O \
             -o StrictHostKeyChecking=no \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o ConnectionAttempts=1 \
             certs/server.key \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/certs/server.key"
 
@@ -239,4 +247,4 @@ jobs:
         env:
           DEPLOY_BASE_URL: https://${{ vars.DEPLOY_HOST }}
         run: |
-          uv run pytest -m deployment
+          uv run pytest tests/deployment -m deployment --confcutdir=tests/deployment
