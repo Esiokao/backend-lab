@@ -60,11 +60,9 @@ services:
       - "8000:8000"
 
     environment:
-      # 使用 Docker 內部網路可解析的資料庫連線位址。
-      DATABASE_URL: ${DOCKER_DATABASE_URL}
-      TEST_DATABASE_URL: ${TEST_DATABASE_URL}
-      MIGRATION_DATABASE_URL: ${DOCKER_MIGRATION_DATABASE_URL}
-      ADMIN_DATABASE_URL: ${DOCKER_ADMIN_DATABASE_URL}
+      # API 容器透過 Compose 網路連線 PostgreSQL：主機使用服務名稱 postgres。
+      # 帳號與資料庫由環境提供（.env 或 CI 中的 API_DB_*）。
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
 
       JWT_SECRET: ${JWT_SECRET}
 
@@ -82,20 +80,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-    healthcheck:
-      # 透過 API health endpoint 確認服務正常。
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
-        ]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
 
   # =========================
   # Nginx
