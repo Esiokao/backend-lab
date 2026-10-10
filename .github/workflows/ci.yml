@@ -40,9 +40,10 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
       MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@localhost:5432/backend_lab_test
-      DOCKER_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@postgres:5432/backend_lab_test
-      DOCKER_MIGRATION_DATABASE_URL: postgresql+psycopg://admin:adminpass@postgres:5432/backend_lab_test
-      DOCKER_ADMIN_DATABASE_URL: postgresql://admin:adminpass@postgres:5432/backend_lab
+      # 資料庫連線組成部分，供 compose.yaml 組出 API 容器使用的 DATABASE_URL。
+      API_DB_USER: test_user
+      API_DB_PASSWORD: testuserpass
+      API_DB_NAME: backend_lab_test
       TEST_DATABASE_URL: postgresql+psycopg://test_user:testuserpass@localhost:5432/backend_lab_test
       TEST_ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab_test
       ADMIN_DATABASE_URL: postgresql://admin:adminpass@localhost:5432/backend_lab
@@ -86,28 +87,10 @@ jobs:
 
       - name: Wait for PostgreSQL and Redis
         run: |
-          for attempt in {1..60}; do
-            postgres_ready=false
-            redis_ready=false
-
-            if docker compose exec -T postgres \
-              pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
-              postgres_ready=true
-            fi
-
-            if docker compose exec -T redis redis-cli ping | grep -q PONG; then
-              redis_ready=true
-            fi
-
-            if [ "$postgres_ready" = true ] && [ "$redis_ready" = true ]; then
-              exit 0
-            fi
-
-            sleep 2
-          done
-
-          docker compose logs --no-color postgres redis
-          exit 1
+          sh scripts/wait_for.sh 60 2 \
+            "docker compose logs --no-color postgres redis" \
+            'docker compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+            'docker compose exec -T redis redis-cli ping | grep -q PONG'
 
       - name: Setup test database
         run: uv run python scripts/setup_test_db.py
@@ -120,29 +103,10 @@ jobs:
 
       - name: Wait for HTTP and HTTPS endpoints
         run: |
-          for attempt in {1..30}; do
-            http_ready=false
-            https_ready=false
-
-            if curl --silent --output /dev/null \
-              --max-time 3 http://localhost/; then
-              http_ready=true
-            fi
-
-            if curl --silent --insecure --output /dev/null \
-              --max-time 3 https://localhost/; then
-              https_ready=true
-            fi
-
-            if [ "$http_ready" = true ] && [ "$https_ready" = true ]; then
-              exit 0
-            fi
-
-            sleep 2
-          done
-
-          docker compose logs --no-color api nginx
-          exit 1
+          sh scripts/wait_for.sh 30 2 \
+            "docker compose logs --no-color api nginx" \
+            'curl --silent --output /dev/null --max-time 3 http://localhost/' \
+            'curl --silent --insecure --output /dev/null --max-time 3 https://localhost/'
 
       - name: Show API and Nginx logs on failure
         if: failure()

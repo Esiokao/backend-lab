@@ -26,6 +26,9 @@ jobs:
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
 
+      # 所有 ssh / scp 共用的連線選項；使用時不加引號，讓它拆成多個參數。
+      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o StrictHostKeyChecking=no"
+
     steps:
       # Checkout 本次 CI 對應的 commit。
       - name: Checkout repository
@@ -56,21 +59,14 @@ jobs:
       - name: Check SSH connection
         timeout-minutes: 1
         run: |
-          timeout 60s ssh -vvv \
-          -i ~/.ssh/backend_lab_deploy \
-          -o BatchMode=yes \
-          -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
-          -o ConnectionAttempts=1 \
-          "$DEPLOY_USER@$DEPLOY_HOST" \
-          "echo SSH_OK"
+          timeout 60s ssh -vvv $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "echo SSH_OK"
 
       # 建立 deployment workspace。
       - name: Prepare deployment directory
         run: |
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "mkdir -p \
              '$DEPLOY_DIR/nginx' \
@@ -79,27 +75,21 @@ jobs:
       # 傳送 production Compose 設定。
       - name: Upload compose file
         run: |
-          scp \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          scp $SSH_OPTS \
             compose.prod.yaml \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/compose.prod.yaml"
 
       # 傳送 Nginx 設定。
       - name: Upload nginx config
         run: |
-          scp \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          scp $SSH_OPTS \
             nginx/nginx.conf \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/nginx.conf"
 
       # 傳送公開 TLS certificate。
       - name: Upload TLS certificate
         run: |
-          scp \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          scp $SSH_OPTS \
             certs/server.crt \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/certs/server.crt"
 
@@ -115,22 +105,14 @@ jobs:
       - name: Upload TLS private key
         timeout-minutes: 1
         run: |
-          timeout 45s scp \
-            -i ~/.ssh/backend_lab_deploy \
-            -O \
-            -o StrictHostKeyChecking=no \
-            -o BatchMode=yes \
-            -o ConnectTimeout=10 \
-            -o ConnectionAttempts=1 \
+          timeout 45s scp -O $SSH_OPTS \
             certs/server.key \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/certs/server.key"
 
       # 限制 deployment server 上 private key 的權限。
       - name: Secure TLS private key
         run: |
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "chmod 600 '$DEPLOY_DIR/certs/server.key'"
 
@@ -169,16 +151,12 @@ jobs:
             > .env.prod
 
           # 將產生的 .env.prod 傳到 deployment server。
-          scp \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          scp $SSH_OPTS \
             .env.prod \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/.env.prod"
 
           # 限制 production environment file 權限。
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "chmod 600 '$DEPLOY_DIR/.env.prod'"
 
@@ -188,9 +166,7 @@ jobs:
       # 使用 .env.prod 中的 IMAGE_TAG 部署 immutable image。
       - name: Deploy application
         run: |
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
              docker compose \
@@ -203,9 +179,7 @@ jobs:
       # 確認 production containers 狀態。
       - name: Verify deployment
         run: |
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
              docker compose \
@@ -215,9 +189,7 @@ jobs:
       # 確認 Production 實際使用這次 CI 建立的 image。
       - name: Verify deployed image
         run: |
-          ssh \
-            -i ~/.ssh/backend_lab_deploy \
-            -o StrictHostKeyChecking=no \
+          ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
              EXPECTED_IMAGE='ghcr.io/esiokao/backend-lab:$IMAGE_TAG' && \
