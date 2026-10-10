@@ -1,9 +1,9 @@
-name: CD
+name: Deploy to Production
 
 on:
   workflow_run:
     workflows:
-      - CI
+      - Test, Build & Publish
     types:
       - completed
 
