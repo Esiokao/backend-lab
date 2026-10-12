@@ -49,6 +49,29 @@ services:
       start_period: 5s
 
   # =========================
+  # RQ Worker
+  # =========================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # 啟動背景任務處理程序。
+    command: ["rq", "worker", "default"]
+
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    # Worker 不提供 FastAPI 的 /health endpoint。
+    healthcheck:
+      disable: true
+
+  # =========================
   # FastAPI
   # =========================
   api:
@@ -60,8 +83,8 @@ services:
       - "8000:8000"
 
     environment:
-      # API 容器透過 Compose 網路連線 PostgreSQL：主機使用服務名稱 postgres。
-      # 帳號與資料庫由環境提供（.env 或 CI 中的 API_DB_*）。
+      # API 容器透過 Compose 網路連線 PostgreSQL。
+      # 帳號與資料庫由環境提供（.env 或 CI 環境變數）。
       DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
 
       JWT_SECRET: ${JWT_SECRET}
@@ -99,7 +122,7 @@ services:
       - ./certs:/etc/nginx/certs:ro
 
     depends_on:
-      # API container 啟動後即可啟動 Nginx；API readiness 由測試等待。
+      # API container 啟動後即可啟動 Nginx。
       api:
         condition: service_started
 

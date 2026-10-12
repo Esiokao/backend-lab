@@ -1,5 +1,42 @@
 # tests/orders/integration/test_orders_api.py
 
+import pytest
+from rq.exceptions import NoSuchJobError
+from rq.job import Job
+from rq.registry import FinishedJobRegistry, StartedJobRegistry
+
+from app.core.queue import get_task_publisher
+from app.core.rq_publisher import TASK_REGISTRY, default_queue
+from app.main import app
+
+
+@pytest.fixture
+def fake_publisher(monkeypatch):
+    """用 fake 取代真 publisher（跟 override_get_db 同一招）。
+
+    monkeypatch.setitem 會自動還原：測試結束時，
+    若之前已有別的 override 會被裝回去，本來沒有則移除。
+    """
+
+    class FakePublisher:
+        def __init__(self):
+            self.calls = []
+
+        def enqueue(self, task_name, payload):
+            self.calls.append((task_name, payload))
+
+            return "fake-job-id"
+
+    fake = FakePublisher()
+
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_task_publisher,
+        lambda: fake,
+    )
+
+    yield fake
+
 
 def test_get_orders(test_client):
     # 可以取得 Order 列表。
@@ -153,6 +190,71 @@ def test_create_order_owner(
     response_data = response.json()
 
     assert response_data["user_id"] == user.id
+
+
+def test_create_order_enqueues_notification(
+    auth_client,
+    create_test_user,
+    test_user_data,
+    fake_publisher,
+):
+    # 建立 User。
+    create_test_user(**test_user_data)
+
+    # 登入者建立 Order。
+    response = auth_client(test_user_data).post("/orders")
+
+    assert response.status_code == 200
+
+    order_id = response.json()["id"]
+
+    # 路由應該用正確的任務名稱與 payload 發布背景任務。
+    assert fake_publisher.calls == [
+        ("notifications.order_created", {"order_id": order_id}),
+    ]
+
+
+def test_create_order_publishes_to_rq_queue(
+    auth_client,
+    create_test_user,
+    test_user_data,
+):
+    # 不替換 publisher，驗證真的有 job 進 RQ 佇列。
+    # 需要 Redis 可連線（clear_rate_limit autouse fixture 已保證）。
+    create_test_user(**test_user_data)
+
+    response = auth_client(test_user_data).post("/orders")
+
+    assert response.status_code == 200
+
+    order_id = response.json()["id"]
+
+    # 本機可能正在跑 worker，job 會在斷言前被領走甚至執行完畢，
+    # 所以不能只看佇列長度：把「排隊中、執行中、已完成」
+    # 三個生命週期都掃過，找符合的 job，與 worker 速度無關。
+    candidate_ids = list(default_queue.job_ids)
+
+    for registry in (
+        StartedJobRegistry(queue=default_queue),
+        FinishedJobRegistry(queue=default_queue),
+    ):
+        candidate_ids.extend(registry.get_job_ids())
+
+    matching = []
+
+    for job_id in candidate_ids:
+        try:
+            job = Job.fetch(job_id, connection=default_queue.connection)
+        except NoSuchJobError:
+            # job 已過期被清掉，跳過。
+            continue
+
+        if job.func_name == TASK_REGISTRY[
+            "notifications.order_created"
+        ] and job.kwargs == {"payload": {"order_id": order_id}}:
+            matching.append(job_id)
+
+    assert matching, f"no RQ job found for order_id={order_id}"
 
 
 def test_get_other_user_orders(

@@ -36,15 +36,13 @@ def clear_rate_limit():
 
 
 @pytest.fixture
-def override_get_db(test_db):
+def override_get_db(test_db, monkeypatch):
     # 測試時讓 FastAPI 使用 transaction session。
     def _override_get_db():
         yield test_db
 
     # 將正式 DB dependency 替換成測試 DB。
-    app.dependency_overrides[get_db] = _override_get_db
+    # monkeypatch.setitem 會自動還原原狀（含「本來沒有 override」的情況）。
+    monkeypatch.setitem(app.dependency_overrides, get_db, _override_get_db)
 
     yield
-
-    # 測試結束後移除 override。
-    app.dependency_overrides.pop(get_db, None)
