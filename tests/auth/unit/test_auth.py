@@ -48,6 +48,7 @@ def test_get_current_user(test_db):
         # 執行真正的 get_current_user。
         user = get_current_user(
             credentials=fake_credentials,
+            session_cookie=None,
             session=fake_session,
         )
 
@@ -75,6 +76,7 @@ def test_get_current_user_invalid_token(test_db):
     ):
         get_current_user(
             credentials=credentials,
+            session_cookie=None,
             session=test_db,
         )
 
@@ -100,6 +102,7 @@ def test_get_current_user_missing_sub(test_db):
     ):
         get_current_user(
             credentials=credentials,
+            session_cookie=None,
             session=test_db,
         )
 
@@ -130,6 +133,7 @@ def test_get_current_user_user_not_found(test_db):
     ):
         get_current_user(
             credentials=credentials,
+            session_cookie=None,
             session=test_db,
         )
 

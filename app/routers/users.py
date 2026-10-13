@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -8,6 +8,14 @@ from app.core.jwt import create_access_token
 from app.core.rate_limit import rate_limit
 from app.core.request_size import RequestSizeRoute, request_size_limit
 from app.core.security import hash_password, verify_password
+from app.core.session import (
+    COOKIE_NAME,
+    SESSION_TTL_SECONDS,
+    cookie_secure,
+    create_session,
+    delete_session,
+    revoke_all_user_sessions,
+)
 from app.database import get_db
 from app.models import User
 from app.schemas.Auth import UserLogin
@@ -124,6 +132,14 @@ def patch_user(
             detail="No fields to update",
         )
 
+    # 改密碼時要撤銷該使用者的全部 session。
+    password_changed = "password" in update_data
+
+    if password_changed:
+        # 明文密碼轉成雜湊後寫入 password_hash 欄位。
+        raw_password = update_data.pop("password")
+        update_data["password_hash"] = hash_password(raw_password)
+
     stmt = update(User).where(User.id == user_id).values(**update_data).returning(User)
 
     try:
@@ -138,6 +154,10 @@ def patch_user(
             )
 
         session.commit()
+
+        # 密碼已成功更換，舊 session 全部失效（被盜用的 session 也一併撤銷）。
+        if password_changed:
+            revoke_all_user_sessions(user_id)
     except IntegrityError:
         session.rollback()
         raise HTTPException(
@@ -185,6 +205,7 @@ def delete_user(
 @rate_limit(limit=5, window=60)
 def login(
     request: Request,
+    response: Response,
     user: UserLogin,
     session: Session = Depends(get_db),
 ):
@@ -203,10 +224,47 @@ def login(
             detail="Invalid email or password",
         )
 
-    # 建立 Access Token。
+    # 建立 Access Token（過渡期保留給非瀏覽器客戶端）。
     access_token = create_access_token(db_user.id)
+
+    # 建立 session 並設定 HttpOnly cookie：
+    # JS 讀不到（防 XSS 偷取）、只走 https（Secure）、
+    # SameSite=strict 擋 CSRF。
+    # 每次登入都產生全新 sid，天然防 session fixation。
+    sid = create_session(db_user.id)
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=sid,
+        max_age=SESSION_TTL_SECONDS,
+        path="/",
+        httponly=True,
+        secure=cookie_secure(),
+        samesite="strict",
+    )
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
+@router.post("/logout")
+def logout(
+    response: Response,
+    session_cookie: str | None = Cookie(None, alias=COOKIE_NAME),
+):
+    # 刪除 Redis session → 該 sid 立即失效（真登出，JWT 做不到的事）。
+    if session_cookie:
+        delete_session(session_cookie)
+
+    # 清除瀏覽器端的 cookie。
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=cookie_secure(),
+        samesite="strict",
+    )
+
+    return {"status": "ok"}

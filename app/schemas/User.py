@@ -28,3 +28,4 @@ class UserPatch(BaseModel):
     # Both fields are optional because PATCH only updates provided fields.
     name: str | None = None
     email: str | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
