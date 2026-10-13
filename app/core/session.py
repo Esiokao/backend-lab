@@ -55,7 +55,7 @@ def create_session(user_id: int) -> str:
 
 
 def get_session_user_id(sid: str) -> int | None:
-    """用 sid 查 user_id；查到的同時滑動續期。"""
+    """用 sid 查 user_id；查到的同時滑動續期（含使用者 session 索引）。"""
     key = f"{SESSION_PREFIX}{sid}"
 
     value = redis_client.get(key)
@@ -63,10 +63,14 @@ def get_session_user_id(sid: str) -> int | None:
     if value is None:
         return None
 
-    # 滑動過期：活躍使用者的 session 不會過期，閒置超過 TTL 才失效。
-    redis_client.expire(key, SESSION_TTL_SECONDS)
+    user_id = int(value)
 
-    return int(value)
+    # 滑動過期：活躍使用者的 session 不會過期，閒置超過 TTL 才失效。
+    # 索引也要一起續期，否則活躍 session 會因索引過期而躲過 revoke。
+    redis_client.expire(key, SESSION_TTL_SECONDS)
+    redis_client.expire(user_sessions_key(user_id), SESSION_TTL_SECONDS)
+
+    return user_id
 
 
 def delete_session(sid: str) -> None:

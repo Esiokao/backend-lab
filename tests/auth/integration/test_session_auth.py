@@ -10,6 +10,8 @@ from app.core.session import (
     create_session,
     delete_session,
     get_session_user_id,
+    revoke_all_user_sessions,
+    user_sessions_key,
 )
 from app.main import app
 
@@ -187,3 +189,29 @@ def test_patch_without_password_keeps_session(test_client, create_test_user):
 
     assert patched.status_code == 200
     assert test_client.get("/users/me").status_code == 200
+
+
+def test_session_index_ttl_slides_with_session():
+    # 索引 TTL 也要跟著 session 一起滑動續期，否則活躍 session 會躲過撤銷。
+    sid = create_session(9999)
+    key = f"session:{sid}"
+    index_key = user_sessions_key(9999)
+
+    try:
+        # 把索引 TTL 壓到 60 秒，模擬建立已久但持續活躍的使用者。
+        redis_client.expire(index_key, 60)
+
+        user_id = get_session_user_id(sid)
+
+        assert user_id == 9999
+
+        # 索引與 session 的 TTL 都該被拉回接近完整有效期。
+        assert redis_client.ttl(index_key) > SESSION_TTL_SECONDS - 60
+        assert redis_client.ttl(key) > SESSION_TTL_SECONDS - 60
+
+        # 撤銷仍然找得到該 session。
+        revoke_all_user_sessions(9999)
+
+        assert get_session_user_id(sid) is None
+    finally:
+        delete_session(sid)
