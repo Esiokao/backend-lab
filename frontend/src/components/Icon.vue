@@ -1,0 +1,62 @@
+<script setup lang="ts">
+// 內嵌 SVG 圖示（移植自設計模板，14 顆線性圖示）。
+export type IconName =
+  | "activity"
+  | "arrow"
+  | "bolt"
+  | "box"
+  | "chevron"
+  | "close"
+  | "database"
+  | "grid"
+  | "logout"
+  | "plus"
+  | "search"
+  | "server"
+  | "shield"
+  | "users";
+
+const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), {
+  size: 18,
+});
+
+const iconPaths: Record<IconName, string[]> = {
+  activity: ["M3 12h4l2.2-6 4.1 12 2.1-6H21"],
+  arrow: ["m9 18 6-6-6-6"],
+  bolt: ["m13 2-8 12h7l-1 8 8-12h-7l1-8Z"],
+  box: ["m4 7 8-4 8 4-8 4-8-4Z", "m4 7 8 4 8-4M4 7v10l8 4 8-4V7M12 11v10"],
+  chevron: ["m8 10 4 4 4-4"],
+  close: ["m6 6 12 12M18 6 6 18"],
+  database: [
+    "M4 5c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z",
+    "M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7",
+  ],
+  grid: ["M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
+  logout: ["M10 17l5-5-5-5M15 12H3M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"],
+  plus: ["M12 5v14M5 12h14"],
+  search: ["m21 21-4.4-4.4M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"],
+  server: [
+    "M5 4h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM5 14h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2ZM7 7h.01M7 17h.01",
+  ],
+  shield: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Zm-3-10 2 2 4-4"],
+  users: [
+    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8",
+  ],
+};
+</script>
+
+<template>
+  <svg
+    :viewBox="'0 0 24 24'"
+    :width="props.size"
+    :height="props.size"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path v-for="(d, index) in iconPaths[props.name]" :key="index" :d="d" />
+  </svg>
+</template>
