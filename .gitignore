@@ -7,3 +7,6 @@ __pycache__/
 .ruff_cache/
 roadmap/
 certs/*.key
+
+# 產品需求文件：僅本地維護，不入版控
+docs/PRD.md
