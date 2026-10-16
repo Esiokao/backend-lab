@@ -3,6 +3,14 @@ import os
 import pytest
 import requests
 
+# 部署後的 smoke test：需要 CD workflow 注入的 DEPLOY_BASE_URL。
+# 本機沒有這個變數 → 自動跳過（黃色），不再出現 KeyError 紅字；
+# CD 部署後有變數 → 條件不成立，測試照常執行把關。
+pytestmark = pytest.mark.skipif(
+    "DEPLOY_BASE_URL" not in os.environ,
+    reason="deployment-only tests: 需要 DEPLOY_BASE_URL（僅 CD workflow 提供）",
+)
+
 
 @pytest.mark.deployment
 def test_health():
