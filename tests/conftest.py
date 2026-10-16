@@ -1,5 +1,10 @@
 # tests/conftest.py
 
+import os
+
+# 測試使用 HTTP TestClient，因此停用 Secure cookie 限制。
+os.environ["COOKIE_SECURE"] = "false"
+
 import pytest
 
 from app.core.redis import redis_client

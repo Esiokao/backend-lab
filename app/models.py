@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -39,8 +39,17 @@ class Order(Base):
     # Store the ID of the user who owns this order.
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
+    # Index the user_id column for faster lookups.
+    __table_args__ = (Index("idx_orders_user_id", "user_id"),)
+
     # Each order belongs to one user.
     user: Mapped["User"] = relationship(
         "User",
         back_populates="orders",
+    )
+    # Track the current state of the order.
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+        nullable=False,
     )
