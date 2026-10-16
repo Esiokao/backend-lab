@@ -2,11 +2,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.database import get_db
 from app.models import Order, User
+from app.schemas.User import AdminUserPatch, UserResponse
 
 router = APIRouter(
     prefix="/admin/orders",
@@ -124,3 +126,52 @@ def delete_order(
 
     db.delete(order)
     db.commit()
+
+
+# ── Admin 使用者管理 ────────────────────────────────────────────────
+
+users_router = APIRouter(
+    prefix="/admin/users",
+    tags=["Admin Users"],
+)
+
+
+@users_router.patch("/{user_id}", response_model=UserResponse)
+def update_user_as_admin(
+    user_id: int,
+    payload: AdminUserPatch,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+):
+    """admin 更新使用者資料（name/email/role）。"""
+    # 防呆：admin 不能改變自己的 role，避免把自己鎖在門外。
+    if payload.role is not None and current_admin.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own role",
+        )
+
+    user = db.get(User, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already exists",
+        )
+
+    db.refresh(user)
+    return user

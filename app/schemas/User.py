@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # 建立 User 時，API 會接收這些資料
@@ -7,6 +9,13 @@ class UserCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+
+
+# admin 管理介面更新使用者：可比一般管道多改 role，但不能改密碼
+class AdminUserPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = None
+    role: Literal["user", "admin"] | None = None
 
 
 # API 回傳 User 時，只回傳公開資訊，不回傳密碼
