@@ -3,7 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
 from app.core.jwt import create_access_token
 from app.core.rate_limit import rate_limit
 from app.core.request_size import RequestSizeRoute, request_size_limit
@@ -23,13 +23,25 @@ from app.schemas.User import UserCreate, UserPatch, UserResponse, UserUpdate
 
 router = APIRouter(
     route_class=RequestSizeRoute,
+    tags=["Users"],
 )
+
+
+def _ensure_self_or_admin(current_user: User, user_id: int) -> None:
+    # 僅本人或 admin 可以存取/修改該使用者的資料。
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="You can only manage your own account",
+        )
 
 
 @router.get("/users", response_model=list[UserResponse])
 def get_users(
     session: Session = Depends(get_db),
+    _: User = Depends(require_admin),
 ):
+    # 只有 admin 可以列出全部使用者。
     result = session.execute(select(User))
     return result.scalars().all()
 
@@ -46,7 +58,11 @@ def get_current_user_info(
 def get_user(
     user_id: int,
     session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    # 僅本人或 admin 可以查看使用者詳情。
+    _ensure_self_or_admin(current_user, user_id)
+
     result = session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -90,13 +106,21 @@ def update_user(
     user_id: int,
     user: UserUpdate,
     session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    # 僅本人或 admin 可以更新。
+    _ensure_self_or_admin(current_user, user_id)
+
     stmt = (
-        update(User).where(User.id == user_id).values(name=user.name, email=user.email)
+        update(User)
+        .where(User.id == user_id)
+        .values(name=user.name, email=user.email)
+        .returning(User)
     )
 
     try:
         result = session.execute(stmt)
+        updated_user = result.scalar_one_or_none()
         session.commit()
     except IntegrityError:
         session.rollback()
@@ -105,17 +129,13 @@ def update_user(
             detail="Email already exists",
         )
 
-    if result.rowcount == 0:
+    if updated_user is None:
         raise HTTPException(
             status_code=404,
             detail="User not found",
         )
 
-    return {
-        "id": user_id,
-        "name": user.name,
-        "email": user.email,
-    }
+    return updated_user
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -123,7 +143,11 @@ def patch_user(
     user_id: int,
     user: UserPatch,
     session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    # 僅本人或 admin 可以修改（含改密碼）。
+    _ensure_self_or_admin(current_user, user_id)
+
     update_data = user.model_dump(exclude_unset=True)
 
     if not update_data:
@@ -172,7 +196,9 @@ def patch_user(
 def delete_user(
     user_id: int,
     session: Session = Depends(get_db),
+    _: User = Depends(require_admin),
 ):
+    # 只有 admin 可以刪除使用者。
     result = session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 

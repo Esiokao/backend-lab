@@ -14,6 +14,7 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    role: str
 
     # 允許 Pydantic 直接讀取 SQLAlchemy ORM object
     model_config = ConfigDict(from_attributes=True)

@@ -11,7 +11,9 @@ from app.core.task_publisher import TaskPublisher
 from app.database import get_db
 from app.models import Order, User
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Orders"],
+)
 logger = logging.getLogger(__name__)
 
 
@@ -51,10 +53,14 @@ def get_orders(
     sort_by: Literal["id", "user_id"] = "id",
     order: Literal["asc", "desc"] = "asc",
     session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     stmt = select(Order)
 
-    if user_id is not None:
+    # 一般使用者只能看自己的訂單；admin 可看全部，或用 user_id 過濾特定使用者。
+    if current_user.role != "admin":
+        stmt = stmt.where(Order.user_id == current_user.id)
+    elif user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
 
     stmt = stmt.order_by(getattr(getattr(Order, sort_by), order)())

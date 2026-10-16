@@ -38,36 +38,47 @@ def fake_publisher(monkeypatch):
     yield fake
 
 
-def test_get_orders(test_client):
-    # 可以取得 Order 列表。
+def test_get_orders_unauthenticated(test_client):
+    # 未登入不能取得訂單列表。
     response = test_client.get("/orders")
+
+    assert response.status_code == 401
+
+
+def test_get_orders(auth_client, create_test_user, test_user_data):
+    # 登入後可以取得自己的 Order 列表。
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.get("/orders")
 
     assert response.status_code == 200
     assert len(response.json()) >= 0
 
 
-def test_get_orders_pagination(test_client):
+def test_get_orders_pagination(auth_client, create_test_user, test_user_data):
     # Pagination 限制每頁最多回傳 5 筆。
-    response = test_client.get("/orders?page=1&page_size=5")
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.get("/orders?page=1&page_size=5")
 
     assert response.status_code == 200
     assert len(response.json()) <= 5
 
 
 def test_get_orders_filter_by_user(
-    test_client,
+    auth_client,
     create_test_user,
     create_test_order,
     test_user_data,
 ):
-    # 建立 User。
+    # 建立 User 與屬於他的 Order，查詢自己的（user_id 參數對自己無害）。
     user = create_test_user(**test_user_data)
-
-    # 建立屬於 User 的 Order。
     order = create_test_order(user.id)
+    client = auth_client(test_user_data)
 
-    # 只取得指定 User 的 Orders。
-    response = test_client.get(f"/orders?user_id={order.user_id}")
+    response = client.get(f"/orders?user_id={order.user_id}")
 
     assert response.status_code == 200
 
@@ -77,9 +88,12 @@ def test_get_orders_filter_by_user(
     assert all(item["user_id"] == user.id for item in orders)
 
 
-def test_get_orders_sort_desc(test_client):
+def test_get_orders_sort_desc(auth_client, create_test_user, test_user_data):
     # 確認可以按照 Order ID 由大到小排序。
-    response = test_client.get("/orders?sort_by=id&order=desc")
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.get("/orders?sort_by=id&order=desc")
 
     assert response.status_code == 200
 
@@ -89,18 +103,48 @@ def test_get_orders_sort_desc(test_client):
     assert ids == sorted(ids, reverse=True)
 
 
-def test_get_orders_invalid_page(test_client):
+def test_get_orders_invalid_page(auth_client, create_test_user, test_user_data):
     # page 不可以小於 1。
-    response = test_client.get("/orders?page=0")
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.get("/orders?page=0")
 
     assert response.status_code == 422
 
 
-def test_get_orders_invalid_page_size(test_client):
+def test_get_orders_invalid_page_size(auth_client, create_test_user, test_user_data):
     # page_size 不可以大於 100。
-    response = test_client.get("/orders?page_size=101")
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.get("/orders?page_size=101")
 
     assert response.status_code == 422
+
+
+def test_user_sees_only_own_orders(
+    auth_client,
+    create_test_user,
+    create_test_order,
+    test_user_data,
+    test_random_user_data,
+):
+    # 一般使用者只能看到自己的訂單，看不到其他人的。
+    user = create_test_user(**test_user_data)
+    other = create_test_user(**test_random_user_data)
+
+    own_order = create_test_order(user.id)
+    create_test_order(other.id)
+
+    client = auth_client(test_user_data)
+    response = client.get("/orders")
+
+    assert response.status_code == 200
+
+    orders = response.json()
+    assert len(orders) == 1
+    assert orders[0]["id"] == own_order.id
 
 
 def test_get_order_owner(
