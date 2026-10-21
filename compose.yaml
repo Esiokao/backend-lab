@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
 
     # 啟動背景任務處理程序。
-    command: ["rq", "worker", "default"]
+    command: ["rq", "worker", "notifications"]
 
     environment:
       REDIS_HOST: redis

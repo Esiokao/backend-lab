@@ -31,3 +31,17 @@ def test_db():
 
     # 關閉 connection。
     connection.close()
+
+
+@pytest.fixture
+def worker_session_factory(test_db):
+    """建立 Worker 專用的 Session 工廠，隔離內層 transaction。"""
+    connection = test_db.get_bind()
+
+    def create_session():
+        return Session(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+        )
+
+    return create_session

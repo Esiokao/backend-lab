@@ -6,10 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user, require_admin
-from app.core.queue import get_task_publisher
-from app.core.task_publisher import TaskPublisher
+from app.core.events import ORDER_CREATED
 from app.database import get_db
-from app.models import Order, User
+from app.models import NotificationOutbox, Order, User
 
 router = APIRouter(
     tags=["Orders"],
@@ -21,26 +20,24 @@ logger = logging.getLogger(__name__)
 def create_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
-    publisher: TaskPublisher = Depends(get_task_publisher),
 ):
     # 訂單 owner 由目前登入的使用者決定。
     new_order = Order(user_id=current_user.id)
     session.add(new_order)
+
+    # 先取得資料庫產生的訂單 ID，但尚未 commit。
+    session.flush()
+
+    # 訂單與 Outbox 事件在同一個交易中提交。
+    outbox_event = NotificationOutbox(
+        event_type=ORDER_CREATED,
+        payload={"order_id": new_order.id},
+    )
+    session.add(outbox_event)
+
+    # 任一寫入失敗，整個交易都不應只留下其中一筆。
     session.commit()
     session.refresh(new_order)
-
-    # 訂單提交成功後，才發布背景通知任務。
-    try:
-        publisher.enqueue(
-            "notifications.order_created",
-            {"order_id": new_order.id},
-        )
-    except Exception:
-        # 通知發布失敗時記錄錯誤，不讓通知故障影響訂單 API。
-        logger.exception(
-            "Failed to enqueue order-created notification: order_id=%s",
-            new_order.id,
-        )
 
     return new_order
 

@@ -1,5 +1,21 @@
-from sqlalchemy import ForeignKey, Index, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from datetime import datetime
+
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 
 class Base(DeclarativeBase):
@@ -52,4 +68,122 @@ class Order(Base):
         String(20),
         default="pending",
         nullable=False,
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    body: Mapped[str] = mapped_column(
+        String(2000),
+        nullable=False,
+    )
+
+    data: Mapped[dict] = mapped_column(
+        JSON,
+        default=dict,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    source_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("notification_outbox.id"),
+        nullable=True,
+        unique=True,
+    )
+
+    __table_args__ = (Index("idx_notifications_user_created", "user_id", "created_at"),)
+
+
+class NotificationOutbox(Base):
+    """保存待發布的通知事件，讓背景工作失敗後可以恢復。"""
+
+    __tablename__ = "notification_outbox"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # 事件類型，例如 order_created。
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # 保存建立通知需要的資料，避免依賴記憶體中的任務。
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    # pending：等待發布；dispatched：已發布；processed：已完成。
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+        server_default="pending",
+        nullable=False,
+    )
+
+    # 累計發布或重試次數。
+    attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+
+    # 允許重試的時間，Dispatcher 可用它篩選待處理事件。
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    dispatched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    # 保留最後一次錯誤，方便排查發布失敗的原因。
+    last_error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    __table_args__ = (
+        Index(
+            "idx_notification_outbox_pending",
+            "status",
+            "available_at",
+        ),
     )

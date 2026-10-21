@@ -3,21 +3,20 @@ import os
 import redis
 from rq import Queue
 
+from app.core.events import TASK_REGISTRY
+
 # RQ 使用獨立的 Redis 連線，不影響 Rate Limiting。
 rq_redis = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
     port=int(os.getenv("REDIS_PORT", "6379")),
 )
 
+NOTIFICATION_QUEUE_NAME = "notifications"
+
 default_queue = Queue(
-    "default",
+    NOTIFICATION_QUEUE_NAME,
     connection=rq_redis,
 )
-
-# 任務名稱對應到 Worker 可以匯入的函式路徑。
-TASK_REGISTRY: dict[str, str] = {
-    "notifications.order_created": ("app.workers.notifications.notify_order_created"),
-}
 
 
 class RQPublisher:

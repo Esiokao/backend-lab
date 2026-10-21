@@ -17,6 +17,9 @@ from tests.fixtures.client import *
 # Load database fixtures.
 from tests.fixtures.database import *
 
+# Load notification fixtures.
+from tests.fixtures.notifications import *
+
 # Load order fixtures.
 from tests.fixtures.orders import *
 
