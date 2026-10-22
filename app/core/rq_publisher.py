@@ -3,7 +3,7 @@ import os
 import redis
 from rq import Queue
 
-from app.core.events import ADMIN_NOTIFICATION_CREATED, ORDER_CREATED
+from app.core.events import ADMIN_NOTIFICATION_CREATED, ORDER_CREATED, PRODUCT_RESTOCKED
 
 # RQ 使用獨立的 Redis 連線，不影響 Rate Limiting。
 rq_redis = redis.Redis(
@@ -21,6 +21,7 @@ default_queue = Queue(
 TASK_REGISTRY: dict[str, str] = {
     ORDER_CREATED: ("app.workers.notifications.notify_order_created"),
     ADMIN_NOTIFICATION_CREATED: ("app.workers.notifications.notify_admin_notification"),
+    PRODUCT_RESTOCKED: "app.workers.notifications.notify_product_restocked",
 }
 
 

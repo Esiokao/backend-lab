@@ -1,0 +1,34 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import require_admin
+from app.database import get_db
+from app.models import Product, User
+from app.schemas.Product import ProductResponse
+
+router = APIRouter()
+
+
+@router.patch(
+    "/{product_id}/restore",
+    response_model=ProductResponse,
+)
+def restore_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    product = db.get(Product, product_id)
+
+    if product is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found",
+        )
+
+    # 將已封存商品重新設為上架狀態。
+    product.is_active = True
+    db.commit()
+    db.refresh(product)
+
+    return product

@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.core.events import ORDER_CREATED
 from app.database import SessionLocal
-from app.models import Notification, NotificationOutbox, Order
+from app.models import Notification, NotificationOutbox, Order, Product, ProductFollow
 from app.schemas.Notification import AdminNotificationJobPayload
+from app.schemas.Product import ProductRestockJobPayload
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,60 @@ def notify_admin_notification(
             source_event_id=event.id,
         )
         session.add(notification)
+
+        event.status = "processed"
+        event.processed_at = datetime.now(timezone.utc)
+        event.last_error = None
+
+
+def notify_product_restocked(
+    payload: ProductRestockJobPayload,
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    _payload = ProductRestockJobPayload.model_validate(payload)
+    outbox_event_id = _payload.outbox_event_id
+
+    with session_factory() as session, session.begin():
+        event = session.execute(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.id == outbox_event_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if event is None:
+            raise LookupError(f"Outbox event not found: {outbox_event_id}")
+
+        if event.status == "processed" or event.processed_at is not None:
+            return
+
+        product_id = event.payload.get("product_id")
+
+        if type(product_id) is not int:
+            raise TypeError("outbox payload must contain an integer product_id")
+
+        product = session.get(Product, product_id)
+
+        if product is None:
+            raise LookupError(f"Product not found: {product_id}")
+
+        follower_ids = session.scalars(
+            select(ProductFollow.user_id).where(
+                ProductFollow.product_id == product_id,
+            )
+        ).all()
+
+        for user_id in follower_ids:
+            session.add(
+                Notification(
+                    user_id=user_id,
+                    type="product_restocked",
+                    title="商品補貨了",
+                    body=f"{product.name} 已補貨",
+                    data={"product_id": product_id},
+                    source_event_id=event.id,
+                )
+            )
 
         event.status = "processed"
         event.processed_at = datetime.now(timezone.utc)

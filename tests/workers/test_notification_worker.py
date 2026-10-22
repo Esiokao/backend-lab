@@ -1,9 +1,15 @@
+from decimal import Decimal
+
 import pytest
 from sqlalchemy import func, select
 
-from app.core.events import ADMIN_NOTIFICATION_CREATED
-from app.models import Notification
-from app.workers.notifications import notify_admin_notification, notify_order_created
+from app.core.events import ADMIN_NOTIFICATION_CREATED, PRODUCT_RESTOCKED
+from app.models import Notification, Product, ProductFollow
+from app.workers.notifications import (
+    notify_admin_notification,
+    notify_order_created,
+    notify_product_restocked,
+)
 
 
 def test_worker_creates_notification(
@@ -191,3 +197,67 @@ def test_admin_worker_creates_notification(
 
     test_db.refresh(event)
     assert event.status == "processed"
+
+
+def test_restock_worker_notifies_all_followers(
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_order,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    user_a = create_test_user(**test_user_data)
+
+    user_b_data = {
+        **test_user_data,
+        "email": "user-b@example.com",
+        "name": "User B",
+    }
+    user_b = create_test_user(**user_b_data)
+
+    product = Product(
+        name="Coffee Beans",
+        price=Decimal("19.99"),
+        stock=10,
+    )
+    test_db.add(product)
+    test_db.flush()
+
+    test_db.add_all(
+        [
+            ProductFollow(
+                user_id=user_a.id,
+                product_id=product.id,
+            ),
+            ProductFollow(
+                user_id=user_b.id,
+                product_id=product.id,
+            ),
+        ]
+    )
+
+    event = create_test_outbox_event(
+        event_type=PRODUCT_RESTOCKED,
+        payload={"product_id": product.id},
+    )
+
+    notify_product_restocked(
+        {
+            "product_id": product.id,
+            "outbox_event_id": event.id,
+        },
+        session_factory=worker_session_factory,
+    )
+
+    notifications = test_db.scalars(
+        select(Notification).where(
+            Notification.source_event_id == event.id,
+        )
+    ).all()
+
+    assert len(notifications) == 2
+    assert {notification.user_id for notification in notifications} == {
+        user_a.id,
+        user_b.id,
+    }

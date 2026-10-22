@@ -8,6 +8,7 @@ from app.routers.admin import users_router as admin_users_router
 from app.routers.admin_notifications import router as admin_notifications_router
 from app.routers.notifications import router as notifications_router
 from app.routers.orders import router as order_router
+from app.routers.products import router as products_router
 from app.routers.users import router as users_router
 
 app = FastAPI()
@@ -30,6 +31,7 @@ app.include_router(admin_router)
 app.include_router(admin_users_router)
 app.include_router(notifications_router)
 app.include_router(admin_notifications_router)
+app.include_router(products_router)
 
 
 @app.get("/health")

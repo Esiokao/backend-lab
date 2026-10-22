@@ -1,13 +1,17 @@
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import (
@@ -70,6 +74,11 @@ class Order(Base):
         nullable=False,
     )
 
+    product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("products.id"),
+        nullable=True,
+    )
+
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -116,10 +125,16 @@ class Notification(Base):
     source_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("notification_outbox.id"),
         nullable=True,
-        unique=True,
     )
 
-    __table_args__ = (Index("idx_notifications_user_created", "user_id", "created_at"),)
+    __table_args__ = (
+        Index("idx_notifications_user_created", "user_id", "created_at"),
+        UniqueConstraint(
+            "source_event_id",
+            "user_id",
+            name="uq_notifications_source_event_user",
+        ),
+    )
 
 
 class NotificationOutbox(Base):
@@ -207,6 +222,67 @@ class NotificationBroadcast(Base):
     body: Mapped[str] = mapped_column(
         String(2000),
         nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+    )
+
+    stock: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="true",
+        nullable=False,
+    )
+
+
+class ProductFollow(Base):
+    __tablename__ = "product_follows"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"),
+        primary_key=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
