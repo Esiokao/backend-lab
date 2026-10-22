@@ -23,6 +23,9 @@ from tests.fixtures.notifications import *
 # Load order fixtures.
 from tests.fixtures.orders import *
 
+# Load product fixtures.
+from tests.fixtures.products import *
+
 # Load user fixtures.
 from tests.fixtures.users import *
 

@@ -2,13 +2,14 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user, require_admin
 from app.core.events import ORDER_CREATED
 from app.database import get_db
-from app.models import NotificationOutbox, Order, User
+from app.models import NotificationOutbox, Order, Product, User
+from app.schemas.Order import OrderCreate
 
 router = APIRouter(
     tags=["Orders"],
@@ -18,11 +19,39 @@ logger = logging.getLogger(__name__)
 
 @router.post("/orders")
 def create_order(
+    payload: OrderCreate,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
+    product = session.get(Product, payload.product_id)
+
+    if product is None or not product.is_active:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found",
+        )
+
+    # 只有庫存足夠時才扣庫存，避免庫存被扣成負數。
+    stock_update = session.execute(
+        update(Product)
+        .where(
+            Product.id == payload.product_id,
+            Product.stock >= payload.quantity,
+        )
+        .values(stock=Product.stock - payload.quantity)
+    )
+
+    if stock_update.rowcount != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="Insufficient product stock",
+        )
     # 訂單 owner 由目前登入的使用者決定。
-    new_order = Order(user_id=current_user.id)
+    new_order = Order(
+        user_id=current_user.id,
+        product_id=payload.product_id,
+        quantity=payload.quantity,
+    )
     session.add(new_order)
 
     # 先取得資料庫產生的訂單 ID，但尚未 commit。

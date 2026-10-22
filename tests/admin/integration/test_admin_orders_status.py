@@ -3,12 +3,21 @@
 
 import pytest
 
-from app.models import Order
+from app.models import Order, Product
 
 
 def create_order(test_db, owner, order_status):
-    """建立指定初始狀態的訂單。"""
-    order = Order(user_id=owner.id, status=order_status)
+    """建立指定初始狀態的訂單（含一個測試商品供引用）。"""
+    product = Product(name=f"Product for {owner.email}", price=19.99, stock=10)
+    test_db.add(product)
+    test_db.flush()
+
+    order = Order(
+        user_id=owner.id,
+        status=order_status,
+        product_id=product.id,
+        quantity=1,
+    )
     test_db.add(order)
     test_db.commit()
     test_db.refresh(order)

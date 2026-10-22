@@ -1,5 +1,6 @@
-from app.models import NotificationBroadcast
 from datetime import datetime, timezone
+
+from app.models import NotificationBroadcast
 
 
 def test_admin_can_create_notification_broadcast(

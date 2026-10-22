@@ -1,13 +1,14 @@
 # tests/orders/integration/test_orders_api.py
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
 from app.core.events import ORDER_CREATED
 from app.core.outbox_dispatcher import dispatch_once
-from app.models import NotificationOutbox
+from app.models import NotificationOutbox, Product
 
 
 class FakePublisher:
@@ -26,6 +27,44 @@ class FakePublisher:
 def fake_publisher():
     """假 publisher：直接以參數傳給 dispatch_once（依賴在簽名裡，免 monkeypatch）。"""
     return FakePublisher()
+
+
+def test_create_order_with_product_decreases_stock(
+    test_db,
+    create_test_user,
+    test_user_data,
+    session_auth_client,
+):
+    _user = create_test_user(**test_user_data)
+
+    product = Product(
+        name="Coffee Beans",
+        price=Decimal("19.99"),
+        stock=10,
+        is_active=True,
+    )
+    test_db.add(product)
+    test_db.flush()
+
+    auth_client = session_auth_client(test_user_data)
+
+    response = auth_client.post(
+        "/orders",
+        json={
+            "product_id": product.id,
+            "quantity": 3,
+        },
+    )
+
+    assert response.status_code == 200
+
+    test_db.refresh(product)
+
+    # 建立訂單後，庫存應減少購買數量。
+    assert product.stock == 7
+
+    assert response.json()["product_id"] == product.id
+    assert response.json()["quantity"] == 3
 
 
 def test_get_orders_unauthenticated(test_client):
@@ -62,6 +101,7 @@ def test_get_orders_filter_by_user(
     create_test_user,
     create_test_order,
     test_user_data,
+    create_test_product,
 ):
     # 建立 User 與屬於他的 Order，查詢自己的（user_id 參數對自己無害）。
     user = create_test_user(**test_user_data)
@@ -211,32 +251,44 @@ def test_create_order_unauthenticated(test_client):
 def test_create_order_owner(
     auth_client,
     create_test_user,
+    create_test_product,
     test_user_data,
 ):
-    # 建立 User。
+    # 建立 User 與商品。
     user = create_test_user(**test_user_data)
+    product = create_test_product(stock=5)
 
-    # 登入者可以建立自己的 Order。
-    response = auth_client(test_user_data).post("/orders")
+    # 登入者可以建立自己的 Order（帶商品與數量）。
+    response = auth_client(test_user_data).post(
+        "/orders",
+        json={"product_id": product.id, "quantity": 2},
+    )
 
     assert response.status_code == 200
 
     response_data = response.json()
 
     assert response_data["user_id"] == user.id
+    assert response_data["product_id"] == product.id
+    assert response_data["quantity"] == 2
 
 
 def test_create_order_writes_outbox_event(
     auth_client,
     create_test_user,
+    create_test_product,
     test_user_data,
     test_db,
 ):
-    # 建立使用者並下訂單。
+    # 建立使用者與商品，並下訂單。
     create_test_user(**test_user_data)
+    product = create_test_product(stock=5)
     client = auth_client(test_user_data)
 
-    response = client.post("/orders")
+    response = client.post(
+        "/orders",
+        json={"product_id": product.id, "quantity": 1},
+    )
 
     assert response.status_code == 200
 
@@ -256,15 +308,20 @@ def test_create_order_writes_outbox_event(
 def test_outbox_dispatcher_publishes_pending_events(
     auth_client,
     create_test_user,
+    create_test_product,
     test_user_data,
     test_db,
     fake_publisher,
 ):
-    # 下訂單（同交易寫入 outbox 事件）。
+    # 建立商品並下訂單（同交易寫入 outbox 事件）。
+    product = create_test_product(stock=5)
     create_test_user(**test_user_data)
     client = auth_client(test_user_data)
 
-    response = client.post("/orders")
+    response = client.post(
+        "/orders",
+        json={"product_id": product.id, "quantity": 1},
+    )
 
     assert response.status_code == 200
 
@@ -296,15 +353,20 @@ def test_outbox_dispatcher_publishes_pending_events(
 def test_dispatcher_skips_events_within_visibility_timeout(
     auth_client,
     create_test_user,
+    create_test_product,
     test_user_data,
     test_db,
     fake_publisher,
 ):
-    # 下訂單（outbox 事件）→ 手動標記 dispatched + 未來的可見時間。
+    # 建立商品並下訂單（outbox 事件）→ 手動標記 dispatched + 未來的可見時間。
+    product = create_test_product(stock=5)
     create_test_user(**test_user_data)
     client = auth_client(test_user_data)
 
-    response = client.post("/orders")
+    response = client.post(
+        "/orders",
+        json={"product_id": product.id, "quantity": 1},
+    )
 
     assert response.status_code == 200
 

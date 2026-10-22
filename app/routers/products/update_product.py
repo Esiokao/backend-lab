@@ -29,7 +29,10 @@ def update_product(
         )
 
     old_stock = product.stock
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(
+        exclude_unset=True,
+        exclude_none=True,
+    )
 
     for field, value in update_data.items():
         setattr(product, field, value)

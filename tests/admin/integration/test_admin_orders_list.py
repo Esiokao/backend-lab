@@ -3,8 +3,6 @@
 
 import pytest
 
-from app.models import Order
-
 
 def test_admin_can_list_orders(
     auth_client,
@@ -67,18 +65,15 @@ def test_admin_can_filter_orders_by_status(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
     # 建立管理員與訂單擁有者。
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
     # 建立兩筆不同狀態的訂單。
-    test_db.add_all(
-        [
-            Order(user_id=owner.id, status="pending"),
-            Order(user_id=owner.id, status="processing"),
-        ]
-    )
+    create_test_order(owner.id, status="pending")
+    create_test_order(owner.id, status="processing")
     test_db.commit()
 
     # 管理員透過 Session 登入。
@@ -104,6 +99,7 @@ def test_admin_can_filter_orders_by_user_id(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
     # 建立管理員與兩位一般使用者。
     create_test_user(**test_admin_user_data)
@@ -117,12 +113,8 @@ def test_admin_can_filter_orders_by_user_id(
     owner_b = create_test_user(**user_b_data)
 
     # 每位使用者各建立一筆訂單。
-    test_db.add_all(
-        [
-            Order(user_id=owner_a.id, status="pending"),
-            Order(user_id=owner_b.id, status="pending"),
-        ]
-    )
+    create_test_order(owner_a.id, status="pending")
+    create_test_order(owner_b.id, status="pending")
     test_db.commit()
 
     # 管理員透過 Session 登入。
@@ -148,13 +140,15 @@ def test_admin_can_paginate_orders(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
     # 建立管理員與訂單擁有者。
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
     # 建立五筆訂單。
-    test_db.add_all([Order(user_id=owner.id, status="pending") for _ in range(5)])
+    for _ in range(5):
+        create_test_order(owner.id, status="pending")
     test_db.commit()
 
     # 管理員透過 Session 登入。
@@ -206,15 +200,15 @@ def test_admin_gets_empty_items_for_page_beyond_last(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     # 建立管理員與訂單擁有者。
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
     # 建立三筆訂單。
-    test_db.add_all([Order(user_id=owner.id, status="pending") for _ in range(3)])
+    for _ in range(3):
+        create_test_order(owner.id, status="pending")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -240,14 +234,14 @@ def test_admin_orders_are_sorted_by_id(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
     # 建立三筆訂單。
-    test_db.add_all([Order(user_id=owner.id, status="pending") for _ in range(3)])
+    for _ in range(3):
+        create_test_order(owner.id, status="pending")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -265,13 +259,13 @@ def test_admin_order_pages_have_no_duplicate_ids(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
-    test_db.add_all([Order(user_id=owner.id, status="pending") for _ in range(4)])
+    for _ in range(4):
+        create_test_order(owner.id, status="pending")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -324,16 +318,12 @@ def test_admin_can_cancel_pending_order(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
-    order = Order(user_id=owner.id, status="pending")
-    test_db.add(order)
-    test_db.commit()
-    test_db.refresh(order)
+    order = create_test_order(owner.id, status="pending")
 
     client = session_auth_client(test_admin_user_data)
 
@@ -352,16 +342,12 @@ def test_admin_can_complete_processing_order(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
-    order = Order(user_id=owner.id, status="processing")
-    test_db.add(order)
-    test_db.commit()
-    test_db.refresh(order)
+    order = create_test_order(owner.id, status="processing")
 
     client = session_auth_client(test_admin_user_data)
 
@@ -380,16 +366,12 @@ def test_admin_cannot_change_completed_order_status(
     test_admin_user_data,
     test_user_data,
     test_db,
+    create_test_order,
 ):
-    from app.models import Order
-
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
-    order = Order(user_id=owner.id, status="completed")
-    test_db.add(order)
-    test_db.commit()
-    test_db.refresh(order)
+    order = create_test_order(owner.id, status="completed")
 
     client = session_auth_client(test_admin_user_data)
 

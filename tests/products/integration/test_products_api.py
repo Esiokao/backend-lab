@@ -498,3 +498,36 @@ def test_admin_cannot_delete_product_referenced_by_order(
     assert response.json()["detail"] == ("Product is referenced by existing orders")
     test_db.expire_all()
     assert test_db.get(Product, product.id) is not None
+
+
+def test_admin_update_product_ignores_null_fields(
+    test_db,
+    create_test_user,
+    test_user_data,
+    session_auth_client,
+):
+    admin_data = {**test_user_data, "role": "admin"}
+    create_test_user(**admin_data)
+
+    product = Product(
+        name="Coffee Beans",
+        price=Decimal("19.99"),
+        stock=10,
+    )
+    test_db.add(product)
+    test_db.flush()
+
+    auth_client = session_auth_client(admin_data)
+
+    response = auth_client.patch(
+        f"/products/{product.id}",
+        json={"price": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["price"] == "19.99"
+
+    test_db.refresh(product)
+
+    # null 不應該覆蓋原本的價格。
+    assert product.price == Decimal("19.99")

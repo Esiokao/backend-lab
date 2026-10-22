@@ -74,9 +74,15 @@ class Order(Base):
         nullable=False,
     )
 
-    product_id: Mapped[int | None] = mapped_column(
+    product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id"),
-        nullable=True,
+        nullable=False,
+    )
+
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
     )
 
 
