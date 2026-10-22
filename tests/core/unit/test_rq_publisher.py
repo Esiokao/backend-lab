@@ -1,4 +1,4 @@
-# tests/orders/unit/test_rq_publisher.py
+# tests/core/unit/test_rq_publisher.py
 
 import importlib
 from unittest.mock import Mock

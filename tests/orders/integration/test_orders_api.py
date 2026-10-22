@@ -1,41 +1,31 @@
 # tests/orders/integration/test_orders_api.py
 
-import pytest
-from rq.exceptions import NoSuchJobError
-from rq.job import Job
-from rq.registry import FinishedJobRegistry, StartedJobRegistry
+from datetime import datetime, timedelta, timezone
 
-from app.core.queue import get_task_publisher
-from app.core.rq_publisher import TASK_REGISTRY, default_queue
-from app.main import app
+import pytest
+from sqlalchemy import select
+
+from app.core.events import ORDER_CREATED
+from app.core.outbox_dispatcher import dispatch_once
+from app.models import NotificationOutbox
+
+
+class FakePublisher:
+    """記錄 enqueue 呼叫的假 publisher。"""
+
+    def __init__(self):
+        self.calls = []
+
+    def enqueue(self, task_name, payload):
+        self.calls.append((task_name, payload))
+
+        return "fake-job-id"
 
 
 @pytest.fixture
-def fake_publisher(monkeypatch):
-    """用 fake 取代真 publisher（跟 override_get_db 同一招）。
-
-    monkeypatch.setitem 會自動還原：測試結束時，
-    若之前已有別的 override 會被裝回去，本來沒有則移除。
-    """
-
-    class FakePublisher:
-        def __init__(self):
-            self.calls = []
-
-        def enqueue(self, task_name, payload):
-            self.calls.append((task_name, payload))
-
-            return "fake-job-id"
-
-    fake = FakePublisher()
-
-    monkeypatch.setitem(
-        app.dependency_overrides,
-        get_task_publisher,
-        lambda: fake,
-    )
-
-    yield fake
+def fake_publisher():
+    """假 publisher：直接以參數傳給 dispatch_once（依賴在簽名裡，免 monkeypatch）。"""
+    return FakePublisher()
 
 
 def test_get_orders_unauthenticated(test_client):
@@ -236,69 +226,101 @@ def test_create_order_owner(
     assert response_data["user_id"] == user.id
 
 
-def test_create_order_enqueues_notification(
+def test_create_order_writes_outbox_event(
     auth_client,
     create_test_user,
     test_user_data,
+    test_db,
+):
+    # 建立使用者並下訂單。
+    create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
+
+    response = client.post("/orders")
+
+    assert response.status_code == 200
+
+    order_id = response.json()["id"]
+
+    # 訂單與 outbox 事件在同一個交易寫入：
+    # 事件應已存在、待處理，且 payload 帶著訂單 ID。
+    event = test_db.scalar(
+        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+    )
+
+    assert event is not None
+    assert event.payload == {"order_id": order_id}
+    assert event.status == "pending"
+
+
+def test_outbox_dispatcher_publishes_pending_events(
+    auth_client,
+    create_test_user,
+    test_user_data,
+    test_db,
     fake_publisher,
 ):
-    # 建立 User。
+    # 下訂單（同交易寫入 outbox 事件）。
     create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
 
-    # 登入者建立 Order。
-    response = auth_client(test_user_data).post("/orders")
+    response = client.post("/orders")
 
     assert response.status_code == 200
 
     order_id = response.json()["id"]
 
-    # 路由應該用正確的任務名稱與 payload 發布背景任務。
-    assert fake_publisher.calls == [
-        ("notifications.order_created", {"order_id": order_id}),
-    ]
+    # dispatcher 跑一輪：挑選 pending 事件 → 富化 payload → 標記 dispatched。
+    dispatched = dispatch_once(test_db, publisher=fake_publisher)
+
+    assert dispatched == 1
+
+    assert len(fake_publisher.calls) == 1
+
+    task_name, payload = fake_publisher.calls[0]
+
+    assert task_name == ORDER_CREATED
+    assert payload["order_id"] == order_id
+    assert isinstance(payload["outbox_event_id"], int)
+
+    # 事件應被標記為 dispatched（已交給佇列，不代表通知已完成）。
+    event = test_db.scalar(
+        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+    )
+
+    assert event is not None
+    assert event.status == "dispatched"
+    assert event.attempts == 1
 
 
-def test_create_order_publishes_to_rq_queue(
+def test_dispatcher_skips_events_within_visibility_timeout(
     auth_client,
     create_test_user,
     test_user_data,
+    test_db,
+    fake_publisher,
 ):
-    # 不替換 publisher，驗證真的有 job 進 RQ 佇列。
-    # 需要 Redis 可連線（clear_rate_limit autouse fixture 已保證）。
+    # 下訂單（outbox 事件）→ 手動標記 dispatched + 未來的可見時間。
     create_test_user(**test_user_data)
+    client = auth_client(test_user_data)
 
-    response = auth_client(test_user_data).post("/orders")
+    response = client.post("/orders")
 
     assert response.status_code == 200
 
-    order_id = response.json()["id"]
+    event = test_db.scalar(
+        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+    )
 
-    # 本機可能正在跑 worker，job 會在斷言前被領走甚至執行完畢，
-    # 所以不能只看佇列長度：把「排隊中、執行中、已完成」
-    # 三個生命週期都掃過，找符合的 job，與 worker 速度無關。
-    candidate_ids = list(default_queue.job_ids)
+    event.status = "dispatched"
+    event.available_at = datetime.now(timezone.utc) + timedelta(seconds=60)
+    test_db.commit()
 
-    for registry in (
-        StartedJobRegistry(queue=default_queue),
-        FinishedJobRegistry(queue=default_queue),
-    ):
-        candidate_ids.extend(registry.get_job_ids())
+    # 還在 visibility timeout 內的事件不應重複發佈。
+    dispatched = dispatch_once(test_db, publisher=fake_publisher)
 
-    matching = []
-
-    for job_id in candidate_ids:
-        try:
-            job = Job.fetch(job_id, connection=default_queue.connection)
-        except NoSuchJobError:
-            # job 已過期被清掉，跳過。
-            continue
-
-        if job.func_name == TASK_REGISTRY[
-            "notifications.order_created"
-        ] and job.kwargs == {"payload": {"order_id": order_id}}:
-            matching.append(job_id)
-
-    assert matching, f"no RQ job found for order_id={order_id}"
+    assert dispatched == 0
+    assert fake_publisher.calls == []
 
 
 def test_get_other_user_orders(

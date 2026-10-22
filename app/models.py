@@ -1,11 +1,11 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     func,
@@ -186,4 +186,31 @@ class NotificationOutbox(Base):
             "status",
             "available_at",
         ),
+    )
+
+
+class NotificationBroadcast(Base):
+    __tablename__ = "notification_broadcasts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    body: Mapped[str] = mapped_column(
+        String(2000),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )

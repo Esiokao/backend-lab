@@ -6,6 +6,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.queue import get_task_publisher
+from app.core.task_publisher import TaskPublisher
 from app.database import SessionLocal
 from app.models import NotificationOutbox
 
@@ -18,8 +19,7 @@ MAX_RETRY_DELAY_SECONDS = 300
 
 
 def dispatch_once(
-    session: Session,
-    batch_size: int = BATCH_SIZE,
+    session: Session, batch_size: int = BATCH_SIZE, *, publisher: TaskPublisher
 ) -> int:
     """批次發布待處理事件，回傳本輪嘗試處理的事件數。"""
     now = datetime.now(timezone.utc)
@@ -48,8 +48,6 @@ def dispatch_once(
     events = session.execute(stmt).scalars().all()
     if not events:
         return 0
-
-    publisher = get_task_publisher()
 
     for event in events:
         # 使用獨立 payload，避免修改 ORM 物件中的 JSON。
@@ -90,10 +88,11 @@ def dispatch_once(
 
 def run_dispatcher() -> None:
     """持續輪詢 Outbox；短暫失敗不會終止整個 Dispatcher。"""
+    publisher = get_task_publisher()
     while True:
         try:
             with SessionLocal() as session:
-                dispatch_once(session)
+                dispatch_once(session, publisher=publisher)
         except Exception:
             logger.exception("Outbox dispatcher iteration failed")
 

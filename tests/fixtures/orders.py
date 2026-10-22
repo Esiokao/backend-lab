@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.models import Order
 from app.core.events import ORDER_CREATED
+from app.models import Order
 
 
 @pytest.fixture

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.events import ORDER_CREATED
 from app.database import SessionLocal
 from app.models import Notification, NotificationOutbox, Order
+from app.schemas.Notification import AdminNotificationJobPayload
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +84,39 @@ def notify_order_created(
         "Order notification processed: outbox_event_id=%s",
         outbox_event_id,
     )
+
+
+# ADMIN CAN CREATE NOTIFICATIONS
+def notify_admin_notification(
+    payload: AdminNotificationJobPayload,
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    job = AdminNotificationJobPayload.model_validate(payload)
+
+    with session_factory() as session, session.begin():
+        event = session.execute(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.id == job.outbox_event_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if event is None:
+            raise LookupError(f"Outbox event not found: {job.outbox_event_id}")
+
+        if event.status == "processed" or event.processed_at is not None:
+            return
+
+        notification = Notification(
+            user_id=job.user_id,
+            type=job.type,
+            title=job.title,
+            body=job.body,
+            data={},
+            source_event_id=event.id,
+        )
+        session.add(notification)
+
+        event.status = "processed"
+        event.processed_at = datetime.now(timezone.utc)
+        event.last_error = None

@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import func, select
 
+from app.core.events import ADMIN_NOTIFICATION_CREATED
 from app.models import Notification
-from app.workers.notifications import notify_order_created
+from app.workers.notifications import notify_admin_notification, notify_order_created
 
 
 def test_worker_creates_notification(
@@ -109,6 +110,15 @@ def test_worker_rejects_unsupported_event_type(
     assert event.status == "pending"
 
 
+def test_worker_rejects_non_integer_outbox_event_id(worker_session_factory):
+    # payload 的 outbox_event_id 必須是整數。
+    with pytest.raises(TypeError, match="outbox_event_id"):
+        notify_order_created(
+            {"outbox_event_id": "42"},
+            session_factory=worker_session_factory,
+        )
+
+
 def test_worker_raises_error_when_order_not_found(
     test_db,
     create_test_outbox_event,
@@ -138,3 +148,46 @@ def test_worker_raises_error_when_order_not_found(
         .where(Notification.source_event_id == event.id)
     )
     assert notification_count == 0
+
+
+def test_admin_worker_creates_notification(
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    user = create_test_user(**test_user_data)
+
+    event = create_test_outbox_event(
+        event_type=ADMIN_NOTIFICATION_CREATED,
+        payload={
+            "user_id": user.id,
+            "type": "admin_announcement",
+            "title": "系統公告",
+            "body": "今晚維護。",
+        },
+    )
+
+    notify_admin_notification(
+        {
+            "outbox_event_id": event.id,
+            "user_id": user.id,
+            "type": "admin_announcement",
+            "title": "系統公告",
+            "body": "今晚維護。",
+        },
+        session_factory=worker_session_factory,
+    )
+
+    notification = test_db.execute(
+        select(Notification).where(Notification.source_event_id == event.id)
+    ).scalar_one()
+
+    assert notification.user_id == user.id
+    assert notification.type == "admin_announcement"
+    assert notification.title == "系統公告"
+    assert notification.body == "今晚維護。"
+
+    test_db.refresh(event)
+    assert event.status == "processed"

@@ -335,10 +335,39 @@ def test_unread_notification_count_returns_zero_when_all_are_read(
     assert response.json() == {"unread_count": 0}
 
 
-def test_unread_notification_count_requires_authentication(client):
+def test_unread_notification_count_requires_authentication(test_client):
     # Act：未登入，直接查詢未讀通知數量。
-    response = client.get("/notifications/unread-count")
+    response = test_client.get("/notifications/unread-count")
 
     # Assert：未登入的請求應被拒絕。
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
+
+
+def test_mark_all_notification_as_read(
+    test_db,
+    create_test_user,
+    test_user_data,
+    session_auth_client,
+    create_test_notification,
+):
+    # Arrange: 建立使用者與尚未讀取的通知。
+    user = create_test_user(**test_user_data)
+    notification = create_test_notification(
+        user_id=user.id,
+        title="Unread notification",
+    )
+    auth_client = session_auth_client(test_user_data)
+
+    # Act: 將通知標記為已讀。
+    response = auth_client.patch(f"/notifications/{notification.id}/read")
+
+    # Assert: API 成功回傳通知 ID 與已讀時間。
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == notification.id
+    assert body["read_at"] is not None
+
+    # 確認資料庫中的已讀狀態也已更新。
+    test_db.refresh(notification)
+    assert notification.read_at is not None
