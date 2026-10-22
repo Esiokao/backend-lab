@@ -59,6 +59,13 @@ class Order(Base):
     # Store the ID of the user who owns this order.
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
+    # 訂單建立時間：排序、顯示與分析都用得到。
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
     # Index the user_id column for faster lookups.
     __table_args__ = (Index("idx_orders_user_id", "user_id"),)
 

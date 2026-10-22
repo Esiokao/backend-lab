@@ -9,7 +9,7 @@ from app.core.dependencies import get_current_user, require_admin
 from app.core.events import ORDER_CREATED
 from app.database import get_db
 from app.models import NotificationOutbox, Order, Product, User
-from app.schemas.Order import OrderCreate
+from app.schemas.Order import OrderCreate, OrderResponse
 
 router = APIRouter(
     tags=["Orders"],
@@ -17,7 +17,10 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-@router.post("/orders")
+@router.post(
+    "/orders",
+    response_model=OrderResponse,
+)
 def create_order(
     payload: OrderCreate,
     current_user: User = Depends(get_current_user),
@@ -71,7 +74,7 @@ def create_order(
     return new_order
 
 
-@router.get("/orders")
+@router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
@@ -97,7 +100,10 @@ def get_orders(
     return result.scalars().all()
 
 
-@router.get("/orders/{order_id}")
+@router.get(
+    "/orders/{order_id}",
+    response_model=OrderResponse,
+)
 def get_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
@@ -117,7 +123,10 @@ def get_order(
     return order
 
 
-@router.get("/users/{user_id}/orders")
+@router.get(
+    "/users/{user_id}/orders",
+    response_model=list[OrderResponse],
+)
 def get_user_orders(
     user_id: int,
     current_user: User = Depends(get_current_user),
