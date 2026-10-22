@@ -27,7 +27,7 @@ jobs:
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
 
       # 所有 ssh / scp 共用的連線選項；使用時不加引號，讓它拆成多個參數。
-      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o StrictHostKeyChecking=no"
+      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o StrictHostKeyChecking=no -o KexAlgorithms=curve25519-sha256"
 
     steps:
       # Checkout 本次 CI 對應的 commit。

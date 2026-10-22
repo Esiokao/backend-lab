@@ -259,6 +259,12 @@ class Product(Base):
         nullable=True,
     )
 
+    # v1：只存外部圖片的 URL（不上傳）。上傳功能另開（本地磁碟或 MinIO）。
+    image_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     price: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
