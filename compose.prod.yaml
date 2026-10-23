@@ -61,6 +61,60 @@ services:
       db-roles:
         condition: service_completed_successfully
 
+    # =========================
+  # Outbox Dispatcher
+  # =========================
+  dispatcher:
+    image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
+    restart: unless-stopped
+
+    # 將 PostgreSQL Outbox 事件發布到 Redis/RQ。
+    command: ["python", "-m", "app.core.outbox_dispatcher"]
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+    # Dispatcher 沒有 HTTP health endpoint。
+    healthcheck:
+      disable: true
+
+  # =========================
+  # Notifications Worker
+  # =========================
+  notifications-worker:
+    image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
+    restart: unless-stopped
+
+    # 消費 notifications queue 並執行通知任務。
+    command: ["rq", "worker", "notifications"]
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+    # Worker 沒有 HTTP health endpoint。
+    healthcheck:
+      disable: true
+
   api:
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped

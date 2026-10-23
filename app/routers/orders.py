@@ -140,17 +140,15 @@ def pay_order(
             detail=f"Order cannot be paid in its current status: {order.status}",
         )
 
-    # 模擬付款成功，更新訂單狀態與付款時間。
-    order.status = OrderStatus.pending.value
-    order.paid_at = func.now()
-    session.commit()
-    session.refresh(order)
-
     # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。Session commit 後才會有 order.id，避免事件 payload 內的 order_id 為 None。
     event = NotificationOutbox(
         event_type=ORDER_PAID,
         payload={"order_id": order.id},
     )
+
+    # 模擬付款成功，更新訂單狀態與付款時間。
+    order.status = OrderStatus.pending.value
+    order.paid_at = func.now()
     session.add(event)
     session.commit()
     session.refresh(order)
