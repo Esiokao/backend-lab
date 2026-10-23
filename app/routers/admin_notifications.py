@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 # 定向通知
-@router.post("/", status_code=status.HTTP_202_ACCEPTED)
+@router.post("", status_code=status.HTTP_202_ACCEPTED)
 def create_admin_notification(
     payload: AdminNotificationCreate,
     db: Session = Depends(get_db),

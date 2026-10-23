@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Product, User
 from app.schemas.Product import ProductResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/products")
 
 
 @router.patch(

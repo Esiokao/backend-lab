@@ -6,11 +6,11 @@ from app.database import get_db
 from app.models import Product, User
 from app.schemas.Product import ProductCreate, ProductResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/products")
 
 
 @router.post(
-    "/",
+    "",
     response_model=ProductResponse,
     status_code=status.HTTP_201_CREATED,
 )

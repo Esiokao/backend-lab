@@ -6,7 +6,7 @@ from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models import Notification, User
 
-router = APIRouter()
+router = APIRouter(prefix="/notifications")
 
 
 @router.get("/unread-count")

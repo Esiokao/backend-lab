@@ -14,7 +14,7 @@ from app.schemas.Notification import (
     NotificationResponse,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/notifications")
 
 
 def encode_cursor(notification: Notification) -> str:
@@ -58,7 +58,7 @@ def decode_cursor(cursor: str) -> tuple[datetime, int]:
         ) from exc
 
 
-@router.get("/", response_model=NotificationListResponse)
+@router.get("", response_model=NotificationListResponse)
 def list_notifications(
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None),

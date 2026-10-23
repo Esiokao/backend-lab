@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 def list_orders(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),

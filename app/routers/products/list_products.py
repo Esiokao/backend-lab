@@ -6,10 +6,10 @@ from app.database import get_db
 from app.models import Product
 from app.schemas.Product import ProductResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/products")
 
 
-@router.get("/", response_model=list[ProductResponse])
+@router.get("", response_model=list[ProductResponse])
 def list_products(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
