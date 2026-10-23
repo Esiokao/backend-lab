@@ -234,6 +234,19 @@ td.muted { color: #6d707a; }
 .row-action.row-delete:hover { border-color: #4a2c31; color: #f1a8b0; background: #1d1416; }
 .row-edit-field { height: 30px; width: 100%; min-width: 150px; padding: 0 9px; border: 1px solid #292b33; border-radius: 6px; outline: 0; color: #d4d5da; background: #0d0e12; font-size: 11px; }
 .row-edit-field:focus { border-color: #684bb3; }
+.storefront-admin-actions { display: flex; align-items: center; gap: 10px; }
+.product-admin-row { display: flex; align-items: center; gap: 6px; padding: 0 16px 14px; }
+.product-edit { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
+.product-edit-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.product-create-panel { margin-bottom: 20px; padding: 18px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #24262d; border-radius: 12px; background: #101115; }
+.product-create-panel h2 { margin: 0; color: #e9e9ec; font-size: 14px; }
+.product-create-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.archived-panel { margin-top: 26px; }
+.archived-panel td strong { color: #d4d5da; font-weight: 500; }
+.order-create-panel { margin-bottom: 16px; padding: 14px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid #24262d; border-radius: 11px; background: #101115; }
+.order-create-select { min-width: 240px; flex: 1; max-width: 420px; }
+.order-create-qty { width: 90px; min-width: 90px; }
+.order-create-hint { margin: 0; flex-basis: 100%; color: #6d707a; font-size: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
