@@ -9,7 +9,7 @@ import { useToast } from "@/stores/toast";
 
 // 公開店面（v1.4）：訪客可瀏覽 GET /products；未登入按關注 → /login?redirect=（F12-7）。
 // PR-3：admin 管理控件併入本頁（F12-1）— 新增/編輯/刪除/archive + 下架清單 restore。
-// Unfollow UI 暫不做：後端尚無「查詢我是否已關注」端點，顯示狀態會是假的（記帳）。
+// Follow 星星為 session 內樂觀 UI：後端尚無「查詢我是否已關注」端點（記帳），重整不保留。
 
 type Product = {
   id: number;
@@ -52,6 +52,33 @@ const brokenImages = ref<Record<number, boolean>>({});
 
 function markImageBroken(product: Product): void {
   brokenImages.value[product.id] = true;
+}
+
+// Follow 星星 toggle：點亮 = 已關注。後端 POST/DELETE follow 皆冪等。
+const followedIds = ref<Record<number, boolean>>({});
+
+async function toggleFollow(product: Product): Promise<void> {
+  if (!user.value) {
+    // 未登入 → 登入頁帶 redirect，登入後回店面（F12-7）。
+    await router.push({ name: "login", query: { redirect: route.fullPath } });
+    return;
+  }
+
+  const wasFollowed = !!followedIds.value[product.id];
+
+  try {
+    if (wasFollowed) {
+      await api.delete(`/products/${product.id}/follow`);
+      followedIds.value[product.id] = false;
+      showToast(`Unfollowed "${product.name}".`);
+    } else {
+      await api.post(`/products/${product.id}/follow`);
+      followedIds.value[product.id] = true;
+      showToast(`Following "${product.name}" — we'll notify you when it's back in stock.`);
+    }
+  } catch {
+    showToast("Follow failed. Please try again.");
+  }
 }
 
 // ── Admin 管理狀態（F12-1）──
@@ -140,22 +167,6 @@ async function goTo(next: number): Promise<void> {
 
 function formatPrice(price: string | number): string {
   return `$${Number(price).toFixed(2)}`;
-}
-
-async function handleFollow(product: Product): Promise<void> {
-  if (!user.value) {
-    // 未登入 → 登入頁帶 redirect，登入後回店面（F12-7）。
-    await router.push({ name: "login", query: { redirect: route.fullPath } });
-    return;
-  }
-
-  try {
-    // 後端冪等：重複關注不會產生重複資料，仍回 200。
-    await api.post(`/products/${product.id}/follow`);
-    showToast(`Following "${product.name}" — we'll notify you when it's back in stock.`);
-  } catch {
-    showToast("Follow failed. Please try again.");
-  }
 }
 
 async function handleLogout(): Promise<void> {
@@ -463,33 +474,41 @@ onMounted(fetchProducts);
               @error="markImageBroken(product)"
             />
             <span v-else class="product-media-fallback"><Icon name="box" :size="26" /></span>
-          </div>
-          <div class="product-body">
-            <h2>{{ product.name }}</h2>
-            <p v-if="product.description">{{ product.description }}</p>
-          </div>
-          <div class="product-foot">
-            <span class="product-price">{{ formatPrice(product.price) }}</span>
-            <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
-              {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
-            </span>
             <button
               v-if="user"
               type="button"
-              class="follow-button"
-              :aria-label="`Follow ${product.name} for restock alerts`"
-              @click="handleFollow(product)"
+              :class="['follow-star', { active: followedIds[product.id] }]"
+              :aria-label="
+                followedIds[product.id] ? `Unfollow ${product.name}` : `Follow ${product.name}`
+              "
+              :aria-pressed="!!followedIds[product.id]"
+              @click="toggleFollow(product)"
             >
-              <Icon name="shield" :size="13" /> Follow
+              <Icon name="star" :size="15" />
             </button>
-            <router-link
+            <button
               v-else
-              class="follow-button"
+              type="button"
+              class="follow-star"
               :aria-label="`Sign in to follow ${product.name}`"
-              :to="{ name: 'login', query: { redirect: route.fullPath } }"
+              @click="toggleFollow(product)"
             >
-              <Icon name="shield" :size="13" /> Sign in to follow
-            </router-link>
+              <Icon name="star" :size="15" />
+            </button>
+          </div>
+          <div class="product-foot">
+            <span class="product-name" :title="product.name">{{ product.name }}</span>
+            <div class="product-meta">
+              <span v-if="product.description" class="product-desc" :title="product.description">
+                {{ product.description }}
+              </span>
+              <span class="product-price-row">
+                <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
+                  {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
+                </span>
+                <span class="product-price">{{ formatPrice(product.price) }}</span>
+              </span>
+            </div>
           </div>
           <div v-if="isAdmin" class="product-admin-row">
             <button type="button" class="sort-button" @click="startEdit(product)">Edit</button>
