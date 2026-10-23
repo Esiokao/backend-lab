@@ -22,9 +22,12 @@ async function handleSubmit(): Promise<void> {
   try {
     await login(email.value, password.value);
 
-    // 登入成功 → 回到原本想去的頁面（守衛帶進來的 redirect）或儀表板。
+    // 登入成功 → 回到原本想去的頁面（守衛帶進來的 redirect）或店面（F2-1：進入 /）。
     const redirect = route.query.redirect;
-    await router.push(typeof redirect === "string" ? redirect : { name: "dashboard" });
+    // 只接受站內路徑（以 / 開頭），避免 open redirect。
+    const target =
+      typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/";
+    await router.push(target);
   } catch (err) {
     error.value =
       err instanceof Error && err.message.includes("Invalid")
