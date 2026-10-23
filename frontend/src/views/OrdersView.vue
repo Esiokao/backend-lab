@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
-import { useToast } from "@/stores/toast";
 
 // 訂單型別（後端回傳只有 id 與 user_id）。
 type Order = { id: number; user_id: number };
@@ -16,9 +15,6 @@ const sortOrder = ref<"asc" | "desc">("desc");
 const search = ref("");
 const loading = ref(true);
 const loadError = ref("");
-const creating = ref(false);
-
-const toast = useToast();
 
 // 當前頁的客戶端搜尋（比對 id / user_id 字串）。
 const filteredOrders = computed(() => {
@@ -63,20 +59,6 @@ function nextPage(): void {
   if (hasNext.value) page.value += 1;
 }
 
-// 新增訂單：POST 空 JSON，成功後 toast 並插到列表最前面。
-async function createOrder(): Promise<void> {
-  creating.value = true;
-  try {
-    const created = await api.post<Order>("/orders", {});
-    orders.value = [created, ...orders.value];
-    toast.show(`Order #${created.id} created.`);
-  } catch (err) {
-    toast.show(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
-  } finally {
-    creating.value = false;
-  }
-}
-
 // user_id 顯示成 usr_0024 風格的代碼。
 function userCode(userId: number): string {
   return `usr_${String(userId).padStart(4, "0")}`;
@@ -91,11 +73,12 @@ watch([page, sortOrder], loadOrders);
     <div>
       <p class="eyebrow">System workspace</p>
       <h1>Orders</h1>
-      <p>Browse and create orders.</p>
+      <p>Browse your orders.</p>
     </div>
-    <button class="primary-button" :disabled="creating" @click="createOrder">
+    <!-- 後端自 multi-product 起要求 items（repo 為準）；商品選擇器屬 PR-3，先停用。 -->
+    <button class="primary-button" disabled title="Product picker lands in the next release">
       <Icon name="plus" :size="15" />
-      {{ creating ? "Creating..." : "New order" }}
+      New order
     </button>
   </section>
 

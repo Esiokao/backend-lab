@@ -14,13 +14,21 @@ const { message, dismiss } = useToast();
 
 const navItems = [
   { label: "Overview", icon: "grid", to: { name: "dashboard" } },
-  { label: "Users", icon: "users", to: { name: "users" } },
   { label: "Orders", icon: "box", to: { name: "orders" } },
   { label: "API Health", icon: "activity", to: { name: "api-health" }, dot: true },
 ] as const;
 
+// Administration 分區：僅 admin 可見（F10-1）。
+const adminNavItems = [
+  { label: "Order Management", icon: "box", to: { name: "admin-orders" } },
+  { label: "User Management", icon: "users", to: { name: "admin-users" } },
+] as const;
+
+const isAdmin = computed(() => user.value?.role === "admin");
+
 const currentLabel = computed(() => {
-  const match = navItems.find((item) => item.to.name === route.name);
+  const items = isAdmin.value ? [...navItems, ...adminNavItems] : [...navItems];
+  const match = items.find((item) => item.to.name === route.name);
   return match?.label ?? "Overview";
 });
 
@@ -57,6 +65,18 @@ async function handleLogout(): Promise<void> {
             <Icon :name="item.icon" />
             <span>{{ item.label }}</span>
             <span v-if="'dot' in item && item.dot" class="status-dot" />
+          </router-link>
+        </nav>
+        <nav v-if="isAdmin" class="side-nav" aria-label="Administration navigation">
+          <p class="nav-label">Administration</p>
+          <router-link
+            v-for="item in adminNavItems"
+            :key="item.label"
+            :to="item.to"
+            :class="['nav-item', { active: currentLabel === item.label }]"
+          >
+            <Icon :name="item.icon" />
+            <span>{{ item.label }}</span>
           </router-link>
         </nav>
       </div>
@@ -105,6 +125,15 @@ async function handleLogout(): Promise<void> {
           :class="{ active: currentLabel === item.label }"
           >{{ item.label }}</router-link
         >
+        <template v-if="isAdmin">
+          <router-link
+            v-for="item in adminNavItems"
+            :key="item.label"
+            :to="item.to"
+            :class="{ active: currentLabel === item.label }"
+            >{{ item.label }}</router-link
+          >
+        </template>
       </div>
 
       <div class="content-wrap">

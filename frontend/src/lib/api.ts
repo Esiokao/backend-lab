@@ -21,6 +21,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
   });
 
+  if (response.status === 204) return undefined as T;
+
   if (!response.ok) {
     let detail = response.statusText;
 
@@ -46,4 +48,5 @@ export const api = {
     }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

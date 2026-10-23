@@ -19,6 +19,8 @@ const router = createRouter({
     },
     {
       // 登入後應用區（v1.4 自 / 前綴遷入）。
+      // 原 /app/users 已移除：後端 GET /users 為 admin-only（repo 為準），
+      // 使用者管理歸 /admin/users。
       path: "/app",
       component: () => import("@/layouts/ShellLayout.vue"),
       meta: { requiresAuth: true },
@@ -30,7 +32,6 @@ const router = createRouter({
           component: () => import("@/views/DashboardView.vue"),
         },
         { path: "orders", name: "orders", component: () => import("@/views/OrdersView.vue") },
-        { path: "users", name: "users", component: () => import("@/views/UsersView.vue") },
         {
           path: "api-health",
           name: "api-health",
@@ -38,7 +39,26 @@ const router = createRouter({
         },
       ],
     },
-    // 舊路徑（/orders、/users、/api-health）與未知路徑一律回店面（已核可，不保留相容）。
+    {
+      // Admin 管理區（F8/F9/F10）。
+      path: "/admin",
+      component: () => import("@/layouts/ShellLayout.vue"),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        { path: "", redirect: { name: "admin-orders" } },
+        {
+          path: "orders",
+          name: "admin-orders",
+          component: () => import("@/views/AdminOrdersView.vue"),
+        },
+        {
+          path: "users",
+          name: "admin-users",
+          component: () => import("@/views/AdminUsersView.vue"),
+        },
+      ],
+    },
+    // 舊路徑（/orders、/users、/api-health、/app/users）與未知路徑一律回店面。
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
@@ -54,6 +74,11 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAuth && !user.value) {
     return { name: "login", query: { redirect: to.fullPath } };
+  }
+
+  // 角色化守衛（F10-2）：非 admin 直訪 /admin/* → 導回儀表板。
+  if (to.meta.requiresAdmin && user.value?.role !== "admin") {
+    return { name: "dashboard" };
   }
 
   if (to.meta.guestOnly && user.value) {

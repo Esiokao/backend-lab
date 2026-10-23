@@ -215,6 +215,26 @@ td.muted { color: #6d707a; }
   .security-strip { align-items: flex-start; }
 }
 
+/* Admin 管理頁共用 */
+.filter-select { height: 34px; padding: 0 10px; border: 1px solid #292b33; border-radius: 7px; color: #b9bbc3; background: #0d0e12; font-size: 11px; }
+.filter-select:focus { outline: 0; border-color: #684bb3; }
+.table-tools-group { display: flex; align-items: center; gap: 10px; }
+.result-count { color: #5d606a; font-size: 11px; }
+.result-count strong { color: #999ba4; font-weight: 500; }
+.status-badge { padding: 3px 9px; border-radius: 999px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.status-badge.created { color: #9497a1; background: rgba(148, 151, 161, .12); }
+.status-badge.pending { color: #fbbf24; background: rgba(251, 191, 36, .1); }
+.status-badge.processing { color: #67e8f9; background: rgba(34, 211, 238, .1); }
+.status-badge.completed { color: #58d7a2; background: rgba(52, 211, 153, .1); }
+.status-badge.cancelled { color: #f1a8b0; background: rgba(127, 29, 29, .18); }
+.role-badge { padding: 3px 9px; border-radius: 999px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.role-badge.admin { color: #c2b3e8; background: rgba(139, 92, 246, .14); }
+.role-badge.user { color: #81848e; background: rgba(129, 132, 142, .12); }
+.order-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.row-action.row-delete:hover { border-color: #4a2c31; color: #f1a8b0; background: #1d1416; }
+.row-edit-field { height: 30px; width: 100%; min-width: 150px; padding: 0 9px; border: 1px solid #292b33; border-radius: 6px; outline: 0; color: #d4d5da; background: #0d0e12; font-size: 11px; }
+.row-edit-field:focus { border-color: #684bb3; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

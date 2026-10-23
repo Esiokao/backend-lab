@@ -4,7 +4,12 @@ import { api } from "@/lib/api";
 
 // 極簡 auth 狀態（模組級 ref，整個 app 共享）。
 // 之後如果狀態變複雜再考慮 Pinia。
-export type CurrentUser = { id: number; name: string; email: string };
+export type CurrentUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: "user" | "admin";
+};
 
 const user = ref<CurrentUser | null>(null);
 const loaded = ref(false);
