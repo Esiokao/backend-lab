@@ -185,7 +185,7 @@ onMounted(fetchProducts);
     </section>
 
     <nav
-      v-if="!loading && products.length > 0"
+      v-if="!loading && (products.length > 0 || page > 1)"
       class="storefront-pagination"
       aria-label="Catalog pagination"
     >

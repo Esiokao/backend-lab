@@ -24,9 +24,11 @@ async function handleSubmit(): Promise<void> {
 
     // 登入成功 → 回到原本想去的頁面（守衛帶進來的 redirect）或店面（F2-1：進入 /）。
     const redirect = route.query.redirect;
-    // 只接受站內路徑（以 / 開頭），避免 open redirect。
+    // 只接受站內路徑（以單一 / 開頭，排除 // 協議相對路徑），避免 open redirect。
     const target =
-      typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/";
+      typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//")
+        ? redirect
+        : "/";
     await router.push(target);
   } catch (err) {
     error.value =
