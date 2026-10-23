@@ -57,12 +57,16 @@ function cancelEdit(): void {
 }
 
 async function saveEdit(target: UserRow): Promise<void> {
+  // 編輯自己時不送 role 欄位：後端會回 400（不能改自己的 role）。
+  const isSelf = currentUser.value?.id === target.id;
+  const payload: { name: string; email: string; role?: "user" | "admin" } = {
+    name: editForm.value.name,
+    email: editForm.value.email,
+  };
+  if (!isSelf) payload.role = editForm.value.role;
+
   try {
-    const updated = await api.patch<UserRow>(`/admin/users/${target.id}`, {
-      name: editForm.value.name,
-      email: editForm.value.email,
-      role: editForm.value.role,
-    });
+    const updated = await api.patch<UserRow>(`/admin/users/${target.id}`, payload);
 
     const index = users.value.findIndex((user) => user.id === target.id);
     if (index !== -1) users.value[index] = updated;
