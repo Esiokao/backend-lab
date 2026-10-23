@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.events import ORDER_CREATED
+from app.core.enums import NotificationType
+from app.core.events import EventType
 from app.database import SessionLocal
 from app.models import Notification, NotificationOutbox, Order, Product, ProductFollow
 from app.schemas.Notification import AdminNotificationJobPayload
@@ -38,7 +39,7 @@ def notify_order_created(
         if event is None:
             raise LookupError(f"Outbox event not found: {outbox_event_id}")
 
-        if event.event_type != ORDER_CREATED:
+        if event.event_type != EventType.order_created:
             raise ValueError(f"Unsupported outbox event type: {event.event_type}")
 
         # 已完成的事件不再重複建立通知。
@@ -68,7 +69,7 @@ def notify_order_created(
         if notification is None:
             notification = Notification(
                 user_id=order.user_id,
-                type="order_created",
+                type=NotificationType.order_created.value,
                 title="訂單已建立",
                 body=f"訂單 #{order.id} 已成功建立。",
                 data={"order_id": order.id},
@@ -128,18 +129,18 @@ def notify_product_restocked(
     *,
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
-    _payload = ProductRestockJobPayload.model_validate(payload)
-    outbox_event_id = _payload.outbox_event_id
+    job = ProductRestockJobPayload.model_validate(payload)
 
     with session_factory() as session, session.begin():
+        # 鎖定事件，避免多個 Worker 同時處理同一筆事件。
         event = session.execute(
             select(NotificationOutbox)
-            .where(NotificationOutbox.id == outbox_event_id)
+            .where(NotificationOutbox.id == job.outbox_event_id)
             .with_for_update()
         ).scalar_one_or_none()
 
         if event is None:
-            raise LookupError(f"Outbox event not found: {outbox_event_id}")
+            raise LookupError(f"Outbox event not found: {job.outbox_event_id}")
 
         if event.status == "processed" or event.processed_at is not None:
             return
@@ -164,7 +165,7 @@ def notify_product_restocked(
             session.add(
                 Notification(
                     user_id=user_id,
-                    type="product_restocked",
+                    type=NotificationType.product_restocked.value,
                     title="商品補貨了",
                     body=f"{product.name} 已補貨",
                     data={"product_id": product_id},
@@ -199,7 +200,7 @@ def notify_order_paid(
         if event is None:
             raise LookupError(f"Outbox event not found: {outbox_event_id}")
 
-        if event.event_type != "notifications.order_paid":
+        if event.event_type != EventType.order_paid:
             raise ValueError(f"Unsupported outbox event type: {event.event_type}")
 
         # 已完成的事件不再重複建立通知。

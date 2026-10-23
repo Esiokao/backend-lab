@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.events import ORDER_CREATED
+from app.core.events import EventType
 from app.models import Order, OrderItem
 
 
@@ -52,7 +52,7 @@ def create_test_outbox_event(test_db):
 
     def _create_event(
         *,
-        event_type=ORDER_CREATED,
+        event_type=EventType.order_created,
         payload,
     ):
         from app.models import NotificationOutbox

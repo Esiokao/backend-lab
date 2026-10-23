@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
-from app.core.events import ADMIN_NOTIFICATION_CREATED, PRODUCT_RESTOCKED
+from app.core.events import EventType
 from app.models import Notification, Product, ProductFollow
 from app.workers.notifications import (
     notify_admin_notification,
@@ -166,7 +166,7 @@ def test_admin_worker_creates_notification(
     user = create_test_user(**test_user_data)
 
     event = create_test_outbox_event(
-        event_type=ADMIN_NOTIFICATION_CREATED,
+        event_type=EventType.admin_notification_created,
         payload={
             "user_id": user.id,
             "type": "admin_announcement",
@@ -238,7 +238,7 @@ def test_restock_worker_notifies_all_followers(
     )
 
     event = create_test_outbox_event(
-        event_type=PRODUCT_RESTOCKED,
+        event_type=EventType.product_restocked,
         payload={"product_id": product.id},
     )
 

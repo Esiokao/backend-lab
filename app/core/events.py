@@ -1,7 +1,12 @@
-"""集中管理系統使用的事件類型。"""
+"""訂單與通知的事件類型：outbox 路由的唯一真相來源。"""
 
-# 訂單事件
-ORDER_CREATED = "notifications.order_created"
-ADMIN_NOTIFICATION_CREATED = "notifications.admin_created"
-PRODUCT_RESTOCKED = "notifications.product_restocked"
-ORDER_PAID = "notifications.order_paid"
+from enum import Enum
+
+
+class EventType(str, Enum):
+    """Outbox 的事件類型（TASK_REGISTRY 的 key、worker 的路由依據）。"""
+
+    order_created = "notifications.order_created"  # 訂單建立
+    admin_notification_created = "notifications.admin_created"  # admin 發送的通知
+    product_restocked = "notifications.product_restocked"  # 商品補貨
+    order_paid = "notifications.order_paid"  # 訂單付款

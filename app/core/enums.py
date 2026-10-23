@@ -13,6 +13,14 @@ class OrderStatus(str, Enum):
     cancelled = "cancelled"  # 已取消（終態）
 
 
+class NotificationType(str, Enum):
+    """站內通知的種類（鈴鐺面板的分類依據）。"""
+
+    admin_announcement = "admin_announcement"  # admin 公告
+    order_created = "order_created"  # 訂單建立通知
+    product_restocked = "product_restocked"  # 到貨通知
+
+
 # 合法的狀態轉移（狀態機）：key = 現狀，value = 允許的下一個狀態。
 ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.created: {OrderStatus.pending, OrderStatus.cancelled},

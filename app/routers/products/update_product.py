@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
-from app.core.events import PRODUCT_RESTOCKED
+from app.core.events import EventType
 from app.database import get_db
 from app.models import NotificationOutbox, Product, User
 from app.schemas.Product import ProductPatch, ProductResponse
@@ -44,7 +44,7 @@ def update_product(
     if old_stock == 0 and new_stock > 0:
         db.add(
             NotificationOutbox(
-                event_type=PRODUCT_RESTOCKED,
+                event_type=EventType.product_restocked,
                 payload={"product_id": product.id},
             )
         )

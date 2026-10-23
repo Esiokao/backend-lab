@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from app.core.events import ORDER_CREATED
+from app.core.events import EventType
 from app.core.outbox_dispatcher import dispatch_once
 from app.models import NotificationOutbox, Product
 
@@ -314,7 +314,9 @@ def test_create_order_writes_outbox_event(
     # 訂單與 outbox 事件在同一個交易寫入：
     # 事件應已存在、待處理，且 payload 帶著訂單 ID。
     event = test_db.scalar(
-        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+        select(NotificationOutbox).where(
+            NotificationOutbox.event_type == EventType.order_created
+        )
     )
 
     assert event is not None
@@ -357,13 +359,15 @@ def test_outbox_dispatcher_publishes_pending_events(
 
     task_name, payload = fake_publisher.calls[0]
 
-    assert task_name == ORDER_CREATED
+    assert task_name == EventType.order_created
     assert payload["order_id"] == order_id
     assert isinstance(payload["outbox_event_id"], int)
 
     # 事件應被標記為 dispatched（已交給佇列，不代表通知已完成）。
     event = test_db.scalar(
-        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+        select(NotificationOutbox).where(
+            NotificationOutbox.event_type == EventType.order_created
+        )
     )
 
     assert event is not None
@@ -396,7 +400,9 @@ def test_dispatcher_skips_events_within_visibility_timeout(
     assert response.status_code == 200
 
     event = test_db.scalar(
-        select(NotificationOutbox).where(NotificationOutbox.event_type == ORDER_CREATED)
+        select(NotificationOutbox).where(
+            NotificationOutbox.event_type == EventType.order_created
+        )
     )
 
     event.status = "dispatched"

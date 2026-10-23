@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user, require_admin
 from app.core.enums import OrderStatus
-from app.core.events import ORDER_CREATED, ORDER_PAID
+from app.core.events import EventType
 from app.database import get_db
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
@@ -104,7 +104,7 @@ def create_order(
         )
 
     outbox_event = NotificationOutbox(
-        event_type=ORDER_CREATED,
+        event_type=EventType.order_created,
         payload={"order_id": new_order.id},
     )
     session.add(outbox_event)
@@ -142,7 +142,7 @@ def pay_order(
 
     # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。Session commit 後才會有 order.id，避免事件 payload 內的 order_id 為 None。
     event = NotificationOutbox(
-        event_type=ORDER_PAID,
+        event_type=EventType.order_paid,
         payload={"order_id": order.id},
     )
 

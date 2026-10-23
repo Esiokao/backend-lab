@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.core.events import PRODUCT_RESTOCKED
+from app.core.events import EventType
 from app.models import Notification, NotificationOutbox, Product, ProductFollow
 from app.workers.notifications import notify_product_restocked
 
@@ -223,7 +223,7 @@ def test_restock_creates_outbox_event(
     event = (
         test_db.query(NotificationOutbox)
         .filter_by(
-            event_type=PRODUCT_RESTOCKED,
+            event_type=EventType.product_restocked,
         )
         .one()
     )
@@ -262,7 +262,7 @@ def test_stock_increase_without_restock_does_not_create_event(
     event_count = (
         test_db.query(NotificationOutbox)
         .filter_by(
-            event_type=PRODUCT_RESTOCKED,
+            event_type=EventType.product_restocked,
         )
         .count()
     )
@@ -309,7 +309,7 @@ def test_restock_worker_notifies_all_followers(
     )
 
     event = create_test_outbox_event(
-        event_type=PRODUCT_RESTOCKED,
+        event_type=EventType.product_restocked,
         payload={"product_id": product.id},
     )
 
