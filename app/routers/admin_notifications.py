@@ -84,7 +84,6 @@ def delete_notification_broadcast(
             detail="Notification broadcast not found",
         )
 
+    # 204 無回應 body，與 DELETE /admin/orders/{id} 慣例一致。
     db.delete(broadcast)
     db.commit()
-
-    return {"detail": "Notification broadcast deleted successfully."}
