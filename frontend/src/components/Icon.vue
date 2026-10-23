@@ -3,6 +3,7 @@
 export type IconName =
   | "activity"
   | "arrow"
+  | "bell"
   | "bolt"
   | "box"
   | "chevron"
@@ -23,6 +24,7 @@ const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), {
 const iconPaths: Record<IconName, string[]> = {
   activity: ["M3 12h4l2.2-6 4.1 12 2.1-6H21"],
   arrow: ["m9 18 6-6-6-6"],
+  bell: ["M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9", "M13.73 21a2 2 0 0 1-3.46 0"],
   bolt: ["m13 2-8 12h7l-1 8 8-12h-7l1-8Z"],
   box: ["m4 7 8-4 8 4-8 4-8-4Z", "m4 7 8 4 8-4M4 7v10l8 4 8-4V7M12 11v10"],
   chevron: ["m8 10 4 4 4-4"],
