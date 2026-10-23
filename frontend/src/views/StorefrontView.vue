@@ -47,6 +47,13 @@ const appliedQuery = ref("");
 // 後端商品列表無 total 欄位：回滿一頁視為還有下一頁。
 const hasMore = computed(() => products.value.length === PAGE_SIZE);
 
+// 圖片載入失敗的 product id：改用預設 icon fallback。
+const brokenImages = ref<Record<number, boolean>>({});
+
+function markImageBroken(product: Product): void {
+  brokenImages.value[product.id] = true;
+}
+
 // ── Admin 管理狀態（F12-1）──
 
 const showCreate = ref(false);
@@ -374,7 +381,18 @@ onMounted(fetchProducts);
       </div>
     </section>
 
-    <p v-if="loading" class="empty-state">Loading products…</p>
+    <section v-if="loading" class="product-grid" aria-hidden="true">
+      <div v-for="n in PAGE_SIZE" :key="n" class="product-card">
+        <div class="product-media"><div class="skeleton-block skeleton-media" /></div>
+        <div class="product-body">
+          <div class="skeleton-block skeleton-line" />
+          <div class="skeleton-block skeleton-line short" />
+        </div>
+        <div class="product-foot">
+          <div class="skeleton-block skeleton-line" style="width: 64px" />
+        </div>
+      </div>
+    </section>
     <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
     <p v-else-if="products.length === 0" class="empty-state">No products found.</p>
 
@@ -438,10 +456,11 @@ onMounted(fetchProducts);
         <template v-else>
           <div class="product-media">
             <img
-              v-if="product.image_url"
+              v-if="product.image_url && !brokenImages[product.id]"
               :src="product.image_url"
               :alt="product.name"
               loading="lazy"
+              @error="markImageBroken(product)"
             />
             <span v-else class="product-media-fallback"><Icon name="box" :size="26" /></span>
           </div>
