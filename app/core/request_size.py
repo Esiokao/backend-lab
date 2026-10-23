@@ -95,8 +95,8 @@ class RequestSizeRoute(APIRoute):
                     # Content-Length 格式錯誤時，不依賴這個 header。
                     pass
 
-            # 新的reciever,
-            # 用來多一層檢查, 但一樣return messsage
+            # 新的receiver,
+            # 用來多一層檢查, 但一樣return message
             async def limited_receive():
                 original_receive = request.receive
                 message = await original_receive()

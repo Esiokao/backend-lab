@@ -1,23 +1,40 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class OrderCreate(BaseModel):
-    # 建立訂單時必須指定商品。
+class OrderItemCreate(BaseModel):
     product_id: int = Field(gt=0)
+    quantity: int = Field(gt=0, le=100)
 
-    # 購買數量必須是正整數。
-    quantity: int = Field(gt=0)
+
+class OrderCreate(BaseModel):
+    # 建立訂單必須指定商品明細；同一商品重複出現會被拒絕（400）。
+    items: list[OrderItemCreate] = Field(min_length=1)
+
+
+class OrderItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    product_id: int
+    quantity: int
+    unit_price: Decimal
 
 
 class OrderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
-    product_id: int
-    quantity: int
     status: str
     created_at: datetime
+    items: list[OrderItemResponse]
+    paid_at: datetime | None
 
-    # 允許 Pydantic 從 SQLAlchemy Order model 讀取欄位。
+
+class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    message: str
+    order: OrderResponse

@@ -51,8 +51,9 @@ def test_create_order_with_product_decreases_stock(
     response = auth_client.post(
         "/orders",
         json={
-            "product_id": product.id,
-            "quantity": 3,
+            "items": [
+                {"product_id": product.id, "quantity": 3},
+            ],
         },
     )
 
@@ -63,8 +64,12 @@ def test_create_order_with_product_decreases_stock(
     # 建立訂單後，庫存應減少購買數量。
     assert product.stock == 7
 
-    assert response.json()["product_id"] == product.id
-    assert response.json()["quantity"] == 3
+    # 回應的明細應帶商品與數量。
+    items = response.json()["items"]
+
+    assert len(items) == 1
+    assert items[0]["product_id"] == product.id
+    assert items[0]["quantity"] == 3
 
 
 def test_get_orders_unauthenticated(test_client):
@@ -261,7 +266,11 @@ def test_create_order_owner(
     # 登入者可以建立自己的 Order（帶商品與數量）。
     response = auth_client(test_user_data).post(
         "/orders",
-        json={"product_id": product.id, "quantity": 2},
+        json={
+            "items": [
+                {"product_id": product.id, "quantity": 2},
+            ],
+        },
     )
 
     assert response.status_code == 200
@@ -269,8 +278,12 @@ def test_create_order_owner(
     response_data = response.json()
 
     assert response_data["user_id"] == user.id
-    assert response_data["product_id"] == product.id
-    assert response_data["quantity"] == 2
+
+    items = response_data["items"]
+
+    assert len(items) == 1
+    assert items[0]["product_id"] == product.id
+    assert items[0]["quantity"] == 2
 
 
 def test_create_order_writes_outbox_event(
@@ -287,7 +300,11 @@ def test_create_order_writes_outbox_event(
 
     response = client.post(
         "/orders",
-        json={"product_id": product.id, "quantity": 1},
+        json={
+            "items": [
+                {"product_id": product.id, "quantity": 1},
+            ],
+        },
     )
 
     assert response.status_code == 200
@@ -320,7 +337,11 @@ def test_outbox_dispatcher_publishes_pending_events(
 
     response = client.post(
         "/orders",
-        json={"product_id": product.id, "quantity": 1},
+        json={
+            "items": [
+                {"product_id": product.id, "quantity": 1},
+            ],
+        },
     )
 
     assert response.status_code == 200
@@ -365,7 +386,11 @@ def test_dispatcher_skips_events_within_visibility_timeout(
 
     response = client.post(
         "/orders",
-        json={"product_id": product.id, "quantity": 1},
+        json={
+            "items": [
+                {"product_id": product.id, "quantity": 1},
+            ],
+        },
     )
 
     assert response.status_code == 200

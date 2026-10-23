@@ -49,25 +49,61 @@ services:
       start_period: 5s
 
   # =========================
-  # RQ Worker
+  # Outbox Dispatcher
   # =========================
-  worker:
+  dispatcher:
     build:
       context: .
       dockerfile: Dockerfile
 
-    # 啟動背景任務處理程序。
-    command: ["rq", "worker", "notifications"]
+    # 持續讀取 notification_outbox，
+    # 將事件發布到 Redis queue。
+    command: ["python", "-m", "app.core.outbox_dispatcher"]
 
     environment:
+      # Dispatcher 需要讀取與更新 notification_outbox。
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
+
+      # 使用 Compose service name 連線 Redis。
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
-    # Worker 不提供 FastAPI 的 /health endpoint。
+    # Dispatcher 沒有 HTTP health endpoint。
+    healthcheck:
+      disable: true
+
+  # =========================
+  # Notifications Worker
+  # =========================
+  notifications-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # 從 notifications queue 取出並執行通知任務。
+    command: ["rq", "worker", "notifications"]
+
+    environment:
+      # Worker 的通知任務需要存取資料庫。
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
+
+      # 使用 Compose service name 連線 Redis。
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    # Worker 沒有 FastAPI 的 /health endpoint。
     healthcheck:
       disable: true
 
@@ -84,12 +120,11 @@ services:
 
     environment:
       # API 容器透過 Compose 網路連線 PostgreSQL。
-      # 帳號與資料庫由環境提供（.env 或 CI 環境變數）。
       DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
 
       JWT_SECRET: ${JWT_SECRET}
 
-      # 使用 Compose 服務名稱連線 Redis。
+      # 使用 Compose service name 連線 Redis。
       REDIS_HOST: redis
       REDIS_PORT: 6379
 

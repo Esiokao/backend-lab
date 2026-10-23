@@ -4,3 +4,4 @@
 ORDER_CREATED = "notifications.order_created"
 ADMIN_NOTIFICATION_CREATED = "notifications.admin_created"
 PRODUCT_RESTOCKED = "notifications.product_restocked"
+ORDER_PAID = "notifications.order_paid"

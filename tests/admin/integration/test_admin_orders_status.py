@@ -3,7 +3,7 @@
 
 import pytest
 
-from app.models import Order, Product
+from app.models import Order, OrderItem, Product
 
 
 def create_order(test_db, owner, order_status):
@@ -15,10 +15,17 @@ def create_order(test_db, owner, order_status):
     order = Order(
         user_id=owner.id,
         status=order_status,
-        product_id=product.id,
-        quantity=1,
     )
     test_db.add(order)
+    test_db.flush()
+
+    item = OrderItem(
+        order_id=order.id,
+        product_id=product.id,
+        quantity=1,
+        unit_price=product.price,
+    )
+    test_db.add(item)
     test_db.commit()
     test_db.refresh(order)
     return order

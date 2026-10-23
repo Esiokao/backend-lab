@@ -1,11 +1,10 @@
-from typing import Literal
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
+from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.database import get_db
 from app.models import Order, User
 from app.schemas.User import AdminUserPatch, UserResponse
@@ -14,17 +13,6 @@ router = APIRouter(
     prefix="/admin/orders",
     tags=["Admin Orders"],
 )
-
-# 定義允許使用的訂單狀態。
-OrderStatus = Literal["pending", "processing", "completed", "cancelled"]
-
-# 定義合法的狀態轉換。
-ALLOWED_TRANSITIONS: dict[str, set[str]] = {
-    "pending": {"processing", "cancelled"},
-    "processing": {"completed", "cancelled"},
-    "completed": set(),
-    "cancelled": set(),
-}
 
 
 @router.get("/")

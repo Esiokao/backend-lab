@@ -175,3 +175,68 @@ def notify_product_restocked(
         event.status = "processed"
         event.processed_at = datetime.now(timezone.utc)
         event.last_error = None
+
+
+def notify_order_paid(
+    payload: dict[str, object],
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    """將訂單付款事件轉成站內通知，並確保重複執行不會重複建檔。"""
+    outbox_event_id = payload.get("outbox_event_id")
+
+    if type(outbox_event_id) is not int:
+        raise TypeError("payload must contain an integer outbox_event_id")
+
+    with session_factory() as session, session.begin():
+        # 鎖定事件，避免多個 Worker 同時處理同一筆事件。
+        event = session.execute(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.id == outbox_event_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if event is None:
+            raise LookupError(f"Outbox event not found: {outbox_event_id}")
+
+        if event.event_type != "notifications.order_paid":
+            raise ValueError(f"Unsupported outbox event type: {event.event_type}")
+
+        # 已完成的事件不再重複建立通知。
+        if event.status == "processed" or event.processed_at is not None:
+            logger.info(
+                "Outbox event already processed: id=%s",
+                event.id,
+            )
+            return
+
+        # 以資料庫中的事件內容為準，不完全信任 RQ 傳入的 payload。
+        order_id = event.payload.get("order_id")
+
+        if type(order_id) is not int:
+            raise ValueError(f"Outbox event {event.id} has an invalid order_id")
+
+        order = session.get(Order, order_id)
+
+        if order is None:
+            raise LookupError(f"Order not found: {order_id}")
+
+        # 先檢查唯一來源事件，提供額外的冪等性保護。
+        notification = session.execute(
+            select(Notification).where(Notification.source_event_id == event.id)
+        ).scalar_one_or_none()
+
+        if notification is None:
+            notification = Notification(
+                user_id=order.user_id,
+                type="order_paid",
+                title="訂單已付款",
+                body=f"訂單 #{order.id} 已成功付款。",
+                data={"order_id": order.id},
+                source_event_id=event.id,
+            )
+            session.add(notification)
+
+        # 通知與事件狀態在同一個 transaction 中提交。
+        event.status = "processed"
+        event.processed_at = datetime.now(timezone.utc)

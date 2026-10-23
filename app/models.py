@@ -21,6 +21,8 @@ from sqlalchemy.orm import (
     relationship,
 )
 
+from app.core.enums import OrderStatus
+
 
 class Base(DeclarativeBase):
     pass
@@ -77,19 +79,72 @@ class Order(Base):
     # Track the current state of the order.
     status: Mapped[str] = mapped_column(
         String(20),
-        default="pending",
+        default=OrderStatus.created.value,
         nullable=False,
+    )
+
+    # 訂單明細：一張訂單 N 個商品（unit_price 為下單當下的價格快照）。
+    items: Mapped[list["OrderItem"]] = relationship(
+        "OrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan",
+    )
+
+    paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class OrderItem(Base):
+    """訂單明細：一張訂單內的單一商品列。
+
+    unit_price 是下單當下的價格快照 ——
+    商品之後改價不影響歷史訂單（歷史正確性）。
+    """
+
+    __tablename__ = "order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"),
     )
 
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id"),
-        nullable=False,
     )
 
     quantity: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=1,
+    )
+
+    unit_price: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("order_id", "product_id", name="uq_order_items_order_product"),
+        Index("idx_order_items_order", "order_id"),
+        Index("idx_order_items_product", "product_id"),
+    )
+
+    order: Mapped["Order"] = relationship(
+        "Order",
+        back_populates="items",
+    )
+
+    product: Mapped["Product"] = relationship(
+        "Product",
     )
 
 

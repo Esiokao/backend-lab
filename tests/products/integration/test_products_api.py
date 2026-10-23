@@ -484,9 +484,7 @@ def test_admin_cannot_delete_product_referenced_by_order(
     test_db.add(product)
     test_db.flush()
 
-    order = create_test_order(user_id=user.id)
-    order.product_id = product.id
-    test_db.flush()
+    create_test_order(user_id=user.id, product=product)
 
     auth_client = session_auth_client(admin_data)
 
@@ -495,7 +493,9 @@ def test_admin_cannot_delete_product_referenced_by_order(
     )
 
     assert response.status_code == 409
-    assert response.json()["detail"] == ("Product is referenced by existing orders")
+    assert response.json()["detail"] == (
+        "Product is referenced by existing order items"
+    )
     test_db.expire_all()
     assert test_db.get(Product, product.id) is not None
 

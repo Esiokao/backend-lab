@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.database import get_db
-from app.models import Order, Product, User
+from app.models import OrderItem, Product, User
 
 router = APIRouter()
 
@@ -29,14 +29,14 @@ def delete_product(
     # 商品只要被既有訂單引用，就不能刪除。
     # 這裡先檢查，讓 API 穩定回傳 409，
     # 不依賴資料庫在 commit 時才拋出 IntegrityError。
-    referenced_order_id = db.scalar(
-        select(Order.id).where(Order.product_id == product_id).limit(1)
+    referenced_item_id = db.scalar(
+        select(OrderItem.id).where(OrderItem.product_id == product_id).limit(1)
     )
 
-    if referenced_order_id is not None:
+    if referenced_item_id is not None:
         raise HTTPException(
             status_code=409,
-            detail="Product is referenced by existing orders",
+            detail="Product is referenced by existing order items",
         )
 
     # 沒有訂單引用時才真正刪除商品。
