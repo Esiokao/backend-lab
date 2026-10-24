@@ -8,7 +8,7 @@ from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models import CartItem, Product, User
 from app.routers.orders import create_order
-from app.schemas.Cart import CartItemAdd, CartItemUpdate, CartResponse
+from app.schemas.Cart import CartCheckout, CartItemAdd, CartItemUpdate, CartResponse
 from app.schemas.Order import OrderCreate, OrderItemCreate, OrderResponse
 
 router = APIRouter(prefix="/cart", tags=["Cart"])
@@ -116,9 +116,17 @@ def clear_cart(
 
 @router.post("/checkout", response_model=OrderResponse)
 def checkout(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    payload: CartCheckout | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     items = _get_items(db, current_user.id)
+
+    # 前端勾選式結帢：只帶選中的商品建立訂單，其餘留在車上。
+    if payload is not None and payload.product_ids is not None:
+        wanted = set(payload.product_ids)
+        items = [item for item in items if item.product_id in wanted]
+
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
     order = create_order(

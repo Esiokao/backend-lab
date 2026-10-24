@@ -23,3 +23,8 @@ class CartItemResponse(BaseModel):
 class CartResponse(BaseModel):
     items: list[CartItemResponse]
     total: Decimal
+
+
+class CartCheckout(BaseModel):
+    # 只結帳 selected 商品（前端勾選）；缺省 = 整台車。
+    product_ids: list[int] | None = Field(default=None, min_length=1)
