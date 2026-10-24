@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
 import { ApiError, api } from "@/lib/api";
+import {
+  CategoryListSchema,
+  ProductFormSchema,
+  ProductListSchema,
+  type Category,
+  type Product,
+} from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useToast } from "@/stores/toast";
@@ -13,23 +20,6 @@ import { useToast } from "@/stores/toast";
 // v1.6：市集型錄 —— 左側分類導覽（GET /categories 公開）+ 商品卡分類標籤；
 // admin 管理控件併入本頁（F12-1）— 商品 CRUD/archive；分類 CRUD 在 /admin/categories 專頁。
 // Follow 星星為 session 內樂觀 UI：後端尚無「查詢我是否已關注」端點（記帳），重整不保留。
-
-type Category = {
-  id: number;
-  name: string;
-  description: string | null;
-};
-
-type Product = {
-  id: number;
-  name: string;
-  description: string | null;
-  image_url: string | null;
-  price: string | number; // 後端 Decimal 序列化相容字串/數字
-  stock: number;
-  category_id: number | null;
-  created_at: string;
-};
 
 type ProductForm = {
   name: string;
@@ -88,7 +78,7 @@ function isNew(product: Product): boolean {
 
 async function fetchCategories(): Promise<void> {
   try {
-    categories.value = await api.get<Category[]>("/categories");
+    categories.value = await api.get("/categories", CategoryListSchema);
   } catch {
     // 分類導覽抓不到不阻擋商品列表。
   }
@@ -96,7 +86,7 @@ async function fetchCategories(): Promise<void> {
 
 async function fetchAllForCounts(): Promise<void> {
   try {
-    allProducts.value = await api.get<Product[]>("/products?page_size=100");
+    allProducts.value = await api.get("/products?page_size=100", ProductListSchema);
   } catch {
     // 計數失敗安靜退場。
   }
@@ -179,29 +169,38 @@ function formFromProduct(product: Product): ProductForm {
   };
 }
 
-function validateForm(form: ProductForm): boolean {
-  if (!form.name.trim()) {
-    showToast("Product name is required.");
-    return false;
+// zod 表單驗證：錯誤 inline 顯示在欄位下（create 與 edit 共用欄位鍵）。
+const createErrors = ref<Record<string, string>>({});
+const editErrors = ref<Record<string, string>>({});
+
+function runFormValidation(
+  form: ProductForm,
+  errors: Ref<Record<string, string>>,
+): { name: string; description: string; image_url: string; price: number; stock: number } | null {
+  const parsed = ProductFormSchema.safeParse({
+    name: form.name,
+    description: form.description,
+    image_url: form.image_url,
+    price: form.price,
+    stock: form.stock,
+  });
+  if (!parsed.success) {
+    errors.value = Object.fromEntries(
+      parsed.error.issues.map((issue) => [String(issue.path[0] ?? ""), issue.message]),
+    );
+    return null;
   }
-  if (Number.isNaN(Number(form.price)) || Number(form.price) < 0) {
-    showToast("Price must be a non-negative number.");
-    return false;
-  }
-  if (!Number.isInteger(Number(form.stock)) || Number(form.stock) < 0) {
-    showToast("Stock must be a non-negative integer.");
-    return false;
-  }
-  return true;
+  errors.value = {};
+  return parsed.data;
 }
 
-function formPayload(form: ProductForm) {
+function formPayload(validated: NonNullable<ReturnType<typeof runFormValidation>>, form: ProductForm) {
   return {
-    name: form.name.trim(),
-    description: form.description.trim(),
-    image_url: form.image_url.trim(),
-    price: Number(form.price),
-    stock: Number(form.stock),
+    name: validated.name,
+    description: validated.description.trim(),
+    image_url: validated.image_url.trim(),
+    price: validated.price,
+    stock: validated.stock,
     category_id: form.category_id === "" ? null : Number(form.category_id),
   };
 }
@@ -221,7 +220,7 @@ async function fetchProducts(): Promise<void> {
       params.set("category_id", String(selectedCategory.value));
     }
 
-    products.value = await api.get<Product[]>(`/products?${params.toString()}`);
+    products.value = await api.get(`/products?${params.toString()}`, ProductListSchema);
   } catch {
     loadError.value = "Failed to load products.";
   } finally {
@@ -270,11 +269,12 @@ async function handleAddToCart(product: Product): Promise<void> {
 // ── Admin 商品 CRUD（F12-1）──
 
 async function createProduct(): Promise<void> {
-  if (!validateForm(createForm.value)) return;
+  const validated = runFormValidation(createForm.value, createErrors);
+  if (validated === null) return;
   busy.value = true;
 
   try {
-    const created = await api.post<Product>("/products", formPayload(createForm.value));
+    const created = await api.post<Product>("/products", formPayload(validated, createForm.value));
     showCreate.value = false;
     createForm.value = emptyForm();
     showToast(`Product "${created.name}" created.`);
@@ -296,11 +296,12 @@ function cancelEdit(): void {
 }
 
 async function saveEdit(product: Product): Promise<void> {
-  if (!validateForm(editForm.value)) return;
+  const validated = runFormValidation(editForm.value, editErrors);
+  if (validated === null) return;
   busy.value = true;
 
   try {
-    await api.patch(`/products/${product.id}`, formPayload(editForm.value));
+    await api.patch(`/products/${product.id}`, formPayload(validated, editForm.value));
     editingId.value = null;
     showToast(`Product "${product.name}" updated.`);
     await refreshCatalog();
@@ -417,13 +418,16 @@ onMounted(() => {
     <section v-if="isAdmin && showCreate" class="product-create-panel" aria-label="New product">
       <h2>New product</h2>
       <div class="product-create-fields">
-        <input
-          v-model="createForm.name"
-          class="row-edit-field"
-          type="text"
-          placeholder="Name"
-          aria-label="Product name"
-        />
+        <div class="form-field">
+          <input
+            v-model="createForm.name"
+            class="row-edit-field"
+            type="text"
+            placeholder="Name"
+            aria-label="Product name"
+          />
+          <p v-if="createErrors.name" class="field-error">{{ createErrors.name }}</p>
+        </div>
         <input
           v-model="createForm.description"
           class="row-edit-field"
@@ -444,23 +448,29 @@ onMounted(() => {
             {{ category.name }}
           </option>
         </select>
-        <input
-          v-model="createForm.price"
-          class="row-edit-field"
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="Price"
-          aria-label="Product price"
-        />
-        <input
-          v-model="createForm.stock"
-          class="row-edit-field"
-          type="number"
-          min="0"
-          placeholder="Stock"
-          aria-label="Product stock"
-        />
+        <div class="form-field">
+          <input
+            v-model="createForm.price"
+            class="row-edit-field"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Price"
+            aria-label="Product price"
+          />
+          <p v-if="createErrors.price" class="field-error">{{ createErrors.price }}</p>
+        </div>
+        <div class="form-field">
+          <input
+            v-model="createForm.stock"
+            class="row-edit-field"
+            type="number"
+            min="0"
+            placeholder="Stock"
+            aria-label="Product stock"
+          />
+          <p v-if="createErrors.stock" class="field-error">{{ createErrors.stock }}</p>
+        </div>
       </div>
       <div class="order-actions">
         <button type="button" class="primary-button" :disabled="busy" @click="createProduct">
@@ -552,13 +562,16 @@ onMounted(() => {
           <article v-for="product in products" :key="product.id" class="product-card">
             <!-- Admin 行內編輯模式 -->
             <div v-if="isAdmin && editingId === product.id" class="product-edit">
-              <input
-                v-model="editForm.name"
-                class="row-edit-field"
-                type="text"
-                placeholder="Name"
-                aria-label="Product name"
-              />
+              <div class="form-field">
+                <input
+                  v-model="editForm.name"
+                  class="row-edit-field"
+                  type="text"
+                  placeholder="Name"
+                  aria-label="Product name"
+                />
+                <p v-if="editErrors.name" class="field-error">{{ editErrors.name }}</p>
+              </div>
               <input
                 v-model="editForm.description"
                 class="row-edit-field"
@@ -588,23 +601,29 @@ onMounted(() => {
                 </option>
               </select>
               <div class="product-edit-pair">
-                <input
-                  v-model="editForm.price"
-                  class="row-edit-field"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Price"
-                  aria-label="Product price"
-                />
-                <input
-                  v-model="editForm.stock"
-                  class="row-edit-field"
-                  type="number"
-                  min="0"
-                  placeholder="Stock"
-                  aria-label="Product stock"
-                />
+                <div class="form-field">
+                  <input
+                    v-model="editForm.price"
+                    class="row-edit-field"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Price"
+                    aria-label="Product price"
+                  />
+                  <p v-if="editErrors.price" class="field-error">{{ editErrors.price }}</p>
+                </div>
+                <div class="form-field">
+                  <input
+                    v-model="editForm.stock"
+                    class="row-edit-field"
+                    type="number"
+                    min="0"
+                    placeholder="Stock"
+                    aria-label="Product stock"
+                  />
+                  <p v-if="editErrors.stock" class="field-error">{{ editErrors.stock }}</p>
+                </div>
               </div>
               <div class="order-actions">
                 <button

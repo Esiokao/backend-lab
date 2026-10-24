@@ -1,23 +1,11 @@
 import { ref } from "vue";
 
 import { api } from "@/lib/api";
+import { CartSchema, type Cart, type CartItem } from "@/lib/schemas";
 
 // 購物車 store（v1.7）：對接後端 /cart 系列（持久化於 cart_items 表）。
 // v1.8：勾選式結帳 —— selected 記錄勾選的商品（session 內狀態，重整後預設全選）；
 // checkout(product_ids) 只結帳選中品，其餘留車（後端支援）。
-
-export type CartItem = {
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  unit_price: string | number;
-  subtotal: string | number;
-};
-
-export type Cart = {
-  items: CartItem[];
-  total: string | number;
-};
 
 const items = ref<CartItem[]>([]);
 const total = ref<string | number>("0");
@@ -63,7 +51,7 @@ function apply(cart: Cart): void {
 
 async function refresh(): Promise<void> {
   try {
-    apply(await api.get<Cart>("/cart"));
+    apply(await api.get("/cart", CartSchema));
   } catch {
     // 未登入（401）或暫時失敗：保持現狀，不打擾使用者。
   }
@@ -72,7 +60,7 @@ async function refresh(): Promise<void> {
 async function add(productId: number, quantity: number): Promise<void> {
   busy.value = true;
   try {
-    apply(await api.post<Cart>("/cart/items", { product_id: productId, quantity }));
+    apply(await api.post("/cart/items", { product_id: productId, quantity }, CartSchema));
   } finally {
     busy.value = false;
   }
@@ -81,7 +69,7 @@ async function add(productId: number, quantity: number): Promise<void> {
 async function updateQty(productId: number, quantity: number): Promise<void> {
   busy.value = true;
   try {
-    apply(await api.patch<Cart>(`/cart/items/${productId}`, { quantity }));
+    apply(await api.patch(`/cart/items/${productId}`, { quantity }, CartSchema));
   } finally {
     busy.value = false;
   }
@@ -90,7 +78,7 @@ async function updateQty(productId: number, quantity: number): Promise<void> {
 async function remove(productId: number): Promise<void> {
   busy.value = true;
   try {
-    apply(await api.delete<Cart>(`/cart/items/${productId}`));
+    apply(await api.delete(`/cart/items/${productId}`, CartSchema));
   } finally {
     busy.value = false;
   }
@@ -99,7 +87,7 @@ async function remove(productId: number): Promise<void> {
 async function clear(): Promise<void> {
   busy.value = true;
   try {
-    apply(await api.delete<Cart>("/cart"));
+    apply(await api.delete("/cart", CartSchema));
   } finally {
     busy.value = false;
   }

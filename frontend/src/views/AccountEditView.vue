@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
+import { PasswordFormSchema, ProfileFormSchema } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useToast } from "@/stores/toast";
 
@@ -20,6 +21,7 @@ const { user, setUser, logout } = useAuth();
 
 // ── 會員資料修改 ──
 const profileForm = ref({ name: "", email: "" });
+const profileErrors = ref<Record<string, string>>({});
 const profileBusy = ref(false);
 const profileDirty = computed(
   () =>
@@ -30,13 +32,18 @@ const profileDirty = computed(
 async function saveProfile(): Promise<void> {
   if (!user.value) return;
 
-  const name = profileForm.value.name.trim();
-  const email = profileForm.value.email.trim();
-
-  if (!name || !email) {
-    toast.show("Name and email are required.");
+  const parsed = ProfileFormSchema.safeParse({
+    name: profileForm.value.name,
+    email: profileForm.value.email,
+  });
+  if (!parsed.success) {
+    profileErrors.value = Object.fromEntries(
+      parsed.error.issues.map((issue) => [String(issue.path[0] ?? ""), issue.message]),
+    );
     return;
   }
+  profileErrors.value = {};
+  const { name, email } = parsed.data;
 
   profileBusy.value = true;
   try {
@@ -63,23 +70,25 @@ async function saveProfile(): Promise<void> {
 
 // ── 修改密碼 ──
 const passwordForm = ref({ next: "", confirm: "" });
+const passwordErrors = ref<Record<string, string>>({});
 const passwordBusy = ref(false);
 const passwordSection = ref<HTMLElement | null>(null);
 
 async function changePassword(): Promise<void> {
   if (!user.value) return;
 
-  const { next, confirm } = passwordForm.value;
-
-  // PRD F7：密碼 8–128 字元。
-  if (next.length < 8 || next.length > 128) {
-    toast.show("Password must be 8–128 characters.");
+  const parsed = PasswordFormSchema.safeParse({
+    next: passwordForm.value.next,
+    confirm: passwordForm.value.confirm,
+  });
+  if (!parsed.success) {
+    passwordErrors.value = Object.fromEntries(
+      parsed.error.issues.map((issue) => [String(issue.path[0] ?? ""), issue.message]),
+    );
     return;
   }
-  if (next !== confirm) {
-    toast.show("Passwords do not match.");
-    return;
-  }
+  passwordErrors.value = {};
+  const { next } = parsed.data;
 
   passwordBusy.value = true;
   try {
@@ -138,6 +147,7 @@ onMounted(() => {
           type="text"
           aria-label="Your name"
         />
+        <p v-if="profileErrors.name" class="field-error">{{ profileErrors.name }}</p>
         <label class="account-label" for="account-email">Email</label>
         <input
           id="account-email"
@@ -146,6 +156,7 @@ onMounted(() => {
           type="email"
           aria-label="Your email"
         />
+        <p v-if="profileErrors.email" class="field-error">{{ profileErrors.email }}</p>
         <div class="order-actions">
           <button
             type="button"
@@ -176,6 +187,7 @@ onMounted(() => {
           autocomplete="new-password"
           aria-label="New password"
         />
+        <p v-if="passwordErrors.next" class="field-error">{{ passwordErrors.next }}</p>
         <label class="account-label" for="account-password-confirm">Confirm new password</label>
         <input
           id="account-password-confirm"
@@ -185,6 +197,7 @@ onMounted(() => {
           autocomplete="new-password"
           aria-label="Confirm new password"
         />
+        <p v-if="passwordErrors.confirm" class="field-error">{{ passwordErrors.confirm }}</p>
         <div class="order-actions">
           <button
             type="button"

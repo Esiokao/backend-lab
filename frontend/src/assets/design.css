@@ -517,6 +517,8 @@ tr.dimmed td { opacity: .5; }
 .info-row small { color: var(--ink-faint); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .info-row strong { color: var(--ink-strong); font-size: 13px; font-weight: 600; text-align: right; word-break: break-all; }
 .info-row .mono-value { font: 600 12.5px "JetBrains Mono", monospace; }
+.field-error { margin: 2px 0 0; color: var(--danger-ink); font-size: 11px; }
+.form-field { display: flex; flex-direction: column; min-width: 0; }
 
 /* 頭像下拉選單（會員資料 list） */
 .user-menu-wrap { position: relative; }

@@ -1,36 +1,33 @@
 import { ref } from "vue";
 
+import { z } from "zod";
+
 import { api } from "@/lib/api";
+import {
+  BroadcastSchema,
+  NotificationItemSchema,
+  UnreadCountSchema,
+  type Broadcast,
+  type NotificationItem,
+} from "@/lib/schemas";
 
 // 站內通知 store（F11）：鈴鐺徽章輪詢 + 通知面板資料。
 // - 表為真相來源：未讀數由 /notifications/unread-count 補齊（F11-6）
 // - admin 的 SSE 即時推送（F11-4）等後端端點存在後再接，屆時只需在此 store 加訂閱
 // - 輪詢間隔 10s，與 API Health 頁一致
 
-export type NotificationItem = {
-  id: number;
-  type: string;
-  title: string;
-  body: string;
-  data: Record<string, unknown>;
-  created_at: string;
-  read_at: string | null;
-};
-
-// admin 廣播公告（GET /notifications/broadcasts，全使用者可見的公告表）。
-export type BroadcastItem = {
-  id: number;
-  type: string;
-  title: string;
-  body: string;
-  created_at: string;
-};
+// 清單回應包裝（items + next_cursor）；廣播公告 GET /notifications/broadcasts。
+const NotificationListSchema = z.object({
+  items: z.array(NotificationItemSchema),
+  next_cursor: z.string().nullable().optional(),
+});
+const BroadcastListSchema = z.object({ items: z.array(BroadcastSchema) });
 
 const POLL_INTERVAL_MS = 10_000;
 
 const unreadCount = ref(0);
 const items = ref<NotificationItem[]>([]);
-const broadcasts = ref<BroadcastItem[]>([]);
+const broadcasts = ref<Broadcast[]>([]);
 const panelOpen = ref(false);
 
 let timer: number | undefined;
@@ -38,7 +35,7 @@ let polling = false;
 
 async function refreshUnread(): Promise<void> {
   try {
-    const data = await api.get<{ unread_count: number }>("/notifications/unread-count");
+    const data = await api.get("/notifications/unread-count", UnreadCountSchema);
     unreadCount.value = data.unread_count;
   } catch {
     // 輪詢失敗靜默，下一輪再試（不讓暫時性故障打擾使用者）。
@@ -47,7 +44,7 @@ async function refreshUnread(): Promise<void> {
 
 async function refreshList(): Promise<void> {
   try {
-    const data = await api.get<{ items: NotificationItem[] }>("/notifications?limit=20");
+    const data = await api.get("/notifications?limit=20", NotificationListSchema);
     items.value = data.items;
   } catch {
     // 同上。
@@ -56,7 +53,7 @@ async function refreshList(): Promise<void> {
 
 async function loadBroadcasts(): Promise<void> {
   try {
-    const data = await api.get<{ items: BroadcastItem[] }>("/notifications/broadcasts");
+    const data = await api.get("/notifications/broadcasts", BroadcastListSchema);
     broadcasts.value = data.items;
   } catch {
     // 公告抓不到不影響個人通知列表。
