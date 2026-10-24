@@ -191,15 +191,12 @@ def get_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
-    # 只允許取得目前登入者自己的訂單。
-    stmt = (
-        select(Order)
-        .options(selectinload(Order.items))
-        .where(
-            Order.id == order_id,
-            Order.user_id == current_user.id,
-        )
-    )
+    # 允許訂單擁有者或 admin 取得；admin 從管理頁 / 儀表板點進詳情需要跨使用者讀取。
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+
+    if current_user.role != "admin":
+        stmt = stmt.where(Order.user_id == current_user.id)
+
     result = session.execute(stmt)
     order = result.scalar_one_or_none()
 

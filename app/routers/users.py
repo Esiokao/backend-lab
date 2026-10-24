@@ -41,8 +41,8 @@ def get_users(
     session: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    # 只有 admin 可以列出全部使用者。
-    result = session.execute(select(User))
+    # 只有 admin 可以列出全部使用者；固定依 id 排序（不然 Postgres 回堆積順序）。
+    result = session.execute(select(User).order_by(User.id))
     return result.scalars().all()
 
 

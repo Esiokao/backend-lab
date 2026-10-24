@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import require_admin
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.database import get_db
 from app.models import Order, User
+from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
 
 router = APIRouter(
@@ -163,3 +164,35 @@ def update_user_as_admin(
 
     db.refresh(user)
     return user
+
+
+@users_router.get("/{user_id}")
+def get_user_detail(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """admin 檢視使用者詳情：基本資料 + 該使用者的全部訂單（含明細）。"""
+    user = db.get(User, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    orders = (
+        db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.user_id == user_id)
+            .order_by(Order.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+    return {
+        "user": UserResponse.model_validate(user),
+        "orders": [OrderResponse.model_validate(order) for order in orders],
+    }

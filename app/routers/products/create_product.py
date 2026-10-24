@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.database import get_db
-from app.models import Product, User
+from app.models import Catalog, Product, User
 from app.schemas.Product import ProductCreate, ProductResponse
 
 router = APIRouter(prefix="/products")
@@ -19,11 +19,16 @@ def create_product(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
+    if payload.catalog_id is not None and db.get(Catalog, payload.catalog_id) is None:
+        raise HTTPException(status_code=404, detail="Catalog not found")
+
     product = Product(
         name=payload.name,
         description=payload.description,
+        image_url=payload.image_url,
         price=payload.price,
         stock=payload.stock,
+        catalog_id=payload.catalog_id,
     )
 
     db.add(product)
