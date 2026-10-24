@@ -7,6 +7,7 @@ export type IconName =
   | "arrow"
   | "bell"
   | "bolt"
+  | "cart"
   | "box"
   | "chevron"
   | "close"
@@ -31,6 +32,7 @@ const iconPaths: Record<IconName, string[]> = {
   arrow: ["m9 18 6-6-6-6"],
   bell: ["M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9", "M13.73 21a2 2 0 0 1-3.46 0"],
   bolt: ["m13 2-8 12h7l-1 8 8-12h-7l1-8Z"],
+  cart: ["M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12", "M8 21h.01", "M19 21h.01"],
   box: ["m4 7 8-4 8 4-8 4-8-4Z", "m4 7 8 4 8-4M4 7v10l8 4 8-4V7M12 11v10"],
   chevron: ["m8 10 4 4 4-4"],
   close: ["m6 6 12 12M18 6 6 18"],

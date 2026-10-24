@@ -5,6 +5,7 @@ import { useRoute } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
+import { useToast } from "@/stores/toast";
 
 // 訂單詳情（F2：訂單可被檢視）。GET /orders/{id} 允許擁有者或 admin；
 // 頁面含下單者的 user info 區塊（admin 可跨使用者對照並連到使用者詳情）。
@@ -24,6 +25,7 @@ type UserRow = { id: number; name: string; email: string; role: string };
 
 const route = useRoute();
 const { user: me } = useAuth();
+const toast = useToast();
 
 const isAdmin = computed(() => me.value?.role === "admin");
 
@@ -90,6 +92,24 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+// 付款（v1.7）：自己的 created 訂單 → POST /orders/{id}/pay → pending（扣款模擬 + 通知）。
+const paying = ref(false);
+const isOwnOrder = computed(() => order.value?.user_id === me.value?.id);
+
+async function payOrder(): Promise<void> {
+  if (!order.value) return;
+  paying.value = true;
+  try {
+    await api.post(`/orders/${order.value.id}/pay`);
+    toast.show(`Order #${order.value.id} paid.`);
+    order.value = await api.get<Order>(`/orders/${order.value.id}`);
+  } catch (err) {
+    toast.show(err instanceof ApiError ? `Payment failed: ${err.message}` : "Payment failed.");
+  } finally {
+    paying.value = false;
+  }
+}
+
 onMounted(async () => {
   const orderId = Number(route.params.id);
 
@@ -124,6 +144,15 @@ onMounted(async () => {
       <h1>Order #{{ route.params.id }}</h1>
       <p>Order details and line items.</p>
     </div>
+    <button
+      v-if="order && order.status === 'created' && isOwnOrder"
+      type="button"
+      class="primary-button"
+      :disabled="paying"
+      @click="payOrder"
+    >
+      <Icon name="bolt" :size="15" /> {{ paying ? "Paying..." : "Pay now" }}
+    </button>
     <router-link :to="{ name: 'orders' }" class="text-button">
       <Icon name="arrow" :size="15" /> Back to orders
     </router-link>

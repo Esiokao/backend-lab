@@ -41,6 +41,12 @@ const router = createRouter({
           component: () => import("@/views/OrderDetailView.vue"),
         },
         {
+          // 購物車（v1.7：後端 /cart 系列 + checkout → 訂單 → pay）。
+          path: "cart",
+          name: "cart",
+          component: () => import("@/views/CartView.vue"),
+        },
+        {
           // 會員中心：會員資料修改 + 修改密碼（F7）。
           path: "account",
           name: "account",

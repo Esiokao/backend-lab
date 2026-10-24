@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
+import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
 import { useToast } from "@/stores/toast";
 
@@ -46,6 +47,7 @@ const route = useRoute();
 const router = useRouter();
 const { user, logout } = useAuth();
 const { theme, toggleTheme } = useTheme();
+const { add: addToCart } = useCart();
 const { show: showToast } = useToast();
 
 const isAdmin = computed(() => user.value?.role === "admin");
@@ -248,6 +250,24 @@ function formatPrice(price: string | number): string {
   return `$${Number(price).toFixed(2)}`;
 }
 
+// 加入購物車（v1.7）：訪客 → 登入頁帶 redirect（同 follow 行為）。
+async function handleAddToCart(product: Product): Promise<void> {
+  if (!user.value) {
+    await router.push({ name: "login", query: { redirect: route.fullPath } });
+    return;
+  }
+  if (product.stock <= 0) {
+    showToast(`"${product.name}" is out of stock.`);
+    return;
+  }
+  try {
+    await addToCart(product.id, 1);
+    showToast(`Added "${product.name}" to cart.`);
+  } catch (err) {
+    showToast(err instanceof ApiError ? `Add to cart failed: ${err.message}` : "Add to cart failed.");
+  }
+}
+
 async function handleLogout(): Promise<void> {
   // 登出後留在店面，header 自動切回訪客狀態。
   await logout();
@@ -389,6 +409,14 @@ onMounted(() => {
       >
         <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="15" />
       </button>
+      <router-link
+        v-if="user"
+        class="ghost-button theme-toggle"
+        :to="{ name: 'cart' }"
+        aria-label="Cart"
+      >
+        <Icon name="cart" :size="15" />
+      </router-link>
       <template v-if="user">
         <router-link class="ghost-button" :to="isAdmin ? { name: 'dashboard' } : { name: 'account' }">
           <Icon :name="isAdmin ? 'grid' : 'users'" :size="14" />
@@ -682,6 +710,17 @@ onMounted(() => {
               <div class="product-tags">
                 <span class="tag-stamp cat">{{ categoryName(product.category_id) }}</span>
                 <span v-if="isNew(product)" class="tag-stamp new">New in</span>
+              </div>
+              <div class="product-cart-row">
+                <button
+                  type="button"
+                  class="ghost-button product-add-button"
+                  :disabled="product.stock <= 0"
+                  @click="handleAddToCart(product)"
+                >
+                  <Icon name="cart" :size="14" />
+                  {{ product.stock > 0 ? "Add to cart" : "Out of stock" }}
+                </button>
               </div>
               <div v-if="isAdmin" class="product-admin-row">
                 <button type="button" class="sort-button" @click="startEdit(product)">Edit</button>

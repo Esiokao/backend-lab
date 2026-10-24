@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
+import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
 import { useNotifications } from "@/stores/notifications";
 
@@ -12,6 +13,7 @@ const router = useRouter();
 
 const { user, logout } = useAuth();
 const { theme, setTheme } = useTheme();
+const { count: cartCount, refresh: refreshCart } = useCart();
 const {
   unreadCount,
   items: notifications,
@@ -26,7 +28,7 @@ const {
 
 const isAdmin = computed(() => user.value?.role === "admin");
 
-type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users"; to: { name: string }; dot?: boolean };
+type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart"; to: { name: string }; dot?: boolean };
 
 // 依角色分區（v1.5）：workspace（系統監控）僅 admin 可見；
 // 一般使用者是會員中心視角（My Orders / Account）。
@@ -40,6 +42,7 @@ const navItems = computed<NavItem[]>(() =>
       ]
     : [
         { label: "Storefront", icon: "bolt", to: { name: "storefront" } },
+        { label: "Cart", icon: "cart", to: { name: "cart" } },
         { label: "My Orders", icon: "box", to: { name: "orders" } },
         { label: "Account", icon: "users", to: { name: "account" } },
       ],
@@ -111,6 +114,7 @@ function onKeydown(event: KeyboardEvent): void {
 // 通知輪詢（F11）：登入期間開啟，離開應用區關閉。
 onMounted(() => {
   if (user.value) startPolling();
+  if (user.value) void refreshCart();
   document.addEventListener("click", onDocumentClick);
   document.addEventListener("keydown", onKeydown);
   void probeBackend();
@@ -209,6 +213,12 @@ function formatTime(iso: string): string {
           <Icon name="arrow" :size="14" /><strong>{{ currentLabel }}</strong>
         </div>
         <div class="topbar-actions">
+          <router-link :to="{ name: 'cart' }" class="bell-button cart-link" aria-label="Cart">
+            <Icon name="cart" :size="17" />
+            <span v-if="cartCount() > 0" class="bell-badge">
+              {{ cartCount() > 99 ? "99+" : cartCount() }}
+            </span>
+          </router-link>
           <div class="bell-wrap">
             <button type="button" class="bell-button" aria-label="Notifications" @click="togglePanel">
               <Icon name="bell" :size="17" />
