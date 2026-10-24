@@ -82,8 +82,8 @@ def test_models_match_migrated_schema(migrated_engine):
         context = MigrationContext.configure(connection)
         diff = compare_metadata(context, Base.metadata)
 
-    assert diff == [], (
+    assert not diff, (
         "app/models.py 與 alembic migrations 漂移了——"
         "改了 model 記得產 migration（alembic revision --autogenerate）：\n"
-        f"{diff}"
+        + "\n".join(f"- {item}" for item in diff)
     )
