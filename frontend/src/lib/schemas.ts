@@ -94,7 +94,10 @@ export const BroadcastSchema = z.object({
 });
 export type Broadcast = z.infer<typeof BroadcastSchema>;
 
-export const UnreadCountSchema = z.object({ unread_count: z.number().int() });
+export const UnreadCountSchema = z.object({
+  unread_count: z.number().int(),
+  broadcasts_unread: z.number().int(),
+});
 
 // ── Stats ──
 export const StatsSchema = z.object({

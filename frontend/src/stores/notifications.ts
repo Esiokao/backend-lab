@@ -21,11 +21,15 @@ const NotificationListSchema = z.object({
   items: z.array(NotificationItemSchema),
   next_cursor: z.string().nullable().optional(),
 });
-const BroadcastListSchema = z.object({ items: z.array(BroadcastSchema) });
+const BroadcastListSchema = z.object({
+  items: z.array(BroadcastSchema),
+  unread_count: z.number().int(),
+});
 
 const POLL_INTERVAL_MS = 10_000;
 
 const unreadCount = ref(0);
+const broadcastsUnread = ref(0);
 const items = ref<NotificationItem[]>([]);
 const broadcasts = ref<Broadcast[]>([]);
 const panelOpen = ref(false);
@@ -37,6 +41,7 @@ async function refreshUnread(): Promise<void> {
   try {
     const data = await api.get("/notifications/unread-count", UnreadCountSchema);
     unreadCount.value = data.unread_count;
+    broadcastsUnread.value = data.broadcasts_unread;
   } catch {
     // 輪詢失敗靜默，下一輪再試（不讓暫時性故障打擾使用者）。
   }
@@ -55,6 +60,7 @@ async function loadBroadcasts(): Promise<void> {
   try {
     const data = await api.get("/notifications/broadcasts", BroadcastListSchema);
     broadcasts.value = data.items;
+    broadcastsUnread.value = data.unread_count;
   } catch {
     // 公告抓不到不影響個人通知列表。
   }
@@ -67,6 +73,16 @@ async function markRead(notification: NotificationItem): Promise<void> {
     await api.patch(`/notifications/${notification.id}/read`, {});
     notification.read_at = new Date().toISOString();
     unreadCount.value = Math.max(0, unreadCount.value - 1);
+  } catch {
+    // 靜默。
+  }
+}
+
+// 廣播已讀（v1.12 水位法）：全有全無，伺服器推水位到最新。
+async function markAllBroadcastsRead(): Promise<void> {
+  try {
+    await api.post("/notifications/broadcasts/read-all");
+    broadcastsUnread.value = 0;
   } catch {
     // 靜默。
   }
@@ -125,6 +141,7 @@ export type { NotificationItem } from "@/lib/schemas";
 export function useNotifications() {
   return {
     unreadCount,
+    broadcastsUnread,
     items,
     broadcasts,
     panelOpen,
@@ -135,5 +152,6 @@ export function useNotifications() {
     loadBroadcasts,
     markRead,
     markAllRead,
+    markAllBroadcastsRead,
   };
 }

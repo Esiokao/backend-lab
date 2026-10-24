@@ -17,6 +17,7 @@ const { user } = useAuth();
 const { active: activePopover, openPopover, closePopover } = usePopover();
 const {
   unreadCount,
+  broadcastsUnread,
   items: notifications,
   broadcasts,
   panelOpen,
@@ -25,6 +26,7 @@ const {
   togglePanel,
   markRead,
   markAllRead,
+  markAllBroadcastsRead,
 } = useNotifications();
 
 function formatTime(iso: string): string {
@@ -107,8 +109,8 @@ function onKeydown(event: KeyboardEvent): void {
   <div class="bell-wrap">
     <button type="button" class="bell-button" aria-label="Notifications" @click="togglePanel">
       <Icon name="bell" :size="17" />
-      <span v-if="unreadCount > 0" class="bell-badge">
-        {{ unreadCount > 99 ? "99+" : unreadCount }}
+      <span v-if="unreadCount + broadcastsUnread > 0" class="bell-badge">
+        {{ unreadCount + broadcastsUnread > 99 ? "99+" : unreadCount + broadcastsUnread }}
       </span>
     </button>
     <div v-if="panelOpen" class="notif-panel" role="dialog" aria-label="Notifications panel">
@@ -116,10 +118,18 @@ function onKeydown(event: KeyboardEvent): void {
         <strong>Notifications</strong>
         <div class="notif-panel-actions">
           <button
-            v-if="notifTab === 'general'"
+            v-if="notifTab === 'general' && unreadCount > 0"
             type="button"
             class="text-button"
             @click="markAllRead"
+          >
+            Mark all read
+          </button>
+          <button
+            v-if="notifTab === 'broadcast' && broadcastsUnread > 0"
+            type="button"
+            class="text-button"
+            @click="markAllBroadcastsRead"
           >
             Mark all read
           </button>
@@ -149,7 +159,7 @@ function onKeydown(event: KeyboardEvent): void {
           @click="notifTab = 'broadcast'"
         >
           System
-          <span v-if="broadcasts.length > 0" class="notif-tab-badge">{{ broadcasts.length }}</span>
+          <span v-if="broadcastsUnread > 0" class="notif-tab-badge">{{ broadcastsUnread }}</span>
         </button>
       </div>
       <div class="notif-panel-body">
