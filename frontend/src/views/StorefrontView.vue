@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Ref } from "vue";
+import { computed, onMounted, ref, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
@@ -35,6 +35,12 @@ const NEW_IN_DAYS = 7;
 
 const route = useRoute();
 const router = useRouter();
+
+// ?cat=<id> deep-link：header 分類導覽與側欄共用同一個過濾狀態。
+function categoryFromQuery(): number | null {
+  const cat = Number(route.query.cat);
+  return Number.isInteger(cat) && cat > 0 ? cat : null;
+}
 const { user } = useAuth();
 const { add: addToCart } = useCart();
 const { show: showToast } = useToast();
@@ -382,7 +388,21 @@ async function restoreProduct(product: Product): Promise<void> {
   }
 }
 
+// 同頁切分類（header 連結）→ route.query 變化 → 重選分類。
+watch(
+  () => route.query.cat,
+  () => {
+    const next = categoryFromQuery();
+    if (next !== selectedCategory.value) {
+      selectedCategory.value = next;
+      page.value = 1;
+      void fetchProducts();
+    }
+  },
+);
+
 onMounted(() => {
+  selectedCategory.value = categoryFromQuery();
   void fetchProducts();
   void fetchCategories();
   void fetchAllForCounts();

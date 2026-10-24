@@ -1,21 +1,76 @@
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+
 import Icon from "@/components/Icon.vue";
 import NotificationCenter from "@/components/NotificationCenter.vue";
+import { api } from "@/lib/api";
+import { CategoryListSchema, type Category } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
 
-// 店面式頁面的共用 header（Storefront / Cart）：品牌、主題切換、
-// cart icon（帶數量徽章）、Workspace/My account 與 Sign out（或 Sign in）。
+// 店面式頁面的共用 header（Storefront / Cart / Checkout / Result）：
+// 品牌 ｜ 分類導覽（deep-link ?cat=） ｜ 右側：主題切換、通知、cart、My account 下拉。
+// Sign out 收在 My account 下拉裡（會員）。
 
+const route = useRoute();
 const { user, logout } = useAuth();
 const { theme, toggleTheme } = useTheme();
 const { count: cartCount } = useCart();
 
 const isAdmin = () => user.value?.role === "admin";
 
+const initials = computed(() =>
+  (user.value?.name ?? "?")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase(),
+);
+
+// ── 分類導覽：header 中央連結（前 4 個分類 + All products）──
+const categories = ref<Category[]>([]);
+
+onMounted(async () => {
+  try {
+    categories.value = await api.get("/categories", CategoryListSchema);
+  } catch {
+    // 導覽列抓不到分類不影響頁面。
+  }
+});
+
+// ── My account 下拉：點按鈕開、點外部/Esc/切頁收 ──
+const menuOpen = ref(false);
+
+function onDocumentClick(event: MouseEvent): void {
+  const inside = event.target instanceof Element && !!event.target.closest(".sf-account-wrap");
+  if (menuOpen.value && !inside) menuOpen.value = false;
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape" && menuOpen.value) menuOpen.value = false;
+}
+
+onMounted(() => {
+  document.addEventListener("click", onDocumentClick);
+  document.addEventListener("keydown", onKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", onDocumentClick);
+  document.removeEventListener("keydown", onKeydown);
+});
+
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false;
+  },
+);
+
 async function handleLogout(): Promise<void> {
-  // 登出後留在當前店面頁，header 自動切回訪客狀態。
+  menuOpen.value = false;
   await logout();
 }
 </script>
@@ -26,6 +81,19 @@ async function handleLogout(): Promise<void> {
       <span class="brand-mark"><Icon name="bolt" :size="16" /></span>
       <span>Backend Lab</span>
     </router-link>
+
+    <!-- 分類導覽（手機隱藏，頁內有 chips） -->
+    <nav class="sf-nav" aria-label="Catalog shortcuts">
+      <router-link
+        v-for="category in categories.slice(0, 4)"
+        :key="category.id"
+        :to="{ name: 'storefront', query: { cat: String(category.id) } }"
+      >
+        {{ category.name }}
+      </router-link>
+      <router-link :to="{ name: 'storefront' }">All products</router-link>
+    </nav>
+
     <div class="storefront-actions">
       <button
         type="button"
@@ -43,18 +111,103 @@ async function handleLogout(): Promise<void> {
       </router-link>
       <!-- 通知鈴鐺：登入者限定（訪客無通知可看） -->
       <NotificationCenter v-if="user" />
-      <template v-if="user">
-        <router-link
-          class="ghost-button"
-          :to="isAdmin() ? { name: 'dashboard' } : { name: 'account' }"
+
+      <!-- My account 下拉（會員）：Sign out 在這裡 -->
+      <div v-if="user" class="sf-account-wrap">
+        <button
+          type="button"
+          class="sf-account-btn"
+          aria-label="Account menu"
+          :aria-expanded="menuOpen"
+          @click="menuOpen = !menuOpen"
         >
-          <Icon :name="isAdmin() ? 'grid' : 'users'" :size="14" />
-          {{ isAdmin() ? "Workspace" : "My account" }}
-        </router-link>
-        <button type="button" class="ghost-button" @click="handleLogout">
-          <Icon name="logout" :size="14" /> Sign out
+          <span class="avatar">{{ initials }}</span>
+          <span class="sf-account-name">{{ user.name }}</span>
+          <Icon name="chevron" :size="12" />
         </button>
-      </template>
+        <div v-if="menuOpen" class="user-menu" role="menu" aria-label="Account menu">
+          <div class="user-menu-header">
+            <strong>Hi, {{ user.name }}!</strong>
+            <small>{{ user.email }}</small>
+          </div>
+          <router-link
+            class="user-menu-item"
+            role="menuitem"
+            :to="{ name: isAdmin() ? 'dashboard' : 'account' }"
+            @click="menuOpen = false"
+          >
+            <Icon :name="isAdmin() ? 'grid' : 'users'" :size="14" />
+            {{ isAdmin() ? "Workspace" : "My account" }}
+          </router-link>
+          <router-link
+            class="user-menu-item"
+            role="menuitem"
+            :to="{ name: 'orders' }"
+            @click="menuOpen = false"
+          >
+            <Icon name="box" :size="14" /> My orders
+          </router-link>
+          <router-link
+            class="user-menu-item"
+            role="menuitem"
+            :to="{ name: 'account-edit' }"
+            @click="menuOpen = false"
+          >
+            <Icon name="users" :size="14" /> Account settings
+          </router-link>
+          <router-link
+            class="user-menu-item"
+            role="menuitem"
+            :to="{ name: 'account-edit', query: { section: 'password' } }"
+            @click="menuOpen = false"
+          >
+            <Icon name="shield" :size="14" /> Change password
+          </router-link>
+          <template v-if="isAdmin()">
+            <p class="user-menu-label">Administration</p>
+            <router-link
+              class="user-menu-item"
+              role="menuitem"
+              :to="{ name: 'admin-orders' }"
+              @click="menuOpen = false"
+            >
+              <Icon name="box" :size="14" /> Order Management
+            </router-link>
+            <router-link
+              class="user-menu-item"
+              role="menuitem"
+              :to="{ name: 'admin-users' }"
+              @click="menuOpen = false"
+            >
+              <Icon name="users" :size="14" /> User Management
+            </router-link>
+            <router-link
+              class="user-menu-item"
+              role="menuitem"
+              :to="{ name: 'admin-categories' }"
+              @click="menuOpen = false"
+            >
+              <Icon name="grid" :size="14" /> Category Management
+            </router-link>
+            <router-link
+              class="user-menu-item"
+              role="menuitem"
+              :to="{ name: 'admin-notifications' }"
+              @click="menuOpen = false"
+            >
+              <Icon name="bell" :size="14" /> Notifications
+            </router-link>
+          </template>
+          <button
+            type="button"
+            class="user-menu-item user-menu-signout"
+            role="menuitem"
+            @click="handleLogout"
+          >
+            <Icon name="logout" :size="14" /> Sign out
+          </button>
+        </div>
+      </div>
       <router-link v-else class="primary-button" :to="{ name: 'login' }">
         Sign in
       </router-link>
