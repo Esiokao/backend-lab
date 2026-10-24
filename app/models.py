@@ -39,6 +39,20 @@ class User(Base):
         nullable=True,
     )
 
+    # 註冊時間：廣播未讀規則用（註冊前發布的公告不算未讀）。
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # 廣播已讀水位（v1.12）：最後看過的 broadcast id；
+    # 未讀 = id > 水位（排除註冊前發布的）。全有全無的公告已讀模型。
+    last_seen_broadcast_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
     # User's role for RBAC.
     role: Mapped[str] = mapped_column(
         String(20),
