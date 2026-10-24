@@ -3,10 +3,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
+import NotificationCenter from "@/components/NotificationCenter.vue";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
-import { useNotifications } from "@/stores/notifications";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,18 +14,6 @@ const router = useRouter();
 const { user, logout } = useAuth();
 const { theme, setTheme } = useTheme();
 const { count: cartCount, refresh: refreshCart } = useCart();
-const {
-  unreadCount,
-  items: notifications,
-  broadcasts,
-  panelOpen,
-  startPolling,
-  stopPolling,
-  togglePanel,
-  markRead,
-  markAllRead,
-} = useNotifications();
-
 const isAdmin = computed(() => user.value?.role === "admin");
 
 type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart"; to: { name: string }; dot?: boolean };
@@ -104,15 +92,13 @@ async function probeBackend(): Promise<void> {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  // Esc 是面板與選單的標準出口（critique：role=dialog 沒有 Esc 是 a11y 債）。
-  if (event.key !== "Escape") return;
-  if (panelOpen.value) togglePanel();
-  if (menuOpen.value) menuOpen.value = false;
+  // Esc 是頭像選單的標準出口（通知面板的 Esc 由 NotificationCenter 自理）。
+  if (event.key === "Escape" && menuOpen.value) menuOpen.value = false;
 }
 
 // 通知輪詢（F11）：登入期間開啟，離開應用區關閉。
+// cart 徽章跟著登入狀態刷新（通知輪詢由 NotificationCenter 擁有）。
 onMounted(() => {
-  if (user.value) startPolling();
   if (user.value) void refreshCart();
   document.addEventListener("click", onDocumentClick);
   document.addEventListener("keydown", onKeydown);
@@ -121,36 +107,18 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stopPolling();
   document.removeEventListener("click", onDocumentClick);
   document.removeEventListener("keydown", onKeydown);
   if (probeTimer !== undefined) window.clearInterval(probeTimer);
 });
 
-// 切換路由時收起通知面板與頭像選單：兩者都是全域狀態，不收會蓋住下一頁內容。
+// 切換路由時收起頭像選單（通知面板由 NotificationCenter 卸載時收）。
 watch(
   () => route.fullPath,
   () => {
-    if (panelOpen.value) togglePanel();
     menuOpen.value = false;
   },
 );
-
-// 通知面板分頁：一般通知（個人、可標已讀）／廣播（系統公告）。開啟面板時回到一般。
-const notifTab = ref<"general" | "broadcast">("general");
-
-watch(panelOpen, (open) => {
-  if (open) notifTab.value = "general";
-});
-
-watch(user, (value) => {
-  if (value) startPolling();
-  else stopPolling();
-});
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
 </script>
 
 <template>
@@ -218,92 +186,8 @@ function formatTime(iso: string): string {
               {{ cartCount() > 99 ? "99+" : cartCount() }}
             </span>
           </router-link>
-          <div class="bell-wrap">
-            <button type="button" class="bell-button" aria-label="Notifications" @click="togglePanel">
-              <Icon name="bell" :size="17" />
-              <span v-if="unreadCount > 0" class="bell-badge">
-                {{ unreadCount > 99 ? "99+" : unreadCount }}
-              </span>
-            </button>
-            <div v-if="panelOpen" class="notif-panel" role="dialog" aria-label="Notifications panel">
-              <div class="notif-panel-header">
-                <strong>Notifications</strong>
-                <div class="notif-panel-actions">
-                  <button
-                    v-if="notifTab === 'general'"
-                    type="button"
-                    class="text-button"
-                    @click="markAllRead"
-                  >
-                    Mark all read
-                  </button>
-                  <button type="button" class="row-action" aria-label="Close notifications" @click="togglePanel">
-                    <Icon name="close" :size="14" />
-                  </button>
-                </div>
-              </div>
-              <div class="notif-tabs" role="tablist" aria-label="Notification type">
-                <button
-                  type="button"
-                  role="tab"
-                  :aria-selected="notifTab === 'general'"
-                  :class="['notif-tab', { active: notifTab === 'general' }]"
-                  @click="notifTab = 'general'"
-                >
-                  General
-                  <span v-if="unreadCount > 0" class="notif-tab-badge">
-                    {{ unreadCount > 99 ? "99+" : unreadCount }}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  :aria-selected="notifTab === 'broadcast'"
-                  :class="['notif-tab', { active: notifTab === 'broadcast' }]"
-                  @click="notifTab = 'broadcast'"
-                >
-                  System
-                  <span v-if="broadcasts.length > 0" class="notif-tab-badge">{{ broadcasts.length }}</span>
-                </button>
-              </div>
-              <div class="notif-panel-body">
-                <div v-if="notifTab === 'general'">
-                  <p v-if="notifications.length === 0" class="notif-empty">
-                    No general notifications yet.
-                  </p>
-                  <ul v-else class="notif-list">
-                    <li v-for="notification in notifications" :key="notification.id">
-                      <button
-                        type="button"
-                        :class="['notif-item', { unread: notification.read_at === null }]"
-                        @click="markRead(notification)"
-                      >
-                        <span class="notif-title">
-                          <i v-if="notification.read_at === null" class="notif-dot" />{{ notification.title }}
-                        </span>
-                        <span class="notif-body">{{ notification.body }}</span>
-                        <span class="notif-time">{{ formatTime(notification.created_at) }}</span>
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-                <div v-else>
-                  <p v-if="broadcasts.length === 0" class="notif-empty">
-                    No system broadcasts yet.
-                  </p>
-                  <ul v-else class="notif-list">
-                    <li v-for="broadcast in broadcasts" :key="broadcast.id">
-                      <div class="notif-item broadcast">
-                        <span class="notif-title">{{ broadcast.title }}</span>
-                        <span class="notif-body">{{ broadcast.body }}</span>
-                        <span class="notif-time">{{ formatTime(broadcast.created_at) }}</span>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+          <NotificationCenter />
+
           <span class="live-pill" :class="{ down: !backendUp }" :title="backendTitle">
             <i /> {{ backendUp ? "All systems operational" : "Systems degraded" }}
           </span>

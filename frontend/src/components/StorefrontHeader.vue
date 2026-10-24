@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Icon from "@/components/Icon.vue";
+import NotificationCenter from "@/components/NotificationCenter.vue";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
@@ -40,6 +41,8 @@ async function handleLogout(): Promise<void> {
           {{ cartCount() > 99 ? "99+" : cartCount() }}
         </span>
       </router-link>
+      <!-- 通知鈴鐺：登入者限定（訪客無通知可看） -->
+      <NotificationCenter v-if="user" />
       <template v-if="user">
         <router-link
           class="ghost-button"
