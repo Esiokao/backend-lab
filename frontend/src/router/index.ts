@@ -60,10 +60,16 @@ const router = createRouter({
           component: () => import("@/views/OrderDetailView.vue"),
         },
         {
-          // 會員中心：會員資料修改 + 修改密碼（F7）。
+          // 會員中心（v1.9）：唯讀資料頁 + 編輯區分離。
           path: "account",
           name: "account",
           component: () => import("@/views/AccountView.vue"),
+        },
+        {
+          // 會員資料編輯：資料修改 + 改密碼（F7）。
+          path: "account/edit",
+          name: "account-edit",
+          component: () => import("@/views/AccountEditView.vue"),
         },
         {
           path: "api-health",

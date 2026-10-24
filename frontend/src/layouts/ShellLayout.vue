@@ -227,7 +227,7 @@ watch(
               <router-link
                 class="user-menu-item"
                 role="menuitem"
-                :to="{ name: 'account', query: { section: 'password' } }"
+                :to="{ name: 'account-edit', query: { section: 'password' } }"
                 @click="menuOpen = false"
               >
                 <Icon name="shield" :size="14" /> Change password
