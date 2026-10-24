@@ -2,6 +2,36 @@
 # GET /stats：儀表板真實數據，admin 全站範圍、一般使用者個人範圍。
 
 
+def test_admin_stats_include_revenue_excluding_cancelled(
+    session_auth_client,
+    create_test_user,
+    create_test_order,
+    create_test_product,
+    test_admin_user_data,
+    test_user_data,
+):
+    from decimal import Decimal
+
+    create_test_user(**test_admin_user_data)
+    buyer = create_test_user(**test_user_data)
+    sweater = create_test_product(name="Sweater", price=Decimal("100.00"), stock=10)
+    mug = create_test_product(name="Mug", price=Decimal("34.00"), stock=10)
+
+    paid = create_test_order(user_id=buyer.id, product=sweater, quantity=2)  # $200
+    paid.status = "pending"  # 未取消 → 計入
+    cancelled = create_test_order(user_id=buyer.id, product=mug, quantity=1)  # $34
+    cancelled.status = "cancelled"  # 取消 → 不計
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.get("/stats")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_revenue"] == 200.0
+    assert body["revenue_today"] == 200.0
+    assert "visitors_today" in body
+
+
 def test_admin_stats_reflect_global_counts(
     session_auth_client,
     create_test_user,

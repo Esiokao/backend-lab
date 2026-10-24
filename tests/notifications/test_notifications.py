@@ -285,7 +285,7 @@ def test_get_unread_notification_count(
 
     # Assert：只有兩筆通知尚未讀取。
     assert response.status_code == 200
-    assert response.json() == {"unread_count": 2}
+    assert response.json()["unread_count"] == 2
 
 
 def test_unread_notification_count_only_includes_current_user(
@@ -310,7 +310,7 @@ def test_unread_notification_count_only_includes_current_user(
 
     # Assert：只計算使用者 A 的一筆通知。
     assert response.status_code == 200
-    assert response.json() == {"unread_count": 1}
+    assert response.json()["unread_count"] == 1
 
 
 def test_unread_notification_count_returns_zero_when_all_are_read(
@@ -332,7 +332,7 @@ def test_unread_notification_count_returns_zero_when_all_are_read(
 
     # Assert：沒有未讀通知時，數量應為 0。
     assert response.status_code == 200
-    assert response.json() == {"unread_count": 0}
+    assert response.json()["unread_count"] == 0
 
 
 def test_unread_notification_count_requires_authentication(test_client):

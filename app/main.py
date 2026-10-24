@@ -17,6 +17,30 @@ from app.routers.users import router as users_router
 app = FastAPI()
 
 
+@app.middleware("http")
+async def track_visitors(request, call_next):
+    """匿名訪客計數：首訪發 bl_vid cookie，計入 Redis 每日唯一集合。"""
+    from app.core.redis import redis_client
+    from app.core.visitors import VISITOR_COOKIE, track_visitor
+
+    response = await call_next(request)
+
+    if request.url.path not in _VISITOR_EXCLUDED:
+        vid = track_visitor(redis_client, request.cookies.get(VISITOR_COOKIE))
+        if VISITOR_COOKIE not in request.cookies:
+            response.set_cookie(
+                VISITOR_COOKIE,
+                vid,
+                max_age=365 * 24 * 60 * 60,
+                samesite="lax",
+                httponly=True,
+            )
+    return response
+
+
+# 訪客計數排除探測端點（與 core.visitors 的清單同步）。
+_VISITOR_EXCLUDED = {"/health", "/ready"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
