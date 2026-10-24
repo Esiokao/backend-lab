@@ -4,11 +4,13 @@ import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
+import { useTheme } from "@/stores/theme";
 
 const route = useRoute();
 const router = useRouter();
 
 const { login } = useAuth();
+const { theme, toggleTheme } = useTheme();
 
 // 改密碼成功後被導回來（/login?changed=1）：顯示持久確認，而不是無聲的登出。
 const passwordChanged = route.query.changed === "1";
@@ -46,6 +48,14 @@ async function handleSubmit(): Promise<void> {
 
 <template>
   <div class="login-shell">
+    <button
+      type="button"
+      class="ghost-button theme-toggle login-theme-toggle"
+      :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      @click="toggleTheme"
+    >
+      <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="15" />
+    </button>
     <div class="login-card">
       <div class="login-brand">
         <span class="brand-mark"><Icon name="bolt" :size="16" /></span>

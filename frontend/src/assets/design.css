@@ -280,6 +280,8 @@ td.muted { color: var(--ink-faint); }
 /* Storefront 店面（公開） */
 .storefront-header { position: sticky; top: 0; z-index: 20; height: 64px; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--header-glass); backdrop-filter: blur(14px); }
 .storefront-actions { display: flex; align-items: center; gap: 10px; }
+.theme-toggle { width: 34px; padding: 0; justify-content: center; }
+.login-theme-toggle { position: absolute; top: 20px; right: 20px; }
 .ghost-button { height: 34px; padding: 0 13px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink-soft); background: transparent; font-size: 11px; font-weight: 600; white-space: nowrap; transition: .18s ease; }
 .ghost-button:hover { color: var(--ink); border-color: var(--brand); background: var(--card); }
 .storefront-main { width: min(1180px, calc(100% - 80px)); margin: 0 auto; padding: 44px 0 60px; }

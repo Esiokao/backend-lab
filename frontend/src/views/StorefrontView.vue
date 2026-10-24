@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
+import { useTheme } from "@/stores/theme";
 import { useToast } from "@/stores/toast";
 
 // 公開店面（v1.4）：訪客可瀏覽 GET /products；未登入按關注 → /login?redirect=（F12-7）。
@@ -44,6 +45,7 @@ const NEW_IN_DAYS = 7;
 const route = useRoute();
 const router = useRouter();
 const { user, logout } = useAuth();
+const { theme, toggleTheme } = useTheme();
 const { show: showToast } = useToast();
 
 const isAdmin = computed(() => user.value?.role === "admin");
@@ -379,6 +381,14 @@ onMounted(() => {
       <span>Backend Lab</span>
     </div>
     <div class="storefront-actions">
+      <button
+        type="button"
+        class="ghost-button theme-toggle"
+        :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+        @click="toggleTheme"
+      >
+        <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="15" />
+      </button>
       <template v-if="user">
         <router-link class="ghost-button" :to="isAdmin ? { name: 'dashboard' } : { name: 'account' }">
           <Icon :name="isAdmin ? 'grid' : 'users'" :size="14" />
