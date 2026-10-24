@@ -6,6 +6,7 @@ import Icon from "@/components/Icon.vue";
 import NotificationCenter from "@/components/NotificationCenter.vue";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
+import { usePopover } from "@/stores/popover";
 import { useTheme } from "@/stores/theme";
 
 // 店面式頁面的共用 header（Storefront / Cart / Checkout / Result）：
@@ -16,6 +17,7 @@ const route = useRoute();
 const { user, logout } = useAuth();
 const { theme, toggleTheme } = useTheme();
 const { count: cartCount } = useCart();
+const { active: activePopover, openPopover, closePopover } = usePopover();
 
 const isAdmin = () => user.value?.role === "admin";
 
@@ -55,6 +57,17 @@ watch(
     menuOpen.value = false;
   },
 );
+
+// 互斥：選單開 → 登記；別的浮層（如通知面板）開 → 收選單。
+watch(menuOpen, (open) => {
+  if (open) openPopover("account-menu");
+  else closePopover("account-menu");
+});
+watch(activePopover, (name) => {
+  if (name !== null && name !== "account-menu" && menuOpen.value) {
+    menuOpen.value = false;
+  }
+});
 
 async function handleLogout(): Promise<void> {
   menuOpen.value = false;

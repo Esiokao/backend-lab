@@ -5,6 +5,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
 import { useNotifications, type NotificationItem } from "@/stores/notifications";
+import { usePopover } from "@/stores/popover";
 
 // 通知鈴鐺 + 面板（F11）：可嵌入任何 header（workspace topbar / 店面 header）。
 // 元件擁有輪詢生命週期（登入期間開、卸載停）；面板開啟時 Esc 可收。
@@ -13,6 +14,7 @@ import { useNotifications, type NotificationItem } from "@/stores/notifications"
 const route = useRoute();
 const router = useRouter();
 const { user } = useAuth();
+const { active: activePopover, openPopover, closePopover } = usePopover();
 const {
   unreadCount,
   items: notifications,
@@ -84,6 +86,17 @@ watch(
     if (panelOpen.value) panelOpen.value = false;
   },
 );
+
+// 互斥：面板開 → 登記為作用中；別的浮層開 → 收面板。
+watch(panelOpen, (open) => {
+  if (open) openPopover("notifications");
+  else closePopover("notifications");
+});
+watch(activePopover, (name) => {
+  if (name !== null && name !== "notifications" && panelOpen.value) {
+    panelOpen.value = false;
+  }
+});
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === "Escape" && panelOpen.value) panelOpen.value = false;

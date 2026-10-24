@@ -6,6 +6,7 @@ import Icon from "@/components/Icon.vue";
 import NotificationCenter from "@/components/NotificationCenter.vue";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
+import { usePopover } from "@/stores/popover";
 import { useTheme } from "@/stores/theme";
 
 const route = useRoute();
@@ -14,6 +15,7 @@ const router = useRouter();
 const { user, logout } = useAuth();
 const { theme, setTheme } = useTheme();
 const { count: cartCount, refresh: refreshCart } = useCart();
+const { active: activePopover, openPopover, closePopover } = usePopover();
 const isAdmin = computed(() => user.value?.role === "admin");
 
 type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart" | "pencil"; to: { name: string }; dot?: boolean };
@@ -120,6 +122,17 @@ watch(
     menuOpen.value = false;
   },
 );
+
+// 互斥：選單開 → 登記；別的浮層（如通知面板）開 → 收選單。
+watch(menuOpen, (open) => {
+  if (open) openPopover("account-menu");
+  else closePopover("account-menu");
+});
+watch(activePopover, (name) => {
+  if (name !== null && name !== "account-menu" && menuOpen.value) {
+    menuOpen.value = false;
+  }
+});
 </script>
 
 <template>
