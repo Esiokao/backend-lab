@@ -22,6 +22,9 @@ type Stats = {
   total_users?: number;
   total_orders: number;
   orders_today: number;
+  total_revenue?: number;
+  revenue_today?: number;
+  visitors_today?: number;
 };
 
 type UserRow = { id: number; name: string; email: string; role: string };
@@ -31,13 +34,16 @@ const orders = ref<Order[]>([]);
 const loading = ref(true);
 const loadError = ref("");
 
-// /ready 探測：即時打真端點量延遲。
-const probe = ref({ up: false, latencyMs: 0, checkedAt: "" });
+
 
 const users = ref<UserRow[]>([]);
 const userMap = computed(() => new Map(users.value.map((u) => [u.id, u])));
 
 const products = ref<{ id: number; name: string }[]>([]);
+
+function formatMoney(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
 
 const recentOrders = computed(() =>
   [...orders.value].sort((a, b) => b.id - a.id).slice(0, 5),
@@ -59,20 +65,6 @@ function orderTotal(order: Order): string {
   return `$${total.toFixed(2)}`;
 }
 
-async function probeBackend(): Promise<void> {
-  const started = performance.now();
-
-  try {
-    const response = await fetch("/api/ready", { credentials: "include" });
-    probe.value = {
-      up: response.ok,
-      latencyMs: Math.round(performance.now() - started),
-      checkedAt: new Date().toLocaleTimeString(),
-    };
-  } catch {
-    probe.value = { up: false, latencyMs: Math.round(performance.now() - started), checkedAt: new Date().toLocaleTimeString() };
-  }
-}
 
 onMounted(async () => {
   try {
@@ -88,8 +80,6 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-
-  await probeBackend();
 
   api
     .get<UserRow[]>("/users")
@@ -108,7 +98,6 @@ onMounted(async () => {
       <h1>Overview</h1>
       <p>Monitor your API, users, and order activity from one place.</p>
     </div>
-    <p v-if="probe.checkedAt" class="updated">Last checked <strong>{{ probe.checkedAt }}</strong></p>
 
       <div class="th-cell"><small>Sheet</small><b>OVERVIEW-01</b></div>
       <div class="th-cell"><small>Rev</small><b>A · {{ new Date().toLocaleDateString() }}</b></div>
@@ -134,27 +123,30 @@ onMounted(async () => {
       </div>
       <p>Total orders</p>
       <strong>{{ stats.total_orders }}</strong>
-      <div class="dim"><small>live</small><div class="dline"></div><small>GET /stats</small></div>
+      <div class="dim"><small>{{ stats.orders_today }} today</small><div class="dline"></div><small>GET /stats</small></div>
     </article>
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon green"><Icon name="activity" /></span>
         <span class="zone">C</span>
       </div>
-      <p>Orders today</p>
-      <strong>{{ stats.orders_today }}</strong>
-      <div class="dim"><small>since 00:00 UTC</small><div class="dline"></div><small>GET /stats</small></div>
+      <p>Revenue</p>
+      <strong>{{ formatMoney(stats.total_revenue ?? 0) }}</strong>
+      <div class="dim">
+        <small>{{ formatMoney(stats.revenue_today ?? 0) }} today · cancelled excluded</small>
+        <div class="dline"></div><small>order_items</small>
+      </div>
     </article>
     <article class="metric-card">
       <div class="metric-top">
-        <span class="metric-icon amber"><Icon name="database" /></span>
+        <span class="metric-icon amber"><Icon name="users" /></span>
         <span class="zone">D</span>
       </div>
-      <p>Database readiness</p>
-      <strong>{{ probe.up ? "Connected" : "Down" }}</strong>
+      <p>Visitors today</p>
+      <strong>{{ stats.visitors_today ?? 0 }}</strong>
       <div class="dim">
-        <small>{{ probe.latencyMs }} ms</small><div class="dline"></div>
-        <span :class="probe.up ? 'health-badge' : 'health-badge down'"><i /> {{ probe.up ? "Healthy" : "Down" }}</span>
+        <small>unique (bl_vid cookie)</small>
+        <div class="dline"></div><small>Redis daily set</small>
       </div>
     </article>
   </section>
