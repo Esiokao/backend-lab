@@ -51,6 +51,11 @@ class User(Base):
         "Order",
         back_populates="user",
     )
+    cart_items: Mapped[list["CartItem"]] = relationship(
+        "CartItem",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Order(Base):
@@ -145,6 +150,24 @@ class OrderItem(Base):
 
     product: Mapped["Product"] = relationship(
         "Product",
+    )
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE")
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    user: Mapped["User"] = relationship("User", back_populates="cart_items")
+    product: Mapped["Product"] = relationship("Product")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "product_id", name="uq_cart_items_user_product"),
     )
 
 
