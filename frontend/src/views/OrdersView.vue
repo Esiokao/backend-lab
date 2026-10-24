@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
+import { useToast } from "@/stores/toast";
 import { ProductListSchema } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 
@@ -57,6 +58,20 @@ const filteredOrders = computed(() => {
 
 // 回傳筆數少於 page_size 代表沒有下一頁（後端不回傳總數）。
 const hasNext = computed(() => orders.value.length >= PAGE_SIZE);
+const toast = useToast();
+
+// 取消自己的訂單（created/pending → cancelled；後端狀態機把關）。
+async function cancelOrder(order: Order): Promise<void> {
+  if (!window.confirm(`Cancel order #${order.id}? This cannot be undone.`)) return;
+
+  try {
+    await api.post(`/orders/${order.id}/cancel`);
+    toast.show(`Order #${order.id} cancelled.`);
+    await loadOrders();
+  } catch (err) {
+    toast.show(err instanceof ApiError ? `Cancel failed: ${err.message}` : "Cancel failed.");
+  }
+}
 
 // 商品名稱對照（訂單明細顯示用；訂單建立改走購物車結帳，此頁唯讀）。
 const products = ref<ProductOption[]>([]);
@@ -180,6 +195,8 @@ watch([page, sortOrder], loadOrders);
             <th>Total</th>
             <th>Status</th>
             <th>Created</th>
+            <th><span class="sr-only">Actions</span></th>
+            <th>Created</th>
           </tr>
         </thead>
         <tbody>
@@ -219,6 +236,26 @@ watch([page, sortOrder], loadOrders);
             </td>
             <td>
               <span class="order-date">{{ formatCreated(order.created_at) }}</span>
+            </td>
+            <td>
+              <div class="order-actions">
+                <button
+                  v-if="order.status === 'created' || order.status === 'pending'"
+                  type="button"
+                  class="sort-button cancel-button"
+                  :aria-label="`Cancel order ${order.id}`"
+                  @click="cancelOrder(order)"
+                >
+                  Cancel
+                </button>
+                <router-link
+                  :to="{ name: 'order-detail', params: { id: order.id } }"
+                  class="row-action"
+                  :aria-label="`Open order ${order.id}`"
+                >
+                  <Icon name="arrow" :size="16" />
+                </router-link>
+              </div>
             </td>
           </tr>
         </tbody>

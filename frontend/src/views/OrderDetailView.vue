@@ -92,6 +92,31 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+// 取消（v1.11）：自己的 created/pending 訂單 → POST /orders/{id}/cancel → cancelled。
+const cancelling = ref(false);
+const cancellable = computed(
+  () =>
+    order.value !== null &&
+    (order.value.status === "created" || order.value.status === "pending") &&
+    isOwnOrder.value,
+);
+
+async function cancelOrder(): Promise<void> {
+  if (!order.value) return;
+  if (!window.confirm(`Cancel order #${order.value.id}? This cannot be undone.`)) return;
+
+  cancelling.value = true;
+  try {
+    await api.post(`/orders/${order.value.id}/cancel`);
+    toast.show(`Order #${order.value.id} cancelled.`);
+    order.value = await api.get<Order>(`/orders/${order.value.id}`);
+  } catch (err) {
+    toast.show(err instanceof ApiError ? `Cancel failed: ${err.message}` : "Cancel failed.");
+  } finally {
+    cancelling.value = false;
+  }
+}
+
 // 付款（v1.7）：自己的 created 訂單 → POST /orders/{id}/pay → pending（扣款模擬 + 通知）。
 const paying = ref(false);
 const isOwnOrder = computed(() => order.value?.user_id === me.value?.id);
@@ -152,6 +177,15 @@ onMounted(async () => {
       @click="payOrder"
     >
       <Icon name="bolt" :size="15" /> {{ paying ? "Paying..." : "Pay now" }}
+    </button>
+    <button
+      v-if="cancellable"
+      type="button"
+      class="ghost-button"
+      :disabled="cancelling"
+      @click="cancelOrder"
+    >
+      <Icon name="close" :size="14" /> {{ cancelling ? "Cancelling..." : "Cancel order" }}
     </button>
     <router-link :to="{ name: 'orders' }" class="text-button">
       <Icon name="arrow" :size="15" /> Back to orders

@@ -471,6 +471,8 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .role-badge.user { color: var(--ink-soft); background: transparent; }
 .order-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .row-action.row-delete:hover { border-color: #e3c4ba; color: var(--danger-ink); background: var(--danger-bg); }
+.cancel-button { color: var(--danger-ink); }
+.cancel-button:hover { color: var(--danger); border-color: #e3c4ba; background: var(--danger-bg); }
 .row-edit-field { height: 32px; width: 100%; min-width: 150px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; outline: 0; color: var(--ink); background: var(--card); font-size: 12px; caret-color: var(--ink); }
 .row-edit-field::placeholder { color: var(--ink-faint); }
 .row-edit-field:focus { border-color: var(--brand); }
