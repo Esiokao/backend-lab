@@ -10,12 +10,13 @@ const router = createRouter({
       path: "/",
       name: "storefront",
       component: () => import("@/views/StorefrontView.vue"),
+      meta: { title: "Storefront" },
     },
     {
       path: "/login",
       name: "login",
       component: () => import("@/views/LoginView.vue"),
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, title: "Sign in" },
     },
     {
       // 購物車（v1.7）：店面購物流的一環，不住在會員後台；
@@ -23,24 +24,28 @@ const router = createRouter({
       path: "/cart",
       name: "cart",
       component: () => import("@/views/CartView.vue"),
+      meta: { title: "Cart" },
     },
     {
       // 結帳/付款頁（v1.8）：選中明細 → Pay → 結果頁。
       path: "/checkout",
       name: "checkout",
       component: () => import("@/views/CheckoutView.vue"),
+      meta: { title: "Checkout" },
     },
     {
       // 結帳結果頁：完成 / 失敗（失敗可回訂單重試 Pay now）。
       path: "/checkout/result",
       name: "checkout-result",
       component: () => import("@/views/CheckoutResultView.vue"),
+      meta: { title: "Checkout result" },
     },
     {
       // About us：repo 的 tech stack（公開）。
       path: "/about",
       name: "about",
       component: () => import("@/views/AboutView.vue"),
+      meta: { title: "About us" },
     },
     {
       // 登入後應用區（v1.4 自 / 前綴遷入）。
@@ -56,32 +61,40 @@ const router = createRouter({
           path: "dashboard",
           name: "dashboard",
           component: () => import("@/views/DashboardView.vue"),
-          meta: { requiresAdmin: true },
+          meta: { requiresAdmin: true, title: "Overview" },
         },
-        { path: "orders", name: "orders", component: () => import("@/views/OrdersView.vue") },
+        {
+          path: "orders",
+          name: "orders",
+          component: () => import("@/views/OrdersView.vue"),
+          meta: { title: "My orders" },
+        },
         {
           // 訂單詳情（後端允許擁有者或 admin 讀取）。
           path: "orders/:id",
           name: "order-detail",
           component: () => import("@/views/OrderDetailView.vue"),
+      meta: { title: "Order detail" },
         },
         {
           // 會員中心（v1.9）：唯讀資料頁 + 編輯區分離。
           path: "account",
           name: "account",
           component: () => import("@/views/AccountView.vue"),
+      meta: { title: "My account" },
         },
         {
           // 會員資料編輯：資料修改 + 改密碼（F7）。
           path: "account/edit",
           name: "account-edit",
           component: () => import("@/views/AccountEditView.vue"),
+      meta: { title: "Edit profile" },
         },
         {
           path: "api-health",
           name: "api-health",
           component: () => import("@/views/ApiHealthView.vue"),
-          meta: { requiresAdmin: true },
+          meta: { requiresAdmin: true, title: "API Health" },
         },
       ],
     },
@@ -96,17 +109,20 @@ const router = createRouter({
           path: "orders",
           name: "admin-orders",
           component: () => import("@/views/AdminOrdersView.vue"),
+      meta: { title: "Order Management" },
         },
         {
           path: "users",
           name: "admin-users",
           component: () => import("@/views/AdminUsersView.vue"),
+      meta: { title: "User Management" },
         },
         {
           // 分類管理（v1.6：/categories CRUD）。
           path: "categories",
           name: "admin-categories",
           component: () => import("@/views/AdminCategoriesView.vue"),
+      meta: { title: "Category Management" },
         },
         {
           // 使用者詳情（GET /admin/users/{id}：基本資料 + 訂單）。
@@ -119,6 +135,7 @@ const router = createRouter({
           path: "notifications",
           name: "admin-notifications",
           component: () => import("@/views/AdminNotificationsView.vue"),
+      meta: { title: "Notifications" },
         },
       ],
     },
@@ -149,6 +166,10 @@ router.beforeEach(async (to) => {
   if (to.meta.guestOnly && user.value) {
     return { path: "/" };
   }
+
+  // 分頁標題反映所在位置；店面（動態分類）由 StorefrontView 覆寫。
+  const title = to.meta.title as string | undefined;
+  if (title) document.title = `${title} · Backend Lab`;
 });
 
 export default router;

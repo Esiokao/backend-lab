@@ -367,6 +367,10 @@ tr.dimmed td { opacity: .5; }
 .product-card:nth-child(5) { animation-delay: .16s; }
 .product-card:nth-child(6) { animation-delay: .2s; }
 .product-card:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--shadow-card); }
+/* 零庫存：整卡降級（掃視層即可辨識不可購），圖片轉灰；hover 仍可讀資訊與追蹤補貨 */
+.product-card.oos { opacity: .62; }
+.product-card.oos:hover { opacity: .85; }
+.product-card.oos .product-media img { filter: grayscale(.6); }
 .product-media { position: relative; height: 170px; display: grid; place-items: center; border-bottom: 1px solid var(--line-soft); background: var(--paper-deep); }
 /* img 需絕對定位：grid item 的 height:100% 對 auto row 循環解析會回退成內容高，
    圖片溢出 170px 容器並蓋住 product-foot（position:relative 圖層較高）。 */

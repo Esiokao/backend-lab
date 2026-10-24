@@ -41,6 +41,7 @@ function categoryFromQuery(): number | null {
   const cat = Number(route.query.cat);
   return Number.isInteger(cat) && cat > 0 ? cat : null;
 }
+
 const { user } = useAuth();
 const { add: addToCart } = useCart();
 const { show: showToast } = useToast();
@@ -388,6 +389,29 @@ async function restoreProduct(product: Product): Promise<void> {
   }
 }
 
+// 所在位置反映：標題塊 h1 與分頁標題跟著分類走（在哪裡就顯示在哪裡）。
+const headingTitle = computed(() =>
+  selectedCategory.value === null ? "Storefront" : categoryName(selectedCategory.value),
+);
+const headingSub = computed(() => {
+  if (selectedCategory.value !== null) {
+    const name = categoryName(selectedCategory.value);
+    const n = products.value.length;
+    return `Browsing ${name} — ${n} product${n === 1 ? "" : "s"}.`;
+  }
+  return user.value
+    ? "Follow products for restock alerts, or place orders from your workspace."
+    : "Browse the catalog. Sign in to follow restock alerts or place orders.";
+});
+
+// 分頁標題同步（覆寫 router 的靜態 title）。
+watch(
+  headingTitle,
+  (title) => {
+    document.title = `${title} · Backend Lab`;
+  },
+  { immediate: true },
+);
 // 同頁切分類（header 連結）→ route.query 變化 → 重選分類。
 watch(
   () => route.query.cat,
@@ -415,14 +439,8 @@ onMounted(() => {
   <main class="storefront-main">
     <section class="page-heading">
       <div class="th-main">
-        <h1>Storefront</h1>
-        <p>
-          {{
-            user
-              ? "Follow products for restock alerts, or place orders from your workspace."
-              : "Browse the catalog. Sign in to follow restock alerts or place orders."
-          }}
-        </p>
+        <h1>{{ headingTitle }}</h1>
+        <p>{{ headingSub }}</p>
       </div>
       <div v-if="isAdmin" class="storefront-admin-actions">
         <button type="button" class="ghost-button" @click="toggleArchived">
@@ -432,7 +450,12 @@ onMounted(() => {
           <Icon name="plus" :size="15" /> New product
         </button>
       </div>
-      <div class="th-cell"><small>Sheet</small><b>STORE-01</b></div>
+      <div class="th-cell">
+        <small>Sheet</small>
+        <b>{{
+          selectedCategory === null ? "STORE-01" : `CAT-${String(selectedCategory).padStart(2, "0")}`
+        }}</b>
+      </div>
     </section>
 
     <section v-if="isAdmin && showCreate" class="product-create-panel" aria-label="New product">
@@ -579,7 +602,11 @@ onMounted(() => {
         <p v-else-if="products.length === 0" class="empty-state">No products found.</p>
 
         <section v-else class="product-grid" aria-label="Product catalog">
-          <article v-for="product in products" :key="product.id" class="product-card">
+          <article
+            v-for="product in products"
+            :key="product.id"
+            :class="['product-card', { oos: product.stock <= 0 }]"
+          >
             <!-- Admin 行內編輯模式 -->
             <div v-if="isAdmin && editingId === product.id" class="product-edit">
               <div class="form-field">
