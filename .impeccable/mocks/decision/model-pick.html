@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:#f3eeea;color:#3e372c;font-family:'Segoe UI',system-ui,sans-serif;display:flex}
+aside{width:250px;background:#ede5d9;border-right:1px solid #dfd4c4;padding:26px 0;display:flex;flex-direction:column}
+.mark{width:38px;height:38px;background:#776b5d;color:#f3eeea;display:grid;place-items:center;margin:0 22px 6px;font:700 15px 'Segoe UI';border-radius:3px}
+.brandname{font:700 15px 'Segoe UI';padding:0 22px 16px;color:#2e2921;border-bottom:1px solid #dfd4c4;margin-bottom:12px}
+.navlabel{font:700 9px 'Segoe UI';letter-spacing:.14em;color:#756a58;padding:10px 22px;text-transform:uppercase}
+a{display:block;padding:11px 22px;color:#6b6152;font:13px 'Segoe UI';text-decoration:none;border-left:3px solid transparent}
+a.on{background:#fbf8f3;color:#2e2921;border-left:3px solid #776b5d;font-weight:600}
+main{flex:1;padding:34px 46px;overflow:hidden;background:
+ repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(119,107,93,.05) 27px,rgba(119,107,93,.05) 28px),
+ repeating-linear-gradient(90deg,transparent,transparent 27px,rgba(119,107,93,.05) 27px,rgba(119,107,93,.05) 28px),#f3eeea}
+h1{font:700 40px 'Segoe UI';color:#2e2921;letter-spacing:-.02em;margin:4px 0 4px}
+.sub{font:14px 'Segoe UI';color:#6b6152;margin-bottom:20px}
+.titleblock{display:flex;gap:0;border:1.5px solid #776b5d;background:#fbf8f3;margin-bottom:22px}
+.tb{flex:1;padding:8px 14px;border-right:1px solid #c9bca8}
+.tb:last-child{border-right:0}
+.tb small{display:block;font:700 8px 'Segoe UI';letter-spacing:.14em;color:#8b7f6e;text-transform:uppercase}
+.tb b{font:600 13px 'Segoe UI';color:#2e2921}
+.sheets{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.panel{background:#fbf8f3;border:1px solid #dfd4c4;box-shadow:2px 3px 0 rgba(62,55,44,.06)}
+.panel .ph{padding:12px 16px 8px;color:#6b6152;font:12px 'Segoe UI';border-bottom:1px solid #e7decf}
+.panel .pv{padding:4px 16px 14px;font:700 34px 'Segoe UI';color:#2e2921;font-variant-numeric:tabular-nums}
+.dim{position:relative;padding:10px 16px;font:11px 'Segoe UI';color:#8b7f6e}
+.dim .line{height:1px;background:#776b5d;position:relative;margin:6px 0}
+.dim .line:before,.dim .line:after{content:'';position:absolute;top:-3px;width:1px;height:7px;background:#776b5d}
+.dim .line:before{left:0}.dim .line:after{right:0}
+.sheet{background:#fbf8f3;border:1px solid #dfd4c4;margin-top:20px;box-shadow:2px 3px 0 rgba(62,55,44,.06)}
+.sheethead{padding:13px 22px 11px;border-bottom:1.5px solid #776b5d;display:flex;justify-content:space-between;align-items:baseline}
+.sheethead b{font:600 14px 'Segoe UI';color:#2e2921}
+.sheethead span{font:11px 'Segoe UI';color:#756a58}
+table{width:100%;border-collapse:collapse;font:12.5px 'Segoe UI'}
+th{font:700 9px 'Segoe UI';letter-spacing:.12em;text-transform:uppercase;color:#756a58;text-align:left;padding:10px 22px;border-bottom:1px solid #e7decf}
+td{padding:13px 22px;border-bottom:1px solid #e7decf}
+td.mono{font:12.5px 'Courier New',monospace;font-weight:700}
+.badge{display:inline-block;padding:2px 8px;border:1px solid #776b5d;color:#776b5d;font:600 9px 'Segoe UI';letter-spacing:.08em;border-radius:2px}
+.badge.warn{border-color:#7e5f1f;color:#7e5f1f;background:#f4ead2}
+</style></head><body>
+<aside>
+  <div class="mark">⚡</div><div class="brandname">Backend Lab</div>
+  <div class="navlabel">Workspace</div>
+  <a href="#" class="on">Overview</a><a href="#">Orders</a><a href="#">API Health</a>
+  <div class="navlabel">Administration</div>
+  <a href="#">Order Management</a><a href="#">User Management</a><a href="#">Notifications</a>
+</aside>
+<main>
+  <h1>Overview</h1>
+  <div class="sub">Monitor your API, users, and order activity from one place.</div>
+  <div class="titleblock">
+    <div class="tb"><small>Sheet</small><b>OVERVIEW-01</b></div>
+    <div class="tb"><small>Users</small><b>8 live</b></div>
+    <div class="tb"><small>Orders</small><b>13 live</b></div>
+    <div class="tb"><small>Drawn by</small><b>Backend Lab</b></div>
+    <div class="tb"><small>Rev</small><b>A — 2026-10-24</b></div>
+  </div>
+  <div class="sheets">
+    <div class="panel"><div class="ph">Total users</div><div class="pv">8</div><div class="dim">live<div class="line"></div>GET /stats</div></div>
+    <div class="panel"><div class="ph">Total orders</div><div class="pv">13</div><div class="dim">live<div class="line"></div>GET /stats</div></div>
+    <div class="panel"><div class="ph">Orders today</div><div class="pv">0</div><div class="dim">since 00:00 UTC<div class="line"></div>GET /stats</div></div>
+    <div class="panel"><div class="ph">Database</div><div class="pv">17<span style="font:600 14px 'Segoe UI'"> ms</span></div><div class="dim"><span class="badge">CONNECTED</span><div class="line"></div>GET /ready</div></div>
+  </div>
+  <div class="sheet">
+    <div class="sheethead"><b>Recent orders — schedule of components</b><span>View all →</span></div>
+    <table>
+      <tr><th>No.</th><th>Member</th><th>Items</th><th>Total</th><th>State</th></tr>
+      <tr><td class="mono">#57</td><td>a</td><td>a × 2</td><td class="mono">$200.00</td><td><span class="badge">CREATED</span></td></tr>
+      <tr><td class="mono">#56</td><td>dev</td><td>a × 1</td><td class="mono">$100.00</td><td><span class="badge">CREATED</span></td></tr>
+      <tr><td class="mono">#45</td><td>dev</td><td>a × 1</td><td class="mono">$100.00</td><td><span class="badge warn">PENDING</span></td></tr>
+    </table>
+  </div>
+</main>
+</body></html>
