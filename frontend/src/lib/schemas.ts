@@ -45,6 +45,7 @@ export const CartItemSchema = z.object({
   quantity: z.number().int(),
   unit_price: decimal,
   subtotal: decimal,
+  stock: z.number().int(),
 });
 export type CartItem = z.infer<typeof CartItemSchema>;
 

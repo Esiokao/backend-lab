@@ -18,7 +18,11 @@ const selected = ref<Record<number, boolean>>({});
 const count = () => items.value.reduce((n, item) => n + item.quantity, 0);
 
 const isSelected = (productId: number) => !!selected.value[productId];
-const selectedItems = () => items.value.filter((item) => selected.value[item.product_id]);
+
+// 撞庫存（quantity > stock 或零庫存）→ 不可勾選結帳。
+const isSelectable = (item: CartItem) => item.stock >= item.quantity;
+const selectedItems = () =>
+  items.value.filter((item) => selected.value[item.product_id] && isSelectable(item));
 const selectedCount = () => selectedItems().reduce((n, item) => n + item.quantity, 0);
 const selectedTotal = () =>
   selectedItems().reduce((sum, item) => sum + Number(item.subtotal), 0);
@@ -44,7 +48,8 @@ function apply(cart: Cart): void {
   const previous = selected.value;
   const record: Record<number, boolean> = {};
   for (const item of cart.items) {
-    record[item.product_id] = previous[item.product_id] ?? true;
+    // 預設全選，但撞庫存的品項自動取消（庫存恢復後 re-fetch 會重新預設選中）。
+    record[item.product_id] = (previous[item.product_id] ?? true) && isSelectable(item);
   }
   selected.value = record;
 }
@@ -119,6 +124,7 @@ export function useCart() {
     selected,
     count,
     isSelected,
+    isSelectable,
     selectedItems,
     selectedCount,
     selectedTotal,

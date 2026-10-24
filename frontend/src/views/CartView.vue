@@ -20,6 +20,7 @@ const {
   total,
   busy,
   isSelected,
+  isSelectable,
   selectedItems,
   selectedCount,
   selectedTotal,
@@ -38,10 +39,14 @@ function formatPrice(price: string | number): string {
   return `$${Number(price).toFixed(2)}`;
 }
 
-async function setQty(productId: number, quantity: number): Promise<void> {
+async function setQty(productId: number, quantity: number, stock?: number): Promise<void> {
   if (quantity < 1) return; // 移除請用 ×
   if (quantity > 100) {
     toast.show("Quantity cannot exceed 100.");
+    return;
+  }
+  if (stock !== undefined && quantity > stock) {
+    toast.show(`Only ${stock} in stock.`);
     return;
   }
   try {
@@ -51,17 +56,27 @@ async function setQty(productId: number, quantity: number): Promise<void> {
   }
 }
 
-async function step(productId: number, current: number, delta: number): Promise<void> {
-  await setQty(productId, current + delta);
+async function step(
+  productId: number,
+  current: number,
+  delta: number,
+  stock?: number,
+): Promise<void> {
+  await setQty(productId, current + delta, stock);
 }
 
-async function onQtyInput(productId: number, current: number, event: Event): Promise<void> {
+async function onQtyInput(
+  productId: number,
+  current: number,
+  stock: number,
+  event: Event,
+): Promise<void> {
   const value = Number((event.target as HTMLInputElement).value);
   if (Number.isInteger(value) && value >= 1 && value <= 100 && value !== current) {
-    await setQty(productId, value);
-  } else {
-    (event.target as HTMLInputElement).value = String(current);
+    await setQty(productId, value, stock);
   }
+  // 還原輸入框（re-render 由 store 狀態驅動）。
+  (event.target as HTMLInputElement).value = String(current);
 }
 
 async function removeItem(productId: number, name: string): Promise<void> {
@@ -158,6 +173,7 @@ onMounted(async () => {
                 </th>
                 <th>Product</th>
                 <th>Unit price</th>
+                <th>Stock</th>
                 <th>Qty</th>
                 <th>Subtotal</th>
                 <th><span class="sr-only">Actions</span></th>
@@ -167,41 +183,62 @@ onMounted(async () => {
               <tr
                 v-for="item in items"
                 :key="item.product_id"
-                :class="{ dimmed: !isSelected(item.product_id) }"
+                :class="{ dimmed: !isSelected(item.product_id), blocked: !isSelectable(item) }"
               >
                 <td class="check-col">
                   <input
                     type="checkbox"
                     :checked="isSelected(item.product_id)"
+                    :disabled="!isSelectable(item)"
                     :aria-label="`Select ${item.product_name}`"
+                    :title="
+                      isSelectable(item)
+                        ? undefined
+                        : item.stock <= 0
+                          ? 'Out of stock'
+                          : `Only ${item.stock} in stock`
+                    "
                     @change="toggleSelect(item.product_id)"
                   />
                 </td>
-                <td><strong>{{ item.product_name }}</strong></td>
+                <td>
+                  <strong>{{ item.product_name }}</strong>
+                  <p v-if="!isSelectable(item) && item.stock > 0" class="field-error">
+                    Only {{ item.stock }} in stock — reduce quantity to select.
+                  </p>
+                  <p v-else-if="item.stock <= 0" class="field-error">
+                    Out of stock — follow it in the storefront for a restock alert.
+                  </p>
+                </td>
                 <td><span class="order-total">{{ formatPrice(item.unit_price) }}</span></td>
+                <td>
+                  <span :class="['stock-badge', item.stock > 0 ? 'in' : 'out']">
+                    {{ item.stock > 0 ? `${item.stock}` : "Out" }}
+                  </span>
+                </td>
                 <td>
                   <div class="qty-stepper">
                     <button
                       type="button"
                       :aria-label="`Decrease ${item.product_name}`"
                       :disabled="busy || item.quantity <= 1"
-                      @click="step(item.product_id, item.quantity, -1)"
+                      @click="step(item.product_id, item.quantity, -1, item.stock)"
                     >
                       −
                     </button>
                     <input
                       type="number"
                       min="1"
-                      max="100"
+                      :max="Math.min(item.stock, 100)"
                       :value="item.quantity"
                       :aria-label="`${item.product_name} quantity`"
-                      @change="onQtyInput(item.product_id, item.quantity, $event)"
+                      @change="onQtyInput(item.product_id, item.quantity, item.stock, $event)"
                     />
                     <button
                       type="button"
                       :aria-label="`Increase ${item.product_name}`"
-                      :disabled="busy || item.quantity >= 100"
-                      @click="step(item.product_id, item.quantity, 1)"
+                      :disabled="busy || item.quantity >= 100 || item.quantity >= item.stock"
+                      @click="step(item.product_id, item.quantity, 1, item.stock)"
                     >
                       +
                     </button>

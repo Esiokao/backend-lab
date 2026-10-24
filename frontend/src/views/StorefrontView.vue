@@ -738,13 +738,29 @@ onMounted(() => {
               </div>
               <div class="product-cart-row">
                 <button
+                  v-if="product.stock > 0"
                   type="button"
                   class="ghost-button product-add-button"
-                  :disabled="product.stock <= 0"
                   @click="handleAddToCart(product)"
                 >
-                  <Icon name="cart" :size="14" />
-                  {{ product.stock > 0 ? "Add to cart" : "Out of stock" }}
+                  <Icon name="cart" :size="14" /> Add to cart
+                </button>
+                <!-- 零庫存：引導 follow 補貨通知（點擊=追蹤；已追蹤顯示狀態） -->
+                <button
+                  v-else-if="followedIds[product.id]"
+                  type="button"
+                  class="ghost-button product-add-button following"
+                  disabled
+                >
+                  <Icon name="star" :size="14" /> Following — restock alert on
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="ghost-button product-add-button notify"
+                  @click="toggleFollow(product)"
+                >
+                  <Icon name="star" :size="14" /> Out of stock — notify me
                 </button>
               </div>
               <div v-if="isAdmin" class="product-admin-row">
