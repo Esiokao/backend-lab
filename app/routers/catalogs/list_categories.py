@@ -9,6 +9,6 @@ from app.schemas.Category import CategoryResponse
 router = APIRouter(prefix="/categories")
 
 
-@router.get("/", response_model=list[CategoryResponse])
+@router.get("", response_model=list[CategoryResponse])
 def list_categories(db: Session = Depends(get_db)):
     return db.scalars(select(Category).order_by(Category.id)).all()

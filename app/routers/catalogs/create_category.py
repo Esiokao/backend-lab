@@ -9,7 +9,7 @@ from app.schemas.Category import CategoryCreate, CategoryResponse
 router = APIRouter(prefix="/categories")
 
 
-@router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
