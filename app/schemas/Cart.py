@@ -18,6 +18,8 @@ class CartItemResponse(BaseModel):
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
+    # 目前庫存：前端以此判斷可否勾選結帳（quantity > stock → 不可選）。
+    stock: int
 
 
 class CartResponse(BaseModel):

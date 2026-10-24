@@ -153,6 +153,7 @@ def _cart_response(items: list[CartItem]) -> dict:
             "quantity": item.quantity,
             "unit_price": item.product.price,
             "subtotal": item.product.price * item.quantity,
+            "stock": item.product.stock,
         }
         for item in items
     ]

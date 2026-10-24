@@ -51,3 +51,22 @@ def test_checkout_without_body_takes_whole_cart(
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 1
+
+
+def test_cart_items_expose_current_stock(
+    create_test_user,
+    create_test_product,
+    test_user_data,
+    session_auth_client,
+):
+    # 前端勾選邏輯依賴 stock 欄位：quantity > stock → 不可勾選結帳。
+    create_test_user(**test_user_data)
+    beans = create_test_product(name="Beans", price=Decimal("10.00"), stock=2)
+    client = session_auth_client(test_user_data)
+
+    response = client.post("/cart/items", json={"product_id": beans.id, "quantity": 5})
+
+    assert response.status_code == 201
+    item = response.json()["items"][0]
+    assert item["quantity"] == 5
+    assert item["stock"] == 2  # 庫存低於車內數量 → 前端應停用勾選
