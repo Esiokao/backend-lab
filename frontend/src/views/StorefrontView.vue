@@ -117,6 +117,14 @@ const loadingMore = ref(false);
 
 // 無限滾動：捲到哨兵前 600px 自動載下一頁（append）。
 const sentinelEl = ref<HTMLElement | null>(null);
+
+// 骨架卡數量依螢幕寬估算（250px 最小卡寬 + gap），避免小螢幕 overflow
+// 或大螢幕只鋪半排的「假加載」感。
+const skeletonCount = computed(() => {
+  const cols = Math.max(1, Math.floor((window.innerWidth - 80) / 264));
+  const rows = Math.max(2, Math.ceil(window.innerHeight / 420));
+  return Math.min(PAGE_SIZE, cols * rows);
+});
 let scrollObserver: IntersectionObserver | undefined;
 
 async function loadMore(): Promise<void> {
@@ -580,14 +588,23 @@ onMounted(() => {
         </div>
 
         <section v-if="loading" class="product-grid" aria-hidden="true">
-          <div v-for="n in PAGE_SIZE" :key="n" class="product-card">
+          <div
+            v-for="n in skeletonCount"
+            :key="n"
+            class="product-card skeleton-card"
+            :style="{ animationDelay: `${(n - 1) * 0.04}s` }"
+          >
             <div class="product-media"><div class="skeleton-block skeleton-media" /></div>
             <div class="product-foot">
               <div class="skeleton-block skeleton-line" />
               <div class="skeleton-block skeleton-line short" style="margin-left: auto" />
             </div>
-            <div class="product-foot">
-              <div class="skeleton-block skeleton-line" style="width: 64px" />
+            <div class="product-tags">
+              <div class="skeleton-block skeleton-line" style="width: 72px" />
+              <div class="skeleton-block skeleton-line" style="width: 44px" />
+            </div>
+            <div class="product-cart-row">
+              <div class="skeleton-block skeleton-line" style="width: 100%; height: 34px" />
             </div>
           </div>
         </section>
@@ -694,19 +711,29 @@ onMounted(() => {
           </article>
         </section>
 
-        <!-- 無限滾動哨兵：進入視窗（前 600px）自動載下一頁 -->
-        <div v-if="!loading && products.length > 0" ref="sentinelEl" class="infinite-sentinel">
-          <div v-if="loadingMore" class="skeleton-block infinite-shimmer" />
-          <button
-            v-else-if="hasMore"
-            type="button"
-            class="ghost-button"
-            @click="loadMore"
-          >
-            Load more
-          </button>
-          <p v-else class="infinite-end">End of catalog</p>
-        </div>
+        <!-- 無限滾動：載入中顯示延續格線的骨架卡；閒置顯示計數與 Load more -->
+        <template v-if="!loading && products.length > 0">
+          <section v-if="loadingMore" class="product-grid" aria-hidden="true">
+            <div v-for="n in skeletonCount" :key="`more-${n}`" class="product-card skeleton-card">
+              <div class="product-media"><div class="skeleton-block skeleton-media" /></div>
+              <div class="product-foot">
+                <div class="skeleton-block skeleton-line" />
+                <div class="skeleton-block skeleton-line short" style="margin-left: auto" />
+              </div>
+              <div class="product-tags">
+                <div class="skeleton-block skeleton-line" style="width: 72px" />
+              </div>
+            </div>
+          </section>
+          <div ref="sentinelEl" class="infinite-sentinel">
+            <button v-if="hasMore && !loadingMore" type="button" class="ghost-button" @click="loadMore">
+              Load more
+            </button>
+            <p v-else-if="!hasMore" class="infinite-end">
+              End of catalog · {{ products.length }} product{{ products.length === 1 ? "" : "s" }}
+            </p>
+          </div>
+        </template>
     </div>
     </div>
 
