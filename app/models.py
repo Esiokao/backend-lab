@@ -326,8 +326,8 @@ class Product(Base):
     )
 
     # 商品可以不屬於任何分類
-    catalog_id: Mapped[int | None] = mapped_column(
-        ForeignKey("catalogs.id"),
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id"),
         nullable=True,
     )
 
@@ -351,8 +351,8 @@ class Product(Base):
         nullable=False,
     )
 
-    catalog: Mapped["Catalog | None"] = relationship(
-        "Catalog",
+    category: Mapped["Category | None"] = relationship(
+        "Category",
         back_populates="products",
     )
 
@@ -377,8 +377,8 @@ class ProductFollow(Base):
     )
 
 
-class Catalog(Base):
-    __tablename__ = "catalogs"
+class Category(Base):
+    __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -392,5 +392,5 @@ class Catalog(Base):
     # 取得這個分類底下的所有商品
     products: Mapped[list["Product"]] = relationship(
         "Product",
-        back_populates="catalog",
+        back_populates="category",
     )

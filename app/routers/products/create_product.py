@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.database import get_db
-from app.models import Catalog, Product, User
+from app.models import Category, Product, User
 from app.schemas.Product import ProductCreate, ProductResponse
 
 router = APIRouter(prefix="/products")
@@ -19,8 +19,11 @@ def create_product(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    if payload.catalog_id is not None and db.get(Catalog, payload.catalog_id) is None:
-        raise HTTPException(status_code=404, detail="Catalog not found")
+    if (
+        payload.category_id is not None
+        and db.get(Category, payload.category_id) is None
+    ):
+        raise HTTPException(status_code=404, detail="Category not found")
 
     product = Product(
         name=payload.name,
@@ -28,7 +31,7 @@ def create_product(
         image_url=payload.image_url,
         price=payload.price,
         stock=payload.stock,
-        catalog_id=payload.catalog_id,
+        category_id=payload.category_id,
     )
 
     db.add(product)
