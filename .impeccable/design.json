@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-24T03:42:07Z",
+  "title": "Design System: Backend Lab",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Light Cream Paper",
+        "canonical": "#f3eeea"
+      },
+      "paper-deep": {
+        "role": "neutral",
+        "displayName": "Deep Cream Paper",
+        "canonical": "#ede5d9"
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "Cream Panel",
+        "canonical": "#ebe3d5"
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Warm Card",
+        "canonical": "#fbf8f3"
+      },
+      "card-soft": {
+        "role": "neutral",
+        "displayName": "Card Soft Fill",
+        "canonical": "#f6f1e9"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Espresso Ink",
+        "canonical": "#3e372c"
+      },
+      "ink-strong": {
+        "role": "neutral",
+        "displayName": "Strong Ink",
+        "canonical": "#2e2921"
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Taupe Soft",
+        "canonical": "#6b6152"
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Taupe Faint",
+        "canonical": "#756a58"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Parchment Line",
+        "canonical": "#dfd4c4"
+      },
+      "brand": {
+        "role": "primary",
+        "displayName": "Dark Taupe",
+        "canonical": "#776b5d"
+      },
+      "brand-deep": {
+        "role": "primary",
+        "displayName": "Brand Deep",
+        "canonical": "#554c40"
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Sage Success",
+        "canonical": "#5f7d5c"
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Terracotta Danger",
+        "canonical": "#a9553f"
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Honey Warning",
+        "canonical": "#9a7729"
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Slate Info",
+        "canonical": "#5e6e7d"
+      },
+      "honey": {
+        "role": "accent",
+        "displayName": "Honey Star",
+        "canonical": "#b98a2e"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page h1 only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Panel and card titles."
+      },
+      "data": {
+        "displayName": "Data Mono",
+        "purpose": "Prices, ids, numeric data \u2014 JetBrains Mono tabular."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-card",
+        "value": "0 1px 2px rgba(62,55,44,.05), 0 10px 28px rgba(62,55,44,.07)",
+        "purpose": "Ambient depth under cards and primary buttons."
+      },
+      {
+        "name": "shadow-pop",
+        "value": "0 18px 44px rgba(62,55,44,.16)",
+        "purpose": "Floating panels: notifications, avatar menu, login card."
+      }
+    ],
+    "motion": [
+      {
+        "name": "rise-in",
+        "value": "opacity 0\u21921, translateY 10px\u21920, 400ms ease, \u22640.2s stagger",
+        "purpose": "One entrance per surface section."
+      },
+      {
+        "name": "pop-in",
+        "value": "opacity 0\u21921, translateY -4px\u21920, scale .98\u21921, 160ms ease",
+        "purpose": "Floating panels and menus, transform-origin top right."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "1050px",
+        "purpose": "Metrics 4\u21922 cols, account/admin grids stack."
+      },
+      {
+        "name": "mobile",
+        "value": "760px",
+        "purpose": "Sidebar hidden \u2192 horizontal chip nav + topbar avatar menu."
+      }
+    ],
+    "themes": {
+      "light": {
+        "ground": "#f3eeea",
+        "card": "#fbf8f3",
+        "ink": "#3e372c",
+        "brand": "#776b5d",
+        "note": "Pinned owner swatch (cream bond)."
+      },
+      "dark": {
+        "ground": "#211d17",
+        "card": "#26221b",
+        "ink": "#e8e0d2",
+        "brand": "#b0a695",
+        "note": "Warm charcoal under lamplight \u2014 donor: Catalog Sleeve (matte deep ground, hairline structure)."
+      }
+    }
+  },
+  "narrative": {
+    "northStar": "Warm Paper & Ink",
+    "overview": "Cream grounds, taupe ink, quiet parchment borders. Operating-console density carried by a warm stationery palette; no gray neutrals, no purple, no glow.",
+    "keyCharacteristics": [
+      "Taupe-tinted neutrals only",
+      "Mono for numeric data",
+      "Restrained rise-in entrances",
+      "Status hues carry meaning in a monochrome interactive world",
+      "Two modes on one material world: cream bond light / warm charcoal dark, user-togglable"
+    ]
+  }
+}

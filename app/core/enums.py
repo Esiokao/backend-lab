@@ -19,6 +19,7 @@ class NotificationType(str, Enum):
     admin_announcement = "admin_announcement"  # admin 公告
     order_created = "order_created"  # 訂單建立通知
     product_restocked = "product_restocked"  # 到貨通知
+    order_paid = "order_paid"  # 訂單付款通知
 
 
 # 合法的狀態轉移（狀態機）：key = 現狀，value = 允許的下一個狀態。

@@ -52,8 +52,7 @@ onUnmounted(() => {
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">System workspace</p>
+    <div class="th-main">
       <h1>API Health</h1>
       <p>Live status of the backend services.</p>
     </div>
@@ -61,15 +60,17 @@ onUnmounted(() => {
       <Icon name="activity" :size="15" />
       {{ refreshing ? "Checking..." : "Refresh" }}
     </button>
-  </section>
+
+      <div class="th-cell"><small>Sheet</small><b>SYS-01</b></div>
+    </section>
 
   <section class="metrics" aria-label="API status">
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon green"><Icon name="server" /></span>
         <span v-if="live === true" class="health-badge"><i /> Operational</span>
-        <span v-else-if="live === false" class="health-badge" style="color: #f87171">
-          <i style="background: #f87171" /> Down
+        <span v-else-if="live === false" class="health-badge down">
+          <i /> Down
         </span>
         <span v-else class="latency">checking...</span>
       </div>
@@ -82,8 +83,8 @@ onUnmounted(() => {
       <div class="metric-top">
         <span class="metric-icon cyan"><Icon name="database" /></span>
         <span v-if="ready === true" class="health-badge"><i /> Operational</span>
-        <span v-else-if="ready === false" class="health-badge" style="color: #f87171">
-          <i style="background: #f87171" /> Down
+        <span v-else-if="ready === false" class="health-badge down">
+          <i /> Down
         </span>
         <span v-else class="latency">checking...</span>
       </div>

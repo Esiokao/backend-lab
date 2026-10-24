@@ -1,0 +1,220 @@
+{
+ "title": "Backend Lab — redesign direction",
+ "question": "The dice assigned Letterpress Specimen. Keep it, take the pick or an alternate, or re-roll (safer / bolder).",
+ "buildPath": {
+  "value": "code"
+ },
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "steer": true,
+ "options": [
+  {
+   "id": "assigned",
+   "kind": "assigned",
+   "label": "Letterpress Specimen",
+   "kicker": "THE ROLL",
+   "lineage": "letterpress type specimen sheets & hand-set print shops",
+   "thesis": "The console as a type specimen sheet: every number set at its point size, every state stamped in ink.",
+   "palette": [
+    "#f3eeea",
+    "#ebe3d5",
+    "#776b5d",
+    "#2e2921"
+   ],
+   "materials": [
+    "warm paper stock",
+    "deep taupe stamp ink",
+    "double-rule hairlines"
+   ],
+   "viewport": "Sidebar as specimen index with point-size annotations; metrics as specimen numerals at 64px; statuses as rotated ink stamps.",
+   "risk": "Serif-led specimen tone can drift fussy if the stamps and rules multiply.",
+   "raised": [
+    {
+     "from": "digital-design-canon-metro-typographic-tiles",
+     "raise": "Chrome deleted so the type is the interface — metric numerals at true specimen scale, boxes reduced to hairlines."
+    },
+    {
+     "from": "vernacular-ephemera-jet-age-ticket-wallet",
+     "raise": "Nothing disappears, it cancels — cancelled/void states stamp in place and stay visible."
+    },
+    {
+     "from": "operate-c-emission-line-rail",
+     "raise": "State carried in mark form, not hue alone — ink weight and double-strike distinguish states for a11y."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned.html"
+  },
+  {
+   "id": "model-pick",
+   "kind": "pick",
+   "label": "Engineering Vellum",
+   "kicker": "IMPECCABLE'S PICK",
+   "lineage": "engineering drawings on cream bond — title blocks, revision tables, dimension lines",
+   "thesis": "Every screen is a drawing sheet: title block, revision letter, dimension-lined data, schedule tables.",
+   "palette": [
+    "#f3eeea",
+    "#fbf8f3",
+    "#776b5d",
+    "#3e372c"
+   ],
+   "materials": [
+    "cream bond paper",
+    "sepia ink",
+    "faint drafting grid"
+   ],
+   "viewport": "Title block under the h1 (sheet no., rev, drawn-by); metrics with dimension-line callouts naming their endpoints; orders as a schedule-of-components table.",
+   "risk": "The most familiar destination — engineering-drawing skins are where demo dashboards often land.",
+   "html": ".impeccable/mocks/decision/model-pick.html"
+  },
+  {
+   "id": "challenger-ticket-wallet",
+   "kind": "challenger",
+   "catalogId": "vernacular-ephemera-jet-age-ticket-wallet",
+   "verdict": "competitive",
+   "label": "Ticket Wallet",
+   "lineage": "jet-age airline ticket wallets — carbon-copy coupons, stamped states",
+   "thesis": "Orders are coupons in a wallet: every order keeps its stub, and cancellation is a stamp, never a removal.",
+   "palette": [
+    "#f3eeea",
+    "#fbf8f3",
+    "#776b5d",
+    "#b0a695"
+   ],
+   "materials": [
+    "coupon stock",
+    "dashed perforation",
+    "carbon numerals"
+   ],
+   "viewport": "Each order as a coupon strip — stub with order no. + stamp, body with member/items/total, dashed perforation between.",
+   "case": "Holds product clarity on orders (coupon topology maps cleanly); loses audience identification — airline nostalgia fights the engineering-demo story and the pinned cream palette flattens its official colors.",
+   "risk": "Coupon grammar thins on notification/catalog surfaces that are not journeys.",
+   "html": ".impeccable/mocks/decision/challenger-ticket-wallet.html"
+  },
+  {
+   "id": "challenger-emission",
+   "kind": "challenger",
+   "catalogId": "operate-c-emission-line-rail",
+   "verdict": "declined",
+   "label": "Emission Line Rail",
+   "lineage": "midnight spectrogram on a viewing box",
+   "thesis": "Charcoal continuum; state as line height, dash and doubling — never hue.",
+   "palette": [
+    "#1c1916",
+    "#3e372c",
+    "#f3eeea"
+   ],
+   "materials": [
+    "hairline marks",
+    "matte charcoal"
+   ],
+   "viewport": "Ops data as hairline marks hanging off one calibrated rail.",
+   "case": "Kept line: state-in-mark-form + the dark-mode discipline — matte warm charcoal ground with cream hairlines (no cool black).",
+   "risk": "Cold 3am-lab tone against the pinned warm cream brief."
+  },
+  {
+   "id": "challenger-saville",
+   "kind": "challenger",
+   "catalogId": "brand-identity-canon-saville-catalog-sleeve",
+   "verdict": "declined",
+   "label": "Catalog Sleeve",
+   "lineage": "matte black record sleeves, fac numbers, coded color strips",
+   "thesis": "Vast unprinted dark ground; names replaced by coded strips the legend decodes.",
+   "palette": [
+    "#1c1916",
+    "#f3eeea",
+    "#b0a695"
+   ],
+   "materials": [
+    "matte black",
+    "white hairlines"
+   ],
+   "viewport": "Catalog index as the whole surface; fac-number headings.",
+   "case": "Kept line: dark mode design — matte warm-charcoal, hairline structure, coded status strips decoded on hover.",
+   "risk": "Withholding labels reads hostile for an operate console."
+  },
+  {
+   "id": "challenger-atlas",
+   "kind": "challenger",
+   "catalogId": "notation-diagram-systems-star-atlas",
+   "verdict": "declined",
+   "label": "Star Atlas",
+   "lineage": "celestial charts — magnitude dot sizes, coordinate spheres",
+   "thesis": "Hierarchy by dot diameter on a fixed magnitude ramp; type declines to shout.",
+   "palette": [
+    "#1c1916",
+    "#f3eeea",
+    "#9a7729"
+   ],
+   "materials": [
+    "chalk dots",
+    "red-flashlight amber"
+   ],
+   "viewport": "Data plotted as scaled points over coordinate hairlines.",
+   "case": "Kept line: magnitude-as-size for numeric hierarchy.",
+   "risk": "Navy/cold ground conflicts the pinned cream; metaphor outruns the data."
+  },
+  {
+   "id": "challenger-metro",
+   "kind": "challenger",
+   "catalogId": "digital-design-canon-metro-typographic-tiles",
+   "verdict": "declined",
+   "label": "Metro Tiles",
+   "lineage": "flat tile panoramas — giant lowercase, cropped headlines",
+   "thesis": "Chrome deleted so the type itself is the interface.",
+   "palette": [
+    "#f3eeea",
+    "#776b5d",
+    "#2e2921"
+   ],
+   "materials": [
+    "flat color fields",
+    "no bevels"
+   ],
+   "viewport": "Panorama of flat tiles, headlines cropped at the edge.",
+   "case": "Kept line: chrome-deletion discipline — donated to the assigned direction.",
+   "risk": "Flat fields fight the tactile paper world; type-cropped edges strain tables."
+  },
+  {
+   "id": "challenger-transit",
+   "kind": "challenger",
+   "catalogId": "wayfinding-cartography-signage-midnight-transit-diagram",
+   "verdict": "declined",
+   "label": "Midnight Transit",
+   "lineage": "enamel rail maps — disciplined 45/90 bends, interchange circles",
+   "thesis": "The city as a legible promise of movement; states named as systematically as stations.",
+   "palette": [
+    "#f3eeea",
+    "#776b5d",
+    "#b0a695"
+   ],
+   "materials": [
+    "enamel",
+    "porcelain ticks"
+   ],
+   "viewport": "Navigation as lines with station ticks; interchanges at crossings.",
+   "case": "Kept line: a systematic state vocabulary (open/arriving/delayed/suspended) mapped identically across every surface.",
+   "risk": "Transit chrome on a working screen is costume."
+  }
+ ],
+ "canonCard": {
+  "id": "canon",
+  "kind": "canon",
+  "label": "Clean Neutral Console",
+  "lineage": "Linear/Vercel-class neutral admin consoles, played straight",
+  "thesis": "The category standard executed at full craft: cool-gray ground, one accent, perfect spacing.",
+  "palette": [
+   "#fafafa",
+   "#18181b",
+   "#6366f1"
+  ],
+  "materials": [
+   "flat neutral surfaces"
+  ],
+  "viewport": "Standard sidebar + metrics + table, no world material.",
+  "risk": "Interchangeable with ten thousand dashboards — the exact verdict the current UI received."
+ }
+}

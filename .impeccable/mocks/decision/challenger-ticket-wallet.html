@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:#f3eeea;color:#3e372c;font-family:'Segoe UI',system-ui,sans-serif;display:flex}
+aside{width:250px;background:#ede5d9;border-right:1px solid #dfd4c4;padding:26px 0}
+.mark{width:38px;height:38px;background:#776b5d;color:#f3eeea;display:grid;place-items:center;margin:0 22px 6px;font:700 15px 'Segoe UI';border-radius:3px}
+.brandname{font:700 15px 'Segoe UI';padding:0 22px 16px;color:#2e2921}
+.navlabel{font:700 9px 'Segoe UI';letter-spacing:.14em;color:#756a58;padding:10px 22px;text-transform:uppercase}
+a{display:block;padding:11px 22px;color:#6b6152;font:13px 'Segoe UI';text-decoration:none;border-left:3px solid transparent}
+a.on{background:#fbf8f3;color:#2e2921;border-left:3px solid #776b5d;font-weight:600}
+main{flex:1;padding:34px 46px;overflow:hidden}
+h1{font:700 38px 'Segoe UI';color:#2e2921;margin:4px 0 18px}
+.sub{font:14px 'Segoe UI';color:#6b6152;margin:-12px 0 20px}
+.coupon{background:#fbf8f3;border:1px solid #dfd4c4;display:flex;margin-bottom:14px;box-shadow:2px 3px 0 rgba(62,55,44,.06)}
+.stub{width:150px;padding:16px;border-right:2px dashed #b0a695;background:#f1e9da;display:flex;flex-direction:column;justify-content:space-between}
+.stub .oid{font:700 20px 'Courier New',monospace;color:#2e2921}
+.stub .stamp{align-self:flex-start;border:2px solid #776b5d;color:#776b5d;font:700 9px 'Segoe UI';letter-spacing:.16em;padding:3px 7px;transform:rotate(-4deg)}
+.body{flex:1;padding:16px 20px;display:flex;align-items:center;gap:26px}
+.field small{display:block;font:700 8px 'Segoe UI';letter-spacing:.14em;color:#8b7f6e;text-transform:uppercase;margin-bottom:3px}
+.field b{font:600 13px 'Segoe UI';color:#2e2921}
+.field .carbon{font:13px 'Courier New',monospace;color:#3e372c;background:#efe7d8;padding:1px 6px}
+.fare{margin-left:auto;text-align:right}
+.fare b{font:700 22px 'Courier New',monospace;color:#2e2921}
+.wallet-note{font:12px 'Segoe UI';color:#756a58;margin:6px 0 18px}
+</style></head><body>
+<aside>
+  <div class="mark">⚡</div><div class="brandname">Backend Lab</div>
+  <div class="navlabel">Workspace</div>
+  <a href="#" class="on">Overview</a><a href="#">Orders</a><a href="#">API Health</a>
+  <div class="navlabel">Administration</div>
+  <a href="#">Order Management</a><a href="#">User Management</a><a href="#">Notifications</a>
+</aside>
+<main>
+  <h1>Overview</h1>
+  <div class="sub">Monitor your API, users, and order activity from one place.</div>
+  <div class="wallet-note">Order wallet — every coupon stays in the book; cancelled is stamped, never removed.</div>
+  <div class="coupon">
+    <div class="stub"><div class="oid">No. 57</div><div class="stamp">CREATED</div></div>
+    <div class="body">
+      <div class="field"><small>Member</small><b>a</b></div>
+      <div class="field"><small>Items</small><span class="carbon">a × 2</span></div>
+      <div class="field"><small>Placed</small><b>10/23/2026</b></div>
+      <div class="fare"><small>_TOTAL_</small><b>$200.00</b></div>
+    </div>
+  </div>
+  <div class="coupon">
+    <div class="stub"><div class="oid">No. 45</div><div class="stamp" style="color:#7e5f1f;border-color:#7e5f1f">PENDING</div></div>
+    <div class="body">
+      <div class="field"><small>Member</small><b>dev</b></div>
+      <div class="field"><small>Items</small><span class="carbon">a × 1</span></div>
+      <div class="field"><small>Placed</small><b>10/21/2026</b></div>
+      <div class="fare"><small>_TOTAL_</small><b>$100.00</b></div>
+    </div>
+  </div>
+  <div class="coupon">
+    <div class="stub"><div class="oid">No. 44</div><div class="stamp" style="color:#8f4432;border-color:#8f4432;transform:rotate(-8deg)">VOID</div></div>
+    <div class="body">
+      <div class="field"><small>Member</small><b>dev</b></div>
+      <div class="field"><small>Items</small><span class="carbon">a × 1</span></div>
+      <div class="field"><small>Placed</small><b>10/20/2026</b></div>
+      <div class="fare"><small>_TOTAL_</small><b style="text-decoration:line-through">$100.00</b></div>
+    </div>
+  </div>
+  <div class="coupon" style="opacity:.55">
+    <div class="stub"><div class="oid">No. 43</div><div class="stamp">CREATED</div></div>
+    <div class="body"><div class="field"><small>Member</small><b>dev</b></div><div class="field"><small>Items</small><span class="carbon">a × 1</span></div><div class="fare"><small>_TOTAL_</small><b>$100.00</b></div></div>
+  </div>
+</main>
+</body></html>

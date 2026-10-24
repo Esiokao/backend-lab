@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import require_admin
 from app.core.events import EventType
 from app.database import get_db
-from app.models import NotificationOutbox, Product, User
+from app.models import Category, NotificationOutbox, Product, User
 from app.schemas.Product import ProductPatch, ProductResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/products")
 
 
 @router.patch(
@@ -33,6 +33,16 @@ def update_product(
         exclude_unset=True,
         exclude_none=True,
     )
+
+    # 允許明確用 null 解除商品分類；其他 nullable 欄位維持既有行為。
+    if "category_id" in payload.model_fields_set and payload.category_id is None:
+        update_data["category_id"] = None
+
+    if (
+        update_data.get("category_id") is not None
+        and db.get(Category, update_data["category_id"]) is None
+    ):
+        raise HTTPException(status_code=404, detail="Category not found")
 
     for field, value in update_data.items():
         setattr(product, field, value)

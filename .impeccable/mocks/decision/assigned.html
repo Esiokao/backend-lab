@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:#ebe3d5;color:#3e372c;font-family:Georgia,'Times New Roman',serif;display:flex}
+aside{width:250px;background:#e4dbca;border-right:2px solid #776b5d;padding:26px 0;display:flex;flex-direction:column}
+.mark{width:38px;height:38px;background:#776b5d;color:#f3eeea;display:grid;place-items:center;margin:0 22px 6px;font:700 15px Georgia;border-radius:2px}
+.brandname{font:700 16px Georgia;padding:0 22px 18px;color:#2e2921;border-bottom:3px double #776b5d;margin:0 0 10px}
+.navlabel{font:700 9px Georgia;letter-spacing:.2em;color:#8b7f6e;padding:10px 22px;text-transform:uppercase}
+a{display:block;padding:11px 22px;color:#6b6152;font:13px Georgia;text-decoration:none;border-left:4px solid transparent}
+a.on{background:#fbf8f3;color:#2e2921;border-left:4px solid #776b5d;font-weight:700}
+.pt{color:#b0a695;font:italic 10px Georgia;margin-left:6px}
+main{flex:1;padding:34px 46px;overflow:hidden}
+.rulename{font:400 12px Georgia;color:#8b7f6e;font-style:italic}
+h1{font:700 46px Georgia;color:#2e2921;letter-spacing:-.01em;margin:2px 0 4px}
+.sub{font:italic 14px Georgia;color:#6b6152;margin-bottom:18px}
+.doublerule{border-top:3px double #776b5d;margin:14px 0 22px}
+.specimens{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.spec{background:#fbf8f3;border:1px solid #c9bca8;padding:18px 20px 14px;box-shadow:2px 3px 0 rgba(62,55,44,.08)}
+.spec .size{font:italic 10px Georgia;color:#8b7f6e;border-bottom:1px solid #e7decf;padding-bottom:6px;margin-bottom:8px}
+.spec .numeral{font:700 64px Georgia;color:#2e2921;line-height:1;letter-spacing:-.02em}
+.spec .numeral.small{font-size:44px;padding-top:12px}
+.spec .legend{font:12px Georgia;color:#6b6152;margin-top:8px}
+.stamp{display:inline-block;border:2px solid #776b5d;color:#776b5d;font:700 10px Georgia;letter-spacing:.18em;padding:3px 8px;transform:rotate(-3deg);border-radius:2px;margin-top:10px}
+.sheet{background:#fbf8f3;border:1px solid #c9bca8;margin-top:20px;box-shadow:2px 3px 0 rgba(62,55,44,.08)}
+.sheethead{padding:14px 22px 10px;border-bottom:3px double #776b5d;display:flex;justify-content:space-between;align-items:baseline}
+.sheethead b{font:700 15px Georgia;color:#2e2921}
+.sheethead span{font:italic 11px Georgia;color:#8b7f6e}
+table{width:100%;border-collapse:collapse;font:13px Georgia}
+th{font:700 9px Georgia;letter-spacing:.16em;text-transform:uppercase;color:#8b7f6e;text-align:left;padding:10px 22px;border-bottom:1px solid #e7decf}
+td{padding:13px 22px;border-bottom:1px solid #e7decf;color:#3e372c}
+td.mono{font:13px 'Courier New',monospace}
+.stamp.s2{margin:0;transform:rotate(-2deg);font-size:9px;padding:2px 7px}
+</style></head><body>
+<aside>
+  <div class="mark">⚡</div><div class="brandname">Backend Lab</div>
+  <div class="navlabel">Specimen Index</div>
+  <a href="#" class="on">Overview<span class="pt">28 pt</span></a>
+  <a href="#">Orders<span class="pt">13 pt</span></a>
+  <a href="#">API Health<span class="pt">12 pt</span></a>
+  <div class="navlabel">Administration</div>
+  <a href="#">Order Management</a>
+  <a href="#">User Management</a>
+  <a href="#">Notifications</a>
+</aside>
+<main>
+  <div class="rulename">Backend Lab — set solid, warm paper, deep taupe ink</div>
+  <h1>Overview</h1>
+  <div class="sub">Monitor your API, users, and order activity from one place.</div>
+  <div class="doublerule"></div>
+  <div class="specimens">
+    <div class="spec"><div class="size">Total users · 8 pt live</div><div class="numeral">8</div><div class="legend">Live from the API</div></div>
+    <div class="spec"><div class="size">Total orders · 8 pt live</div><div class="numeral">13</div><div class="legend">Live from the API</div></div>
+    <div class="spec"><div class="size">Orders today</div><div class="numeral small">0</div><div class="legend">Since midnight UTC</div></div>
+    <div class="spec"><div class="size">Database readiness</div><div class="numeral small" style="color:#776b5d">Connected</div><div class="legend">17 ms · 11:39:03 AM <span class="stamp s2">HEALTHY</span></div></div>
+  </div>
+  <div class="sheet">
+    <div class="sheethead"><b>Recent orders</b><span>latest activity across all users — View all →</span></div>
+    <table>
+      <tr><th>Order ID</th><th>User</th><th>Items</th><th>Total</th><th>Status</th></tr>
+      <tr><td class="mono">#57</td><td>a</td><td>a × 2</td><td class="mono">$200.00</td><td><span class="stamp s2">CREATED</span></td></tr>
+      <tr><td class="mono">#56</td><td>dev</td><td>a × 1</td><td class="mono">$100.00</td><td><span class="stamp s2">CREATED</span></td></tr>
+      <tr><td class="mono">#45</td><td>dev</td><td>a × 1</td><td class="mono">$100.00</td><td><span class="stamp s2" style="color:#9a7729;border-color:#9a7729">PENDING</span></td></tr>
+      <tr><td class="mono">#44</td><td>dev</td><td>a × 1</td><td class="mono">$100.00</td><td><span class="stamp s2" style="color:#8f4432;border-color:#8f4432">CANCELLED</span></td></tr>
+    </table>
+  </div>
+</main>
+</body></html>

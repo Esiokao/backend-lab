@@ -4,9 +4,22 @@ import { computed, onMounted, ref, watch } from "vue";
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useToast } from "@/stores/toast";
+import { ProductListSchema } from "@/lib/schemas";
+import { useAuth } from "@/stores/auth";
 
-// 訂單型別（後端回傳只有 id 與 user_id）。
-type Order = { id: number; user_id: number };
+// 訂單型別（後端 GET /orders 回 id、user_id、status、created_at、items）。
+type OrderItem = { product_id: number; quantity: number; unit_price: string | number };
+
+type Order = {
+  id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  items: OrderItem[];
+};
+
+// 商品下拉選項（GET /products，active only）。
+type ProductOption = { id: number; name: string; price: string | number; stock: number };
 
 const PAGE_SIZE = 10;
 
@@ -16,9 +29,23 @@ const sortOrder = ref<"asc" | "desc">("desc");
 const search = ref("");
 const loading = ref(true);
 const loadError = ref("");
-const creating = ref(false);
 
-const toast = useToast();
+const { user: me } = useAuth();
+
+// 一般使用者只看得到自己的訂單（每列都是自己，名字取自 session）；
+// admin 會看到全部訂單，另外抓 /users 對照 user_id → 姓名。
+const isAdmin = computed(() => me.value?.role === "admin");
+
+const users = ref<{ id: number; name: string }[]>([]);
+const userMap = computed(() => new Map(users.value.map((u) => [u.id, u])));
+
+function displayName(userId: number): string {
+  return (
+    userMap.value.get(userId)?.name ??
+    (userId === me.value?.id ? me.value?.name : undefined) ??
+    userCode(userId)
+  );
+}
 
 // 當前頁的客戶端搜尋（比對 id / user_id 字串）。
 const filteredOrders = computed(() => {
@@ -31,6 +58,52 @@ const filteredOrders = computed(() => {
 
 // 回傳筆數少於 page_size 代表沒有下一頁（後端不回傳總數）。
 const hasNext = computed(() => orders.value.length >= PAGE_SIZE);
+const toast = useToast();
+
+// 取消自己的訂單（created/pending → cancelled；後端狀態機把關）。
+async function cancelOrder(order: Order): Promise<void> {
+  if (!window.confirm(`Cancel order #${order.id}? This cannot be undone.`)) return;
+
+  try {
+    await api.post(`/orders/${order.id}/cancel`);
+    toast.show(`Order #${order.id} cancelled.`);
+    await loadOrders();
+  } catch (err) {
+    toast.show(err instanceof ApiError ? `Cancel failed: ${err.message}` : "Cancel failed.");
+  }
+}
+
+// 商品名稱對照（訂單明細顯示用；訂單建立改走購物車結帳，此頁唯讀）。
+const products = ref<ProductOption[]>([]);
+
+async function loadProducts(): Promise<void> {
+  try {
+    products.value = await api.get("/products?page_size=100", ProductListSchema);
+  } catch {
+    // 名稱對照失敗不阻擋列表，僅退化顯示 #id。
+  }
+}
+
+// 訂單明細顯示用的商品名稱對照；抓不到就退回 #id。
+function productName(productId: number): string {
+  return products.value.find((product) => product.id === productId)?.name ?? `#${productId}`;
+}
+
+function orderTotal(order: Order): string {
+  const total = order.items.reduce(
+    (sum, item) => sum + Number(item.unit_price) * item.quantity,
+    0,
+  );
+  return formatPrice(total);
+}
+
+function formatCreated(iso: string): string {
+  return new Date(iso).toLocaleDateString();
+}
+
+function formatPrice(price: string | number): string {
+  return `$${Number(price).toFixed(2)}`;
+}
 
 async function loadOrders(): Promise<void> {
   loading.value = true;
@@ -63,41 +136,35 @@ function nextPage(): void {
   if (hasNext.value) page.value += 1;
 }
 
-// 新增訂單：POST 空 JSON，成功後 toast 並插到列表最前面。
-async function createOrder(): Promise<void> {
-  creating.value = true;
-  try {
-    const created = await api.post<Order>("/orders", {});
-    orders.value = [created, ...orders.value];
-    toast.show(`Order #${created.id} created.`);
-  } catch (err) {
-    toast.show(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
-  } finally {
-    creating.value = false;
-  }
-}
-
 // user_id 顯示成 usr_0024 風格的代碼。
 function userCode(userId: number): string {
   return `usr_${String(userId).padStart(4, "0")}`;
 }
 
-onMounted(loadOrders);
+async function loadUsers(): Promise<void> {
+  try {
+    users.value = await api.get<{ id: number; name: string }[]>("/users");
+  } catch {
+    // 對照表失敗就退回 usr_XXXX 代碼顯示。
+  }
+}
+
+onMounted(() => {
+  void loadOrders();
+  void loadProducts();
+  if (isAdmin.value) void loadUsers();
+});
 watch([page, sortOrder], loadOrders);
 </script>
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">System workspace</p>
+    <div class="th-main">
       <h1>Orders</h1>
-      <p>Browse and create orders.</p>
+      <p>Browse your orders.</p>
     </div>
-    <button class="primary-button" :disabled="creating" @click="createOrder">
-      <Icon name="plus" :size="15" />
-      {{ creating ? "Creating..." : "New order" }}
-    </button>
-  </section>
+      <div class="th-cell"><small>Sheet</small><b>ORDERS-01</b></div>
+    </section>
 
   <section class="data-panel">
     <div class="panel-header">
@@ -124,21 +191,71 @@ watch([page, sortOrder], loadOrders);
           <tr>
             <th>Order ID</th>
             <th>User</th>
-            <th><span class="sr-only">Open</span></th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th><span class="sr-only">Actions</span></th>
+            <th>Created</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="order in filteredOrders" :key="order.id">
             <td>
-              <span class="order-id">#{{ order.id }}</span>
+              <router-link
+                :to="{ name: 'order-detail', params: { id: order.id } }"
+                class="order-link"
+              >
+                #{{ order.id }}
+              </router-link>
             </td>
             <td>
-              <code>{{ userCode(order.user_id) }}</code>
-            </td>
-            <td>
-              <span class="row-action" aria-hidden="true">
-                <Icon name="arrow" :size="16" />
+              <!-- user info 詳情頁僅 admin 可用；一般使用者的訂單全是自己，顯示名字即可。 -->
+              <router-link
+                v-if="isAdmin"
+                :to="{ name: 'admin-user-detail', params: { id: order.user_id } }"
+                class="order-link user-link"
+                :title="userCode(order.user_id)"
+              >
+                {{ displayName(order.user_id) }}
+              </router-link>
+              <span v-else class="order-user" :title="userCode(order.user_id)">
+                {{ displayName(order.user_id) }}
               </span>
+            </td>
+            <td>
+              <span v-for="item in order.items" :key="item.product_id" class="order-item">
+                {{ productName(item.product_id) }} × {{ item.quantity }}
+              </span>
+            </td>
+            <td>
+              <span class="order-total">{{ orderTotal(order) }}</span>
+            </td>
+            <td>
+              <span :class="['status-badge', order.status]">{{ order.status }}</span>
+            </td>
+            <td>
+              <span class="order-date">{{ formatCreated(order.created_at) }}</span>
+            </td>
+            <td>
+              <div class="order-actions">
+                <button
+                  v-if="order.status === 'created' || order.status === 'pending'"
+                  type="button"
+                  class="sort-button cancel-button"
+                  :aria-label="`Cancel order ${order.id}`"
+                  @click="cancelOrder(order)"
+                >
+                  Cancel
+                </button>
+                <router-link
+                  :to="{ name: 'order-detail', params: { id: order.id } }"
+                  class="row-action"
+                  :aria-label="`Open order ${order.id}`"
+                >
+                  <Icon name="arrow" :size="16" />
+                </router-link>
+              </div>
             </td>
           </tr>
         </tbody>

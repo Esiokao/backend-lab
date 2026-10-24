@@ -116,6 +116,37 @@ def create_order(
     return new_order
 
 
+@router.post("/orders/{order_id}/cancel", response_model=OrderResponse)
+def cancel_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    # 擁有者取消自己的訂單；狀態機僅允許 created / pending → cancelled。
+    stmt = select(Order).where(
+        Order.id == order_id,
+        Order.user_id == current_user.id,
+    )
+    result = session.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    allowed = {OrderStatus.created.value, OrderStatus.pending.value}
+    if order.status not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order cannot be cancelled in its current status: {order.status}",
+        )
+
+    order.status = OrderStatus.cancelled.value
+    session.commit()
+    session.refresh(order)
+
+    return order
+
+
 # a happy path payment.
 @router.post("/orders/{order_id}/pay", response_model=PaymentResponse)
 def pay_order(
@@ -191,15 +222,12 @@ def get_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
-    # 只允許取得目前登入者自己的訂單。
-    stmt = (
-        select(Order)
-        .options(selectinload(Order.items))
-        .where(
-            Order.id == order_id,
-            Order.user_id == current_user.id,
-        )
-    )
+    # 允許訂單擁有者或 admin 取得；admin 從管理頁 / 儀表板點進詳情需要跨使用者讀取。
+    stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+
+    if current_user.role != "admin":
+        stmt = stmt.where(Order.user_id == current_user.id)
+
     result = session.execute(stmt)
     order = result.scalar_one_or_none()
 

@@ -6,7 +6,7 @@ from app.core.dependencies import require_admin
 from app.database import get_db
 from app.models import OrderItem, Product, User
 
-router = APIRouter()
+router = APIRouter(prefix="/products")
 
 
 @router.delete(

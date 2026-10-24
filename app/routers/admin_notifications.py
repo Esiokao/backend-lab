@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 # 定向通知
-@router.post("/", status_code=status.HTTP_202_ACCEPTED)
+@router.post("", status_code=status.HTTP_202_ACCEPTED)
 def create_admin_notification(
     payload: AdminNotificationCreate,
     db: Session = Depends(get_db),
@@ -84,7 +84,6 @@ def delete_notification_broadcast(
             detail="Notification broadcast not found",
         )
 
+    # 204 無回應 body，與 DELETE /admin/orders/{id} 慣例一致。
     db.delete(broadcast)
     db.commit()
-
-    return {"detail": "Notification broadcast deleted successfully."}

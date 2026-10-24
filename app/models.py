@@ -51,6 +51,11 @@ class User(Base):
         "Order",
         back_populates="user",
     )
+    cart_items: Mapped[list["CartItem"]] = relationship(
+        "CartItem",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Order(Base):
@@ -145,6 +150,24 @@ class OrderItem(Base):
 
     product: Mapped["Product"] = relationship(
         "Product",
+    )
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE")
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    user: Mapped["User"] = relationship("User", back_populates="cart_items")
+    product: Mapped["Product"] = relationship("Product")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "product_id", name="uq_cart_items_user_product"),
     )
 
 
@@ -325,6 +348,12 @@ class Product(Base):
         nullable=False,
     )
 
+    # 商品可以不屬於任何分類
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id"),
+        nullable=True,
+    )
+
     stock: Mapped[int] = mapped_column(
         Integer,
         default=0,
@@ -345,6 +374,11 @@ class Product(Base):
         nullable=False,
     )
 
+    category: Mapped["Category | None"] = relationship(
+        "Category",
+        back_populates="products",
+    )
+
 
 class ProductFollow(Base):
     __tablename__ = "product_follows"
@@ -363,4 +397,23 @@ class ProductFollow(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # 取得這個分類底下的所有商品
+    products: Mapped[list["Product"]] = relationship(
+        "Product",
+        back_populates="category",
     )

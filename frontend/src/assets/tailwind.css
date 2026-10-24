@@ -1,0 +1,40 @@
+/* Tailwind v4（混合採用）：utilities 供新程式碼使用；語義設計系統仍在 design.css。
+   @theme 直接引用 design.css 的 tokens（var()）—— dark mode 靠 [data-theme]
+   翻轉 token 值，utilities 自動跟著變，幾乎不需要 dark: variant。 */
+@import "tailwindcss";
+
+@theme {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-cream: var(--cream);
+  --color-card: var(--card);
+  --color-card-soft: var(--card-soft);
+
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-deep: var(--brand-deep);
+  --color-on-brand: var(--on-brand);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-ink: var(--success-ink);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-ink: var(--danger-ink);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  --font-sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
