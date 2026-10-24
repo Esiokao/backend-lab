@@ -19,13 +19,17 @@ app = FastAPI()
 
 @app.middleware("http")
 async def track_visitors(request, call_next):
-    """匿名訪客計數：首訪發 bl_vid cookie，計入 Redis 每日唯一集合。"""
+    """匿名訪客計數：只計瀏覽器的文件導航（Accept: text/html）。
+
+    curl／SPA 的 fetch／健康探測都是 Accept: */*，不計入，
+    自動化與監控流量不會灌水訪客數。
+    """
     from app.core.redis import redis_client
-    from app.core.visitors import VISITOR_COOKIE, track_visitor
+    from app.core.visitors import VISITOR_COOKIE, is_document_request, track_visitor
 
     response = await call_next(request)
 
-    if request.url.path not in _VISITOR_EXCLUDED:
+    if is_document_request(request.headers.get("accept"), request.url.path):
         vid = track_visitor(redis_client, request.cookies.get(VISITOR_COOKIE))
         if VISITOR_COOKIE not in request.cookies:
             response.set_cookie(
@@ -37,9 +41,6 @@ async def track_visitors(request, call_next):
             )
     return response
 
-
-# 訪客計數排除探測端點（與 core.visitors 的清單同步）。
-_VISITOR_EXCLUDED = {"/health", "/ready"}
 
 app.add_middleware(
     CORSMiddleware,

@@ -85,3 +85,31 @@ def test_user_stats_are_personal(
 def test_unauthenticated_cannot_read_stats(test_client):
     response = test_client.get("/stats")
     assert response.status_code == 401
+
+
+def test_visitor_tracking_only_counts_document_requests(test_client):
+    # v1.14：只計 Accept: text/html 的瀏覽器導航；curl/fetch 一律不計。
+    from app.core.redis import redis_client
+    from app.core.visitors import is_document_request
+
+    # 單元：判定函數
+    assert is_document_request("text/html,application/xhtml+xml", "/") is True
+    assert is_document_request("*/*", "/") is False  # curl / fetch
+    assert is_document_request("text/html", "/api/products") is False  # API 路徑
+    assert is_document_request("text/html", "/health") is False  # 探測
+    assert is_document_request(None, "/") is False
+
+    # 整合：瀏覽器導航會計入、curl 不會
+    before = int(
+        redis_client.scard(
+            f"visitors:{__import__('datetime').date.today().isoformat()}"
+        )
+    )
+    test_client.get("/", headers={"Accept": "text/html"})
+    test_client.get("/", headers={"Accept": "*/*"})  # 模擬 curl
+    after = int(
+        redis_client.scard(
+            f"visitors:{__import__('datetime').date.today().isoformat()}"
+        )
+    )
+    assert after == before + 1  # 只有 text/html 那次計入
