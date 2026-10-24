@@ -20,3 +20,12 @@ class CategoryResponse(BaseModel):
     name: str
     description: str | None
     created_at: datetime
+
+
+class CategoryListResponse(BaseModel):
+    """分頁包裝：admin 管理頁的搜尋/分頁；店面取全量用大 page_size。"""
+
+    items: list[CategoryResponse]
+    total: int
+    page: int
+    page_size: int

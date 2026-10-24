@@ -11,7 +11,7 @@ def test_guest_can_list_and_get_catalogs(test_client, test_db):
 
     response = test_client.get("/categories/")
     assert response.status_code == 200
-    assert response.json()[0]["name"] == "Coffee"
+    assert response.json()["items"][0]["name"] == "Coffee"
 
     response = test_client.get(f"/categories/{catalog.id}")
     assert response.status_code == 200
@@ -97,3 +97,28 @@ def test_product_catalog_create_update_and_filter(
     response = client.get("/products/", params={"category_id": catalog.id})
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_list_categories_pagination_and_search(test_db, test_client):
+    # v1.13：admin 管理頁需要 q 搜尋 + 分頁 + total。
+    for name in ["Alpha", "Beta", "Gamma"]:
+        test_db.add(Category(name=name))
+    test_db.commit()
+
+    # 搜尋：名稱部分匹配。
+    response = test_client.get("/categories?q=amm")
+    body = response.json()
+    assert response.status_code == 200
+    assert body["total"] == 1
+    assert body["items"][0]["name"] == "Gamma"
+
+    # 分頁：page_size=2 → 第 1 頁 2 筆、total 3。
+    response = test_client.get("/categories?page=1&page_size=2")
+    body = response.json()
+    assert body["total"] == 3
+    assert len(body["items"]) == 2
+
+    # 第 2 頁剩 1 筆。
+    response = test_client.get("/categories?page=2&page_size=2")
+    body = response.json()
+    assert len(body["items"]) == 1
