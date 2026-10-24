@@ -108,12 +108,52 @@ async function fetchAllForCounts(): Promise<void> {
 function selectCategory(id: number | null): void {
   selectedCategory.value = id;
   page.value = 1;
+  invalidatePrefetch();
   void fetchProducts();
 }
 
 // 後端商品列表無 total 欄位：回滿一頁視為還有下一頁（v1.16 無限滾動）。
 const hasMore = ref(true);
 const loadingMore = ref(false);
+
+// 列表查詢參數（頁碼 + 搜尋 + 分類）：fetch/loadMore/prefetch 共用同一來源。
+function listParams(pageNum: number): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(pageNum),
+    page_size: String(PAGE_SIZE),
+  });
+  if (appliedQuery.value) params.set("q", appliedQuery.value);
+  if (selectedCategory.value !== null) {
+    params.set("category_id", String(selectedCategory.value));
+  }
+  return params;
+}
+
+// ── 投機式預取（v1.17）：第 N 頁落地就背景抓 N+1，捲動觸發時零延遲換入 ──
+// 一格快取（只存下一頁）+ epoch 世代防護：搜尋/切分類重置後，
+// 在途預取回應屬於舊查詢情境，回來時整包丟棄，不污染新列表。
+const prefetched = ref<{ page: number; items: Product[] } | null>(null);
+let listEpoch = 0;
+
+function invalidatePrefetch(): void {
+  listEpoch += 1;
+  prefetched.value = null;
+}
+
+async function prefetchNext(): Promise<void> {
+  if (prefetched.value !== null || !hasMore.value) return;
+
+  const targetPage = page.value + 1;
+  const myEpoch = listEpoch;
+
+  try {
+    const items = await api.get(`/products?${listParams(targetPage)}`, ProductListSchema);
+    if (myEpoch !== listEpoch) return; // 期間發生重置 → 丟棄
+    prefetched.value = { page: targetPage, items };
+  } catch {
+    // 預取失敗安靜退場：loadMore 會走直接抓的路徑。
+  }
+}
 
 // 無限滾動：捲到哨兵前 600px 自動載下一頁（append）。
 const sentinelEl = ref<HTMLElement | null>(null);
@@ -129,22 +169,28 @@ let scrollObserver: IntersectionObserver | undefined;
 
 async function loadMore(): Promise<void> {
   if (loading.value || loadingMore.value || !hasMore.value) return;
-  loadingMore.value = true;
 
-  try {
-    const params = new URLSearchParams({
-      page: String(page.value + 1),
-      page_size: String(PAGE_SIZE),
-    });
-    if (appliedQuery.value) params.set("q", appliedQuery.value);
-    if (selectedCategory.value !== null) {
-      params.set("category_id", String(selectedCategory.value));
-    }
-
-    const next = await api.get(`/products?${params.toString()}`, ProductListSchema);
-    products.value = [...products.value, ...next];
+  // 快取命中 → 同步換入（投機式預取的回報時刻，使用者零等待）。
+  const cached = prefetched.value;
+  if (cached !== null && cached.page === page.value + 1) {
+    prefetched.value = null; // 先清，防止重複消費
+    products.value = [...products.value, ...cached.items];
     page.value += 1;
     // 不足一頁 = 最後一頁（精確停止，避免空批次迴圈）。
+    hasMore.value = cached.items.length === PAGE_SIZE;
+    void prefetchNext(); // 鏈式：立刻預取下下頁
+    return;
+  }
+
+  // 快取 miss（重置 race / 預取失敗）→ 直接抓。
+  loadingMore.value = true;
+  const myEpoch = listEpoch;
+
+  try {
+    const next = await api.get(`/products?${listParams(page.value + 1)}`, ProductListSchema);
+    if (myEpoch !== listEpoch) return; // 期間重置 → 丟棄，新列表自己管理
+    products.value = [...products.value, ...next];
+    page.value += 1;
     hasMore.value = next.length === PAGE_SIZE;
   } catch {
     showToast("Failed to load more products.");
@@ -152,6 +198,7 @@ async function loadMore(): Promise<void> {
   } finally {
     loadingMore.value = false;
   }
+  void prefetchNext();
 }
 
 // 圖片載入失敗的 product id：改用預設 icon fallback。
@@ -262,26 +309,21 @@ function formPayload(validated: NonNullable<ReturnType<typeof runFormValidation>
 async function fetchProducts(): Promise<void> {
   loading.value = true;
   loadError.value = "";
+  const myEpoch = listEpoch;
 
   try {
-    const params = new URLSearchParams({
-      page: String(page.value),
-      page_size: String(PAGE_SIZE),
-    });
-
-    if (appliedQuery.value) params.set("q", appliedQuery.value);
-    if (selectedCategory.value !== null) {
-      params.set("category_id", String(selectedCategory.value));
-    }
-
-    const list = await api.get(`/products?${params.toString()}`, ProductListSchema);
+    const list = await api.get(`/products?${listParams(page.value)}`, ProductListSchema);
+    if (myEpoch !== listEpoch) return; // 期間重置 → 舊回應不覆蓋新列表
     products.value = list;
     hasMore.value = list.length === PAGE_SIZE;
   } catch {
-    loadError.value = "Failed to load products.";
+    if (myEpoch === listEpoch) loadError.value = "Failed to load products.";
   } finally {
-    loading.value = false;
+    if (myEpoch === listEpoch) loading.value = false;
   }
+
+  // 第 1 頁落地 → 背景預取第 2 頁（投機式：不等捲動）。
+  void prefetchNext();
 }
 
 // 商品/分類變動後同步刷新：列表、分類、計數。
@@ -292,7 +334,8 @@ async function refreshCatalog(): Promise<void> {
 function submitSearch(): void {
   page.value = 1;
   appliedQuery.value = query.value.trim();
-  fetchProducts();
+  invalidatePrefetch();
+  void fetchProducts();
 }
 
 function formatPrice(price: string | number): string {
@@ -469,6 +512,7 @@ watch(
     if (next !== selectedCategory.value) {
       selectedCategory.value = next;
       page.value = 1;
+      invalidatePrefetch();
       void fetchProducts();
     }
   },
