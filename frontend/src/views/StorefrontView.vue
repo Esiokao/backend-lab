@@ -8,8 +8,15 @@ import { useAuth } from "@/stores/auth";
 import { useToast } from "@/stores/toast";
 
 // 公開店面（v1.4）：訪客可瀏覽 GET /products；未登入按關注 → /login?redirect=（F12-7）。
-// PR-3：admin 管理控件併入本頁（F12-1）— 新增/編輯/刪除/archive + 下架清單 restore。
+// v1.6：市集型錄 —— 左側分類導覽（GET /categories 公開）+ 商品卡分類標籤；
+// admin 管理控件併入本頁（F12-1）— 商品 CRUD/archive；分類 CRUD 在 /admin/categories 專頁。
 // Follow 星星為 session 內樂觀 UI：後端尚無「查詢我是否已關注」端點（記帳），重整不保留。
+
+type Category = {
+  id: number;
+  name: string;
+  description: string | null;
+};
 
 type Product = {
   id: number;
@@ -18,6 +25,8 @@ type Product = {
   image_url: string | null;
   price: string | number; // 後端 Decimal 序列化相容字串/數字
   stock: number;
+  category_id: number | null;
+  created_at: string;
 };
 
 type ProductForm = {
@@ -26,14 +35,16 @@ type ProductForm = {
   image_url: string;
   price: string;
   stock: string;
+  category_id: string; // select 值；空字串 = 未分類
 };
 
 const PAGE_SIZE = 12;
+const NEW_IN_DAYS = 7;
 
 const route = useRoute();
 const router = useRouter();
 const { user, logout } = useAuth();
-const { message: toastMessage, show: showToast, dismiss: dismissToast } = useToast();
+const { show: showToast } = useToast();
 
 const isAdmin = computed(() => user.value?.role === "admin");
 
@@ -43,6 +54,56 @@ const loadError = ref("");
 const page = ref(1);
 const query = ref("");
 const appliedQuery = ref("");
+
+// ── 分類導覽（v1.6 catalog）──
+const categories = ref<Category[]>([]);
+const allProducts = ref<Product[]>([]);
+const selectedCategory = ref<number | null>(null);
+
+const categoryMap = computed(() => new Map(categories.value.map((c) => [c.id, c])));
+
+function categoryName(id: number | null): string {
+  return id === null ? "Uncategorized" : (categoryMap.value.get(id)?.name ?? "Uncategorized");
+}
+
+// 各分類商品數（admin 含下架；訪客所見以架上為準——計數用同一份即可，demo 規模）。
+const categoryCounts = computed(() => {
+  const counts = new Map<number, number>();
+  for (const product of allProducts.value) {
+    if (product.category_id !== null) {
+      counts.set(product.category_id, (counts.get(product.category_id) ?? 0) + 1);
+    }
+  }
+  return counts;
+});
+
+// NEW IN：7 天內建立的商品（真實資料推導，非裝飾）。
+function isNew(product: Product): boolean {
+  const created = new Date(product.created_at).getTime();
+  return Date.now() - created < NEW_IN_DAYS * 24 * 60 * 60 * 1000;
+}
+
+async function fetchCategories(): Promise<void> {
+  try {
+    categories.value = await api.get<Category[]>("/categories");
+  } catch {
+    // 分類導覽抓不到不阻擋商品列表。
+  }
+}
+
+async function fetchAllForCounts(): Promise<void> {
+  try {
+    allProducts.value = await api.get<Product[]>("/products?page_size=100");
+  } catch {
+    // 計數失敗安靜退場。
+  }
+}
+
+function selectCategory(id: number | null): void {
+  selectedCategory.value = id;
+  page.value = 1;
+  void fetchProducts();
+}
 
 // 後端商品列表無 total 欄位：回滿一頁視為還有下一頁。
 const hasMore = computed(() => products.value.length === PAGE_SIZE);
@@ -54,7 +115,7 @@ function markImageBroken(product: Product): void {
   brokenImages.value[product.id] = true;
 }
 
-// Follow 星星 toggle：點亮 = 已關注。後端 POST/DELETE follow 皆冪等。
+// Follow 星星 toggle：點亮 = 已關注。後端 POST/DELETE follow 皆冂等。
 const followedIds = ref<Record<number, boolean>>({});
 
 async function toggleFollow(product: Product): Promise<void> {
@@ -74,7 +135,12 @@ async function toggleFollow(product: Product): Promise<void> {
     } else {
       await api.post(`/products/${product.id}/follow`);
       followedIds.value[product.id] = true;
-      showToast(`Following "${product.name}" — we'll notify you when it's back in stock.`);
+      // 到貨通知只發生在 0 → >0 的補貨；還有庫存的商品別開這張空頭支票。
+      showToast(
+        product.stock > 0
+          ? `Following "${product.name}".`
+          : `Following "${product.name}" — we'll notify you when it's back in stock.`,
+      );
     }
   } catch {
     showToast("Follow failed. Please try again.");
@@ -95,7 +161,8 @@ const createForm = ref(emptyForm());
 const editForm = ref(emptyForm());
 
 function emptyForm(): ProductForm {
-  return { name: "", description: "", image_url: "", price: "", stock: "0" };
+  // stock 留空（送出時 Number("") = 0），與其他欄位一致顯示 placeholder。
+  return { name: "", description: "", image_url: "", price: "", stock: "", category_id: "" };
 }
 
 function formFromProduct(product: Product): ProductForm {
@@ -105,6 +172,7 @@ function formFromProduct(product: Product): ProductForm {
     image_url: product.image_url ?? "",
     price: String(product.price),
     stock: String(product.stock),
+    category_id: product.category_id === null ? "" : String(product.category_id),
   };
 }
 
@@ -131,6 +199,7 @@ function formPayload(form: ProductForm) {
     image_url: form.image_url.trim(),
     price: Number(form.price),
     stock: Number(form.stock),
+    category_id: form.category_id === "" ? null : Number(form.category_id),
   };
 }
 
@@ -145,6 +214,9 @@ async function fetchProducts(): Promise<void> {
     });
 
     if (appliedQuery.value) params.set("q", appliedQuery.value);
+    if (selectedCategory.value !== null) {
+      params.set("category_id", String(selectedCategory.value));
+    }
 
     products.value = await api.get<Product[]>(`/products?${params.toString()}`);
   } catch {
@@ -152,6 +224,11 @@ async function fetchProducts(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+// 商品/分類變動後同步刷新：列表、分類、計數。
+async function refreshCatalog(): Promise<void> {
+  await Promise.all([fetchProducts(), fetchCategories(), fetchAllForCounts()]);
 }
 
 function submitSearch(): void {
@@ -174,7 +251,7 @@ async function handleLogout(): Promise<void> {
   await logout();
 }
 
-// ── Admin CRUD（F12-1）──
+// ── Admin 商品 CRUD（F12-1）──
 
 async function createProduct(): Promise<void> {
   if (!validateForm(createForm.value)) return;
@@ -185,7 +262,7 @@ async function createProduct(): Promise<void> {
     showCreate.value = false;
     createForm.value = emptyForm();
     showToast(`Product "${created.name}" created.`);
-    await fetchProducts();
+    await refreshCatalog();
   } catch (err) {
     showToast(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
   } finally {
@@ -210,7 +287,7 @@ async function saveEdit(product: Product): Promise<void> {
     await api.patch(`/products/${product.id}`, formPayload(editForm.value));
     editingId.value = null;
     showToast(`Product "${product.name}" updated.`);
-    await fetchProducts();
+    await refreshCatalog();
   } catch (err) {
     showToast(err instanceof ApiError ? `Update failed: ${err.message}` : "Update failed.");
   } finally {
@@ -231,7 +308,7 @@ async function deleteProduct(product: Product): Promise<void> {
   try {
     await api.delete(`/products/${product.id}`);
     showToast(`Product "${product.name}" deleted.`);
-    await fetchProducts();
+    await refreshCatalog();
     if (showArchived.value) await loadArchived();
   } catch (err) {
     // 被訂單引用的商品後端回 409，toast 顯示原因（F12-4：RESTRICT）。
@@ -246,7 +323,7 @@ async function archiveProduct(product: Product): Promise<void> {
   try {
     await api.patch(`/products/${product.id}/archive`, {});
     showToast(`Product "${product.name}" archived.`);
-    await fetchProducts();
+    await refreshCatalog();
   } catch (err) {
     showToast(err instanceof ApiError ? `Archive failed: ${err.message}` : "Archive failed.");
   } finally {
@@ -280,7 +357,7 @@ async function restoreProduct(product: Product): Promise<void> {
     await api.patch(`/products/${product.id}/restore`, {});
     showToast(`Product "${product.name}" restored.`);
     await loadArchived();
-    await fetchProducts();
+    await refreshCatalog();
   } catch (err) {
     showToast(err instanceof ApiError ? `Restore failed: ${err.message}` : "Restore failed.");
   } finally {
@@ -288,7 +365,11 @@ async function restoreProduct(product: Product): Promise<void> {
   }
 }
 
-onMounted(fetchProducts);
+onMounted(() => {
+  void fetchProducts();
+  void fetchCategories();
+  void fetchAllForCounts();
+});
 </script>
 
 <template>
@@ -299,8 +380,9 @@ onMounted(fetchProducts);
     </div>
     <div class="storefront-actions">
       <template v-if="user">
-        <router-link class="ghost-button" :to="{ name: 'dashboard' }">
-          <Icon name="grid" :size="14" /> Workspace
+        <router-link class="ghost-button" :to="isAdmin ? { name: 'dashboard' } : { name: 'account' }">
+          <Icon :name="isAdmin ? 'grid' : 'users'" :size="14" />
+          {{ isAdmin ? "Workspace" : "My account" }}
         </router-link>
         <button type="button" class="ghost-button" @click="handleLogout">
           <Icon name="logout" :size="14" /> Sign out
@@ -314,10 +396,15 @@ onMounted(fetchProducts);
 
   <main class="storefront-main">
     <section class="page-heading">
-      <div>
-        <p class="eyebrow">Catalog</p>
+      <div class="th-main">
         <h1>Storefront</h1>
-        <p>Browse the catalog. Sign in to follow restock alerts or place orders.</p>
+        <p>
+          {{
+            user
+              ? "Follow products for restock alerts, or place orders from your workspace."
+              : "Browse the catalog. Sign in to follow restock alerts or place orders."
+          }}
+        </p>
       </div>
       <div v-if="isAdmin" class="storefront-admin-actions">
         <button type="button" class="ghost-button" @click="toggleArchived">
@@ -327,6 +414,7 @@ onMounted(fetchProducts);
           <Icon name="plus" :size="15" /> New product
         </button>
       </div>
+      <div class="th-cell"><small>Sheet</small><b>STORE-01</b></div>
     </section>
 
     <section v-if="isAdmin && showCreate" class="product-create-panel" aria-label="New product">
@@ -353,6 +441,12 @@ onMounted(fetchProducts);
           placeholder="Image URL"
           aria-label="Product image URL"
         />
+        <select v-model="createForm.category_id" class="filter-select" aria-label="Product category">
+          <option value="">Uncategorized</option>
+          <option v-for="category in categories" :key="category.id" :value="String(category.id)">
+            {{ category.name }}
+          </option>
+        </select>
         <input
           v-model="createForm.price"
           class="row-edit-field"
@@ -379,164 +473,235 @@ onMounted(fetchProducts);
       </div>
     </section>
 
-    <section class="storefront-tools">
-      <div class="search-field">
-        <Icon name="search" :size="15" />
-        <input
-          v-model="query"
-          type="search"
-          placeholder="Search products…"
-          aria-label="Search products"
-          @keydown.enter="submitSearch"
-        />
-      </div>
-    </section>
+    <div class="storefront-layout">
+      <!-- 分類導覽（index of stock）：桌機側欄 -->
+      <aside class="catalog-rail" aria-label="Catalog categories">
+        <p class="catalog-rail-label">Catalog</p>
+        <button
+          type="button"
+          :class="['catalog-rail-item', { active: selectedCategory === null }]"
+          @click="selectCategory(null)"
+        >
+          <span>All products</span>
+          <b>{{ allProducts.length }}</b>
+        </button>
+        <button
+          v-for="category in categories"
+          :key="category.id"
+          type="button"
+          :class="['catalog-rail-item', { active: selectedCategory === category.id }]"
+          @click="selectCategory(category.id)"
+        >
+          <span>{{ category.name }}</span>
+          <b>{{ categoryCounts.get(category.id) ?? 0 }}</b>
+        </button>
+      </aside>
 
-    <section v-if="loading" class="product-grid" aria-hidden="true">
-      <div v-for="n in PAGE_SIZE" :key="n" class="product-card">
-        <div class="product-media"><div class="skeleton-block skeleton-media" /></div>
-        <div class="product-body">
-          <div class="skeleton-block skeleton-line" />
-          <div class="skeleton-block skeleton-line short" />
-        </div>
-        <div class="product-foot">
-          <div class="skeleton-block skeleton-line" style="width: 64px" />
-        </div>
-      </div>
-    </section>
-    <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
-    <p v-else-if="products.length === 0" class="empty-state">No products found.</p>
-
-    <section v-else class="product-grid" aria-label="Product catalog">
-      <article v-for="product in products" :key="product.id" class="product-card">
-        <!-- Admin 行內編輯模式 -->
-        <div v-if="isAdmin && editingId === product.id" class="product-edit">
-          <input
-            v-model="editForm.name"
-            class="row-edit-field"
-            type="text"
-            placeholder="Name"
-            aria-label="Product name"
-          />
-          <input
-            v-model="editForm.description"
-            class="row-edit-field"
-            type="text"
-            placeholder="Description"
-            aria-label="Product description"
-          />
-          <input
-            v-model="editForm.image_url"
-            class="row-edit-field"
-            type="text"
-            placeholder="Image URL"
-            aria-label="Product image URL"
-          />
-          <div class="product-edit-pair">
+      <div class="storefront-content">
+        <section class="storefront-tools">
+          <div class="search-field">
+            <Icon name="search" :size="15" />
             <input
-              v-model="editForm.price"
-              class="row-edit-field"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Price"
-              aria-label="Product price"
-            />
-            <input
-              v-model="editForm.stock"
-              class="row-edit-field"
-              type="number"
-              min="0"
-              placeholder="Stock"
-              aria-label="Product stock"
+              v-model="query"
+              type="search"
+              placeholder="Search products…"
+              aria-label="Search products"
+              @keydown.enter="submitSearch"
+              @change="submitSearch"
             />
           </div>
-          <div class="order-actions">
-            <button
-              type="button"
-              class="primary-button"
-              :disabled="busy"
-              @click="saveEdit(product)"
-            >
-              Save
-            </button>
-            <button type="button" class="ghost-button" @click="cancelEdit">Cancel</button>
-          </div>
+          <span v-if="selectedCategory !== null" class="catalog-filter-note">
+            {{ categoryName(selectedCategory) }}
+            <button type="button" class="text-button" @click="selectCategory(null)">Clear ×</button>
+          </span>
+        </section>
+
+        <!-- 手機：分類變橫向 chips -->
+        <div class="catalog-chips" aria-label="Catalog categories">
+          <button
+            type="button"
+            :class="{ active: selectedCategory === null }"
+            @click="selectCategory(null)"
+          >
+            All
+          </button>
+          <button
+            v-for="category in categories"
+            :key="category.id"
+            type="button"
+            :class="{ active: selectedCategory === category.id }"
+            @click="selectCategory(category.id)"
+          >
+            {{ category.name }}
+          </button>
         </div>
 
-        <template v-else>
-          <div class="product-media">
-            <img
-              v-if="product.image_url && !brokenImages[product.id]"
-              :src="product.image_url"
-              :alt="product.name"
-              loading="lazy"
-              @error="markImageBroken(product)"
-            />
-            <span v-else class="product-media-fallback"><Icon name="box" :size="26" /></span>
-            <button
-              v-if="user"
-              type="button"
-              :class="['follow-star', { active: followedIds[product.id] }]"
-              :aria-label="
-                followedIds[product.id] ? `Unfollow ${product.name}` : `Follow ${product.name}`
-              "
-              :aria-pressed="!!followedIds[product.id]"
-              @click="toggleFollow(product)"
-            >
-              <Icon name="star" :size="15" />
-            </button>
-            <button
-              v-else
-              type="button"
-              class="follow-star"
-              :aria-label="`Sign in to follow ${product.name}`"
-              @click="toggleFollow(product)"
-            >
-              <Icon name="star" :size="15" />
-            </button>
-          </div>
-          <div class="product-foot">
-            <span class="product-name" :title="product.name">{{ product.name }}</span>
-            <div class="product-meta">
-              <span v-if="product.description" class="product-desc" :title="product.description">
-                {{ product.description }}
-              </span>
-              <span class="product-price-row">
-                <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
-                  {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
-                </span>
-                <span class="product-price">{{ formatPrice(product.price) }}</span>
-              </span>
+        <section v-if="loading" class="product-grid" aria-hidden="true">
+          <div v-for="n in PAGE_SIZE" :key="n" class="product-card">
+            <div class="product-media"><div class="skeleton-block skeleton-media" /></div>
+            <div class="product-foot">
+              <div class="skeleton-block skeleton-line" />
+              <div class="skeleton-block skeleton-line short" style="margin-left: auto" />
+            </div>
+            <div class="product-foot">
+              <div class="skeleton-block skeleton-line" style="width: 64px" />
             </div>
           </div>
-          <div v-if="isAdmin" class="product-admin-row">
-            <button type="button" class="sort-button" @click="startEdit(product)">Edit</button>
-            <button type="button" class="sort-button" @click="archiveProduct(product)">
-              Archive
-            </button>
-            <button
-              type="button"
-              class="row-action row-delete"
-              :aria-label="`Delete ${product.name}`"
-              @click="deleteProduct(product)"
-            >
-              <Icon name="close" :size="14" />
-            </button>
-          </div>
-        </template>
-      </article>
-    </section>
+        </section>
+        <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
+        <p v-else-if="products.length === 0" class="empty-state">No products found.</p>
 
-    <nav
-      v-if="!loading && (products.length > 0 || page > 1)"
-      class="storefront-pagination"
-      aria-label="Catalog pagination"
-    >
-      <button type="button" :disabled="page <= 1" @click="goTo(page - 1)">Previous</button>
-      <span>Page {{ page }}</span>
-      <button type="button" :disabled="!hasMore" @click="goTo(page + 1)">Next</button>
-    </nav>
+        <section v-else class="product-grid" aria-label="Product catalog">
+          <article v-for="product in products" :key="product.id" class="product-card">
+            <!-- Admin 行內編輯模式 -->
+            <div v-if="isAdmin && editingId === product.id" class="product-edit">
+              <input
+                v-model="editForm.name"
+                class="row-edit-field"
+                type="text"
+                placeholder="Name"
+                aria-label="Product name"
+              />
+              <input
+                v-model="editForm.description"
+                class="row-edit-field"
+                type="text"
+                placeholder="Description"
+                aria-label="Product description"
+              />
+              <input
+                v-model="editForm.image_url"
+                class="row-edit-field"
+                type="text"
+                placeholder="Image URL"
+                aria-label="Product image URL"
+              />
+              <select
+                v-model="editForm.category_id"
+                class="filter-select"
+                aria-label="Product category"
+              >
+                <option value="">Uncategorized</option>
+                <option
+                  v-for="category in categories"
+                  :key="category.id"
+                  :value="String(category.id)"
+                >
+                  {{ category.name }}
+                </option>
+              </select>
+              <div class="product-edit-pair">
+                <input
+                  v-model="editForm.price"
+                  class="row-edit-field"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Price"
+                  aria-label="Product price"
+                />
+                <input
+                  v-model="editForm.stock"
+                  class="row-edit-field"
+                  type="number"
+                  min="0"
+                  placeholder="Stock"
+                  aria-label="Product stock"
+                />
+              </div>
+              <div class="order-actions">
+                <button
+                  type="button"
+                  class="primary-button"
+                  :disabled="busy"
+                  @click="saveEdit(product)"
+                >
+                  Save
+                </button>
+                <button type="button" class="ghost-button" @click="cancelEdit">Cancel</button>
+              </div>
+            </div>
+
+            <template v-else>
+              <div class="product-media">
+                <img
+                  v-if="product.image_url && !brokenImages[product.id]"
+                  :src="product.image_url"
+                  :alt="product.name"
+                  loading="lazy"
+                  @error="markImageBroken(product)"
+                />
+                <span v-else class="product-media-fallback"><Icon name="box" :size="26" /></span>
+                <button
+                  v-if="user"
+                  type="button"
+                  :class="['follow-star', { active: followedIds[product.id] }]"
+                  :aria-label="
+                    followedIds[product.id] ? `Unfollow ${product.name}` : `Follow ${product.name}`
+                  "
+                  :aria-pressed="!!followedIds[product.id]"
+                  @click="toggleFollow(product)"
+                >
+                  <Icon name="star" :size="15" />
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="follow-star"
+                  :aria-label="`Sign in to follow ${product.name}`"
+                  @click="toggleFollow(product)"
+                >
+                  <Icon name="star" :size="15" />
+                </button>
+              </div>
+              <div class="product-foot">
+                <span class="product-name" :title="product.name">{{ product.name }}</span>
+                <div class="product-meta">
+                  <span v-if="product.description" class="product-desc" :title="product.description">
+                    {{ product.description }}
+                  </span>
+                  <span class="product-price-row">
+                    <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
+                      {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
+                    </span>
+                    <span class="product-price">{{ formatPrice(product.price) }}</span>
+                  </span>
+                </div>
+              </div>
+              <!-- 分類 + NEW IN 標籤（NEW IN 由 created_at 真實推導） -->
+              <div class="product-tags">
+                <span class="tag-stamp cat">{{ categoryName(product.category_id) }}</span>
+                <span v-if="isNew(product)" class="tag-stamp new">New in</span>
+              </div>
+              <div v-if="isAdmin" class="product-admin-row">
+                <button type="button" class="sort-button" @click="startEdit(product)">Edit</button>
+                <button type="button" class="sort-button" @click="archiveProduct(product)">
+                  Archive
+                </button>
+                <button
+                  type="button"
+                  class="row-action row-delete"
+                  :aria-label="`Delete ${product.name}`"
+                  @click="deleteProduct(product)"
+                >
+                  <Icon name="close" :size="14" />
+                </button>
+              </div>
+            </template>
+          </article>
+        </section>
+
+        <nav
+          v-if="!loading && (products.length > 0 || page > 1)"
+          class="storefront-pagination"
+          aria-label="Catalog pagination"
+        >
+          <button type="button" :disabled="page <= 1" @click="goTo(page - 1)">Previous</button>
+          <span>Page {{ page }}</span>
+          <button type="button" :disabled="!hasMore" @click="goTo(page + 1)">Next</button>
+        </nav>
+      </div>
+    </div>
 
     <section v-if="isAdmin && showArchived" class="data-panel archived-panel" aria-label="Archived products">
       <div class="panel-header">
@@ -576,13 +741,4 @@ onMounted(fetchProducts);
       </table>
     </section>
   </main>
-
-  <Transition name="toast">
-    <div v-if="toastMessage" class="toast" role="status">
-      <span><Icon name="shield" :size="17" /></span>{{ toastMessage }}
-      <button type="button" aria-label="Dismiss notification" @click="dismissToast">
-        <Icon name="close" :size="15" />
-      </button>
-    </div>
-  </Transition>
 </template>
