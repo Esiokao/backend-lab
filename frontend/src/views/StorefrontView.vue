@@ -38,6 +38,7 @@ const router = useRouter();
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onModalKeydown);
+  scrollObserver?.disconnect();
 });
 
 // ?cat=<id> deep-link：header 分類導覽與側欄共用同一個過濾狀態。
@@ -110,8 +111,40 @@ function selectCategory(id: number | null): void {
   void fetchProducts();
 }
 
-// 後端商品列表無 total 欄位：回滿一頁視為還有下一頁。
-const hasMore = computed(() => products.value.length === PAGE_SIZE);
+// 後端商品列表無 total 欄位：回滿一頁視為還有下一頁（v1.16 無限滾動）。
+const hasMore = ref(true);
+const loadingMore = ref(false);
+
+// 無限滾動：捲到哨兵前 600px 自動載下一頁（append）。
+const sentinelEl = ref<HTMLElement | null>(null);
+let scrollObserver: IntersectionObserver | undefined;
+
+async function loadMore(): Promise<void> {
+  if (loading.value || loadingMore.value || !hasMore.value) return;
+  loadingMore.value = true;
+
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value + 1),
+      page_size: String(PAGE_SIZE),
+    });
+    if (appliedQuery.value) params.set("q", appliedQuery.value);
+    if (selectedCategory.value !== null) {
+      params.set("category_id", String(selectedCategory.value));
+    }
+
+    const next = await api.get(`/products?${params.toString()}`, ProductListSchema);
+    products.value = [...products.value, ...next];
+    page.value += 1;
+    // 不足一頁 = 最後一頁（精確停止，避免空批次迴圈）。
+    hasMore.value = next.length === PAGE_SIZE;
+  } catch {
+    showToast("Failed to load more products.");
+    hasMore.value = false;
+  } finally {
+    loadingMore.value = false;
+  }
+}
 
 // 圖片載入失敗的 product id：改用預設 icon fallback。
 const brokenImages = ref<Record<number, boolean>>({});
@@ -233,7 +266,9 @@ async function fetchProducts(): Promise<void> {
       params.set("category_id", String(selectedCategory.value));
     }
 
-    products.value = await api.get(`/products?${params.toString()}`, ProductListSchema);
+    const list = await api.get(`/products?${params.toString()}`, ProductListSchema);
+    products.value = list;
+    hasMore.value = list.length === PAGE_SIZE;
   } catch {
     loadError.value = "Failed to load products.";
   } finally {
@@ -250,11 +285,6 @@ function submitSearch(): void {
   page.value = 1;
   appliedQuery.value = query.value.trim();
   fetchProducts();
-}
-
-async function goTo(next: number): Promise<void> {
-  page.value = next;
-  await fetchProducts();
 }
 
 function formatPrice(price: string | number): string {
@@ -438,6 +468,16 @@ watch(
 
 onMounted(() => {
   document.addEventListener("keydown", onModalKeydown);
+  if (typeof IntersectionObserver !== "undefined" && sentinelEl.value) {
+    scrollObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMore();
+      },
+      // 提前 600px 觸發：使用者還沒到底，下一頁已在路上。
+      { rootMargin: "600px" },
+    );
+    scrollObserver.observe(sentinelEl.value);
+  }
   selectedCategory.value = categoryFromQuery();
   void fetchProducts();
   void fetchCategories();
@@ -648,16 +688,20 @@ onMounted(() => {
           </article>
         </section>
 
-        <nav
-          v-if="!loading && (products.length > 0 || page > 1)"
-          class="storefront-pagination"
-          aria-label="Catalog pagination"
-        >
-          <button type="button" :disabled="page <= 1" @click="goTo(page - 1)">Previous</button>
-          <span>Page {{ page }}</span>
-          <button type="button" :disabled="!hasMore" @click="goTo(page + 1)">Next</button>
-        </nav>
-      </div>
+        <!-- 無限滾動哨兵：進入視窗（前 600px）自動載下一頁 -->
+        <div v-if="!loading && products.length > 0" ref="sentinelEl" class="infinite-sentinel">
+          <div v-if="loadingMore" class="skeleton-block infinite-shimmer" />
+          <button
+            v-else-if="hasMore"
+            type="button"
+            class="ghost-button"
+            @click="loadMore"
+          >
+            Load more
+          </button>
+          <p v-else class="infinite-end">End of catalog</p>
+        </div>
+    </div>
     </div>
 
     <!-- 商品 Modal（create / edit 共用） -->

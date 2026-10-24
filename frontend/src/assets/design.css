@@ -414,6 +414,10 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .follow-star.active { color: var(--honey); }
 .follow-star.active svg { fill: var(--honey); stroke: var(--honey); }
 .storefront-pagination { margin-top: 26px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+/* 無限滾動哨兵（v1.16） */
+.infinite-sentinel { display: flex; justify-content: center; padding: 26px 0 8px; }
+.infinite-shimmer { width: 180px; height: 10px; border-radius: 5px; }
+.infinite-end { margin: 0; color: var(--ink-faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
 .storefront-pagination span { color: var(--ink-faint); font-size: 11px; }
 .storefront-pagination button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-soft); background: var(--card); font-size: 11px; }
 .storefront-pagination button:hover:not(:disabled) { color: var(--ink-strong); border-color: var(--line-strong); background: var(--cream); }
