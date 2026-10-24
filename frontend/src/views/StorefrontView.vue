@@ -466,9 +466,11 @@ watch(
   },
 );
 
-onMounted(() => {
-  document.addEventListener("keydown", onModalKeydown);
-  if (typeof IntersectionObserver !== "undefined" && sentinelEl.value) {
+// 哨兵帶 v-if（loading 期間不在 DOM）→ 不能在 onMounted 掛 observer；
+// watch ref：元素出現時 attach、消失時 detach。
+watch(sentinelEl, (el) => {
+  scrollObserver?.disconnect();
+  if (el && typeof IntersectionObserver !== "undefined") {
     scrollObserver = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) void loadMore();
@@ -476,8 +478,12 @@ onMounted(() => {
       // 提前 600px 觸發：使用者還沒到底，下一頁已在路上。
       { rootMargin: "600px" },
     );
-    scrollObserver.observe(sentinelEl.value);
+    scrollObserver.observe(el);
   }
+});
+
+onMounted(() => {
+  document.addEventListener("keydown", onModalKeydown);
   selectedCategory.value = categoryFromQuery();
   void fetchProducts();
   void fetchCategories();
