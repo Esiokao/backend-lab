@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
@@ -35,6 +35,10 @@ const NEW_IN_DAYS = 7;
 
 const route = useRoute();
 const router = useRouter();
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onModalKeydown);
+});
 
 // ?cat=<id> deep-link：header 分類導覽與側欄共用同一個過濾狀態。
 function categoryFromQuery(): number | null {
@@ -150,16 +154,18 @@ async function toggleFollow(product: Product): Promise<void> {
 
 // ── Admin 管理狀態（F12-1）──
 
-const showCreate = ref(false);
-const editingId = ref<number | null>(null);
 const busy = ref(false);
+
+// 商品 Modal（v1.15）：create/edit 共用，取代展開面板與 inline 卡片編輯。
+const productModalOpen = ref(false);
+const productModalMode = ref<"create" | "edit">("create");
+const editingProduct = ref<Product | null>(null);
 
 const showArchived = ref(false);
 const archived = ref<Product[]>([]);
 const archivedLoading = ref(false);
 
-const createForm = ref(emptyForm());
-const editForm = ref(emptyForm());
+const productForm = ref(emptyForm());
 
 function emptyForm(): ProductForm {
   // stock 留空（送出時 Number("") = 0），與其他欄位一致顯示 placeholder。
@@ -177,9 +183,8 @@ function formFromProduct(product: Product): ProductForm {
   };
 }
 
-// zod 表單驗證：錯誤 inline 顯示在欄位下（create 與 edit 共用欄位鍵）。
-const createErrors = ref<Record<string, string>>({});
-const editErrors = ref<Record<string, string>>({});
+// zod 表單驗證：錯誤 inline 顯示在欄位下（Modal 內）。
+const productErrors = ref<Record<string, string>>({});
 
 function runFormValidation(
   form: ProductForm,
@@ -276,48 +281,53 @@ async function handleAddToCart(product: Product): Promise<void> {
 
 // ── Admin 商品 CRUD（F12-1）──
 
-async function createProduct(): Promise<void> {
-  const validated = runFormValidation(createForm.value, createErrors);
+function openCreateModal(): void {
+  productModalMode.value = "create";
+  editingProduct.value = null;
+  productForm.value = emptyForm();
+  productErrors.value = {};
+  productModalOpen.value = true;
+}
+
+function openEditModal(product: Product): void {
+  productModalMode.value = "edit";
+  editingProduct.value = product;
+  productForm.value = formFromProduct(product);
+  productErrors.value = {};
+  productModalOpen.value = true;
+}
+
+function closeProductModal(): void {
+  productModalOpen.value = false;
+  editingProduct.value = null;
+}
+
+async function submitProductModal(): Promise<void> {
+  const validated = runFormValidation(productForm.value, productErrors);
   if (validated === null) return;
   busy.value = true;
 
   try {
-    const created = await api.post<Product>("/products", formPayload(validated, createForm.value));
-    showCreate.value = false;
-    createForm.value = emptyForm();
-    showToast(`Product "${created.name}" created.`);
+    if (productModalMode.value === "create") {
+      const created = await api.post<Product>("/products", formPayload(validated, productForm.value));
+      showToast(`Product "${created.name}" created.`);
+      page.value = 1;
+    } else if (editingProduct.value) {
+      await api.patch(`/products/${editingProduct.value.id}`, formPayload(validated, productForm.value));
+      showToast(`Product "${editingProduct.value.name}" updated.`);
+    }
+    closeProductModal();
     await refreshCatalog();
   } catch (err) {
-    showToast(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
+    const action = productModalMode.value === "create" ? "Create" : "Update";
+    showToast(err instanceof ApiError ? `${action} failed: ${err.message}` : `${action} failed.`);
   } finally {
     busy.value = false;
   }
 }
 
-function startEdit(product: Product): void {
-  editingId.value = product.id;
-  editForm.value = formFromProduct(product);
-}
-
-function cancelEdit(): void {
-  editingId.value = null;
-}
-
-async function saveEdit(product: Product): Promise<void> {
-  const validated = runFormValidation(editForm.value, editErrors);
-  if (validated === null) return;
-  busy.value = true;
-
-  try {
-    await api.patch(`/products/${product.id}`, formPayload(validated, editForm.value));
-    editingId.value = null;
-    showToast(`Product "${product.name}" updated.`);
-    await refreshCatalog();
-  } catch (err) {
-    showToast(err instanceof ApiError ? `Update failed: ${err.message}` : "Update failed.");
-  } finally {
-    busy.value = false;
-  }
+function onModalKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape" && productModalOpen.value) closeProductModal();
 }
 
 async function deleteProduct(product: Product): Promise<void> {
@@ -427,6 +437,7 @@ watch(
 );
 
 onMounted(() => {
+  document.addEventListener("keydown", onModalKeydown);
   selectedCategory.value = categoryFromQuery();
   void fetchProducts();
   void fetchCategories();
@@ -447,7 +458,7 @@ onMounted(() => {
         <button type="button" class="ghost-button" @click="toggleArchived">
           {{ showArchived ? "Hide archived" : "Archived" }}
         </button>
-        <button type="button" class="primary-button" @click="showCreate = !showCreate">
+        <button type="button" class="primary-button" @click="openCreateModal">
           <Icon name="plus" :size="15" /> New product
         </button>
       </div>
@@ -456,71 +467,6 @@ onMounted(() => {
         <b>{{
           selectedCategory === null ? "STORE-01" : `CAT-${String(selectedCategory).padStart(2, "0")}`
         }}</b>
-      </div>
-    </section>
-
-    <section v-if="isAdmin && showCreate" class="product-create-panel" aria-label="New product">
-      <h2>New product</h2>
-      <div class="product-create-fields">
-        <div class="form-field">
-          <input
-            v-model="createForm.name"
-            class="row-edit-field"
-            type="text"
-            placeholder="Name"
-            aria-label="Product name"
-          />
-          <p v-if="createErrors.name" class="field-error">{{ createErrors.name }}</p>
-        </div>
-        <input
-          v-model="createForm.description"
-          class="row-edit-field"
-          type="text"
-          placeholder="Description"
-          aria-label="Product description"
-        />
-        <input
-          v-model="createForm.image_url"
-          class="row-edit-field"
-          type="text"
-          placeholder="Image URL"
-          aria-label="Product image URL"
-        />
-        <select v-model="createForm.category_id" class="filter-select" aria-label="Product category">
-          <option value="">Uncategorized</option>
-          <option v-for="category in categories" :key="category.id" :value="String(category.id)">
-            {{ category.name }}
-          </option>
-        </select>
-        <div class="form-field">
-          <input
-            v-model="createForm.price"
-            class="row-edit-field"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Price"
-            aria-label="Product price"
-          />
-          <p v-if="createErrors.price" class="field-error">{{ createErrors.price }}</p>
-        </div>
-        <div class="form-field">
-          <input
-            v-model="createForm.stock"
-            class="row-edit-field"
-            type="number"
-            min="0"
-            placeholder="Stock"
-            aria-label="Product stock"
-          />
-          <p v-if="createErrors.stock" class="field-error">{{ createErrors.stock }}</p>
-        </div>
-      </div>
-      <div class="order-actions">
-        <button type="button" class="primary-button" :disabled="busy" @click="createProduct">
-          Create
-        </button>
-        <button type="button" class="ghost-button" @click="showCreate = false">Cancel</button>
       </div>
     </section>
 
@@ -608,86 +554,7 @@ onMounted(() => {
             :key="product.id"
             :class="['product-card', { oos: product.stock <= 0 }]"
           >
-            <!-- Admin 行內編輯模式 -->
-            <div v-if="isAdmin && editingId === product.id" class="product-edit">
-              <div class="form-field">
-                <input
-                  v-model="editForm.name"
-                  class="row-edit-field"
-                  type="text"
-                  placeholder="Name"
-                  aria-label="Product name"
-                />
-                <p v-if="editErrors.name" class="field-error">{{ editErrors.name }}</p>
-              </div>
-              <input
-                v-model="editForm.description"
-                class="row-edit-field"
-                type="text"
-                placeholder="Description"
-                aria-label="Product description"
-              />
-              <input
-                v-model="editForm.image_url"
-                class="row-edit-field"
-                type="text"
-                placeholder="Image URL"
-                aria-label="Product image URL"
-              />
-              <select
-                v-model="editForm.category_id"
-                class="filter-select"
-                aria-label="Product category"
-              >
-                <option value="">Uncategorized</option>
-                <option
-                  v-for="category in categories"
-                  :key="category.id"
-                  :value="String(category.id)"
-                >
-                  {{ category.name }}
-                </option>
-              </select>
-              <div class="product-edit-pair">
-                <div class="form-field">
-                  <input
-                    v-model="editForm.price"
-                    class="row-edit-field"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Price"
-                    aria-label="Product price"
-                  />
-                  <p v-if="editErrors.price" class="field-error">{{ editErrors.price }}</p>
-                </div>
-                <div class="form-field">
-                  <input
-                    v-model="editForm.stock"
-                    class="row-edit-field"
-                    type="number"
-                    min="0"
-                    placeholder="Stock"
-                    aria-label="Product stock"
-                  />
-                  <p v-if="editErrors.stock" class="field-error">{{ editErrors.stock }}</p>
-                </div>
-              </div>
-              <div class="order-actions">
-                <button
-                  type="button"
-                  class="primary-button"
-                  :disabled="busy"
-                  @click="saveEdit(product)"
-                >
-                  Save
-                </button>
-                <button type="button" class="ghost-button" @click="cancelEdit">Cancel</button>
-              </div>
-            </div>
-
-            <template v-else>
-              <div class="product-media">
+                  <div class="product-media">
                 <img
                   v-if="product.image_url && !brokenImages[product.id]"
                   :src="product.image_url"
@@ -765,7 +632,7 @@ onMounted(() => {
                 </button>
               </div>
               <div v-if="isAdmin" class="product-admin-row">
-                <button type="button" class="sort-button" @click="startEdit(product)">Edit</button>
+                <button type="button" class="sort-button" @click="openEditModal(product)">Edit</button>
                 <button type="button" class="sort-button" @click="archiveProduct(product)">
                   Archive
                 </button>
@@ -778,7 +645,6 @@ onMounted(() => {
                   <Icon name="close" :size="14" />
                 </button>
               </div>
-            </template>
           </article>
         </section>
 
@@ -793,6 +659,67 @@ onMounted(() => {
         </nav>
       </div>
     </div>
+
+    <!-- 商品 Modal（create / edit 共用） -->
+    <Teleport to="body">
+      <div v-if="isAdmin && productModalOpen" class="modal-overlay" @click.self="closeProductModal">
+        <div
+          class="modal product-modal"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="productModalMode === 'create' ? 'New product' : 'Edit product'"
+        >
+          <div class="modal-header">
+            <h3>{{ productModalMode === "create" ? "New product" : `Edit "${editingProduct?.name}"` }}</h3>
+            <button type="button" class="row-action" aria-label="Close dialog" @click="closeProductModal">
+              <Icon name="close" :size="15" />
+            </button>
+          </div>
+          <div class="modal-body product-modal-fields">
+            <div class="form-field">
+              <label class="account-label" for="p-name">Name</label>
+              <input id="p-name" v-model="productForm.name" class="row-edit-field" type="text" placeholder="Name" aria-label="Product name" />
+              <p v-if="productErrors.name" class="field-error">{{ productErrors.name }}</p>
+            </div>
+            <div class="form-field">
+              <label class="account-label" for="p-desc">Description</label>
+              <input id="p-desc" v-model="productForm.description" class="row-edit-field" type="text" placeholder="Description (optional)" aria-label="Product description" />
+            </div>
+            <div class="form-field">
+              <label class="account-label" for="p-image">Image URL</label>
+              <input id="p-image" v-model="productForm.image_url" class="row-edit-field" type="text" placeholder="https://…" aria-label="Product image URL" />
+            </div>
+            <div class="product-modal-pair">
+              <div class="form-field">
+                <label class="account-label" for="p-cat">Category</label>
+                <select id="p-cat" v-model="productForm.category_id" class="filter-select" aria-label="Product category">
+                  <option value="">Uncategorized</option>
+                  <option v-for="category in categories" :key="category.id" :value="String(category.id)">
+                    {{ category.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="account-label" for="p-price">Price</label>
+                <input id="p-price" v-model="productForm.price" class="row-edit-field" type="number" step="0.01" min="0" placeholder="0.00" aria-label="Product price" />
+                <p v-if="productErrors.price" class="field-error">{{ productErrors.price }}</p>
+              </div>
+              <div class="form-field">
+                <label class="account-label" for="p-stock">Stock</label>
+                <input id="p-stock" v-model="productForm.stock" class="row-edit-field" type="number" min="0" placeholder="0" aria-label="Product stock" />
+                <p v-if="productErrors.stock" class="field-error">{{ productErrors.stock }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="ghost-button" @click="closeProductModal">Cancel</button>
+            <button type="button" class="primary-button" :disabled="busy" @click="submitProductModal">
+              {{ productModalMode === "create" ? "Create" : "Save changes" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <section v-if="isAdmin && showArchived" class="data-panel archived-panel" aria-label="Archived products">
       <div class="panel-header">

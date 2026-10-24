@@ -321,6 +321,10 @@ td.muted { color: var(--ink-faint); }
 .modal-header h3 { margin: 0; color: var(--ink-strong); font-size: 14px; }
 .modal-body { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line-soft); background: var(--card-soft); }
+.product-modal { width: min(560px, 100%); }
+.product-modal-fields { gap: 10px; }
+.product-modal-pair { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
+@media (max-width: 560px) { .product-modal-pair { grid-template-columns: 1fr; } }
 @keyframes fade-in { from { opacity: 0; } }
 .cart-link-header { position: relative; width: 34px; padding: 0; justify-content: center; }
 .cart-count-badge { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; color: var(--on-brand); background: var(--danger); font: 700 9px "DM Sans"; }
