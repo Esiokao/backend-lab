@@ -25,6 +25,18 @@ const router = createRouter({
       component: () => import("@/views/CartView.vue"),
     },
     {
+      // 結帳/付款頁（v1.8）：選中明細 → Pay → 結果頁。
+      path: "/checkout",
+      name: "checkout",
+      component: () => import("@/views/CheckoutView.vue"),
+    },
+    {
+      // 結帳結果頁：完成 / 失敗（失敗可回訂單重試 Pay now）。
+      path: "/checkout/result",
+      name: "checkout-result",
+      component: () => import("@/views/CheckoutResultView.vue"),
+    },
+    {
       // 登入後應用區（v1.4 自 / 前綴遷入）。
       // 原 /app/users 已移除：後端 GET /users 為 admin-only（repo 為準），
       // 使用者管理歸 /admin/users。

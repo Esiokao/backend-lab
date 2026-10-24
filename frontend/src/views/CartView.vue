@@ -9,16 +9,30 @@ import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useToast } from "@/stores/toast";
 
-// 購物車（v1.7）：GET /cart 列表、PATCH/DELETE items、checkout → 訂單詳情接 pay。
-// 庫存上限在結帳時由後端把關（409 → 友善 toast）；數量上限 100 為 API 契約。
+// 購物車（v1.8）：勾選式 —— 單選/全選，只結帳選中品；
+// Checkout → /checkout 付款頁（明細 → 付款 → 結果頁）。
 
 const router = useRouter();
 const toast = useToast();
 const { user } = useAuth();
-const { items, total, busy, refresh, updateQty, remove, clear, checkout } = useCart();
+const {
+  items,
+  total,
+  busy,
+  isSelected,
+  selectedItems,
+  selectedCount,
+  selectedTotal,
+  allSelected,
+  toggleSelect,
+  toggleAll,
+  refresh,
+  updateQty,
+  remove,
+  clear,
+} = useCart();
 
 const loading = ref(true);
-const checkingOut = ref(false);
 
 function formatPrice(price: string | number): string {
   return `$${Number(price).toFixed(2)}`;
@@ -46,7 +60,6 @@ async function onQtyInput(productId: number, current: number, event: Event): Pro
   if (Number.isInteger(value) && value >= 1 && value <= 100 && value !== current) {
     await setQty(productId, value);
   } else {
-    // 還原輸入框（re-render 由 store 狀態驅動）。
     (event.target as HTMLInputElement).value = String(current);
   }
 }
@@ -70,29 +83,13 @@ async function clearCart(): Promise<void> {
   }
 }
 
-async function doCheckout(): Promise<void> {
-  checkingOut.value = true;
-  try {
-    const order = await checkout();
-    toast.show(`Order #${order.id} created.`);
-    // 直達訂單詳情：下一步就是 Pay now。
-    await router.push({ name: "order-detail", params: { id: order.id } });
-  } catch (err) {
-    // 庫存不足等後端 409 → 原因轉友善文案。
-    if (err instanceof ApiError && err.message.startsWith("Insufficient product stock:")) {
-      const id = Number(err.message.split(":").pop());
-      const item = items.value.find((entry) => entry.product_id === id);
-      toast.show(
-        item
-          ? `Not enough stock for "${item.product_name}" (only ${item.quantity} reserved).`
-          : "Not enough stock for an item in your cart.",
-      );
-    } else {
-      toast.show(err instanceof ApiError ? `Checkout failed: ${err.message}` : "Checkout failed.");
-    }
-  } finally {
-    checkingOut.value = false;
+// 帶著選中品去結帳：無選擇時按鈕已 disabled，這裡是防禦。
+function goCheckout(): void {
+  if (selectedItems().length === 0) {
+    toast.show("Select at least one item to checkout.");
+    return;
   }
+  void router.push({ name: "checkout" });
 }
 
 onMounted(async () => {
@@ -105,143 +102,166 @@ onMounted(async () => {
   <StorefrontHeader />
 
   <main class="storefront-main">
-  <section class="page-heading">
-    <div class="th-main">
-      <h1>Cart</h1>
-      <p>Review your items, then checkout to place the order.</p>
-    </div>
-    <router-link :to="{ name: 'storefront' }" class="text-button">
-      <Icon name="arrow" :size="15" /> Continue shopping
-    </router-link>
-    <div class="th-cell"><small>Sheet</small><b>CART-01</b></div>
-  </section>
-
-  <p v-if="loading" class="empty-state">Loading cart...</p>
-
-  <!-- 訪客：車屬於登入者，引導登入後回此頁 -->
-  <section v-else-if="!user" class="data-panel">
-    <div class="panel-header">
-      <div>
-        <h2>Your cart is waiting</h2>
-        <p>Carts are saved to your account — sign in to pick up where you left off.</p>
+    <section class="page-heading">
+      <div class="th-main">
+        <h1>Cart</h1>
+        <p>Select items, then checkout to place the order.</p>
       </div>
-    </div>
-    <div class="cart-empty-actions">
-      <router-link
-        class="primary-button"
-        :to="{ name: 'login', query: { redirect: '/cart' } }"
-      >
-        Sign in to view your cart
+      <router-link :to="{ name: 'storefront' }" class="text-button">
+        <Icon name="arrow" :size="15" /> Continue shopping
       </router-link>
-    </div>
-  </section>
-
-  <template v-else-if="items.length > 0">
-    <section class="data-panel">
-      <div class="panel-header">
-        <div>
-          <h2>Items</h2>
-          <p>{{ items.length }} product{{ items.length === 1 ? "" : "s" }} in your cart.</p>
-        </div>
-        <button type="button" class="ghost-button" :disabled="busy" @click="clearCart">
-          Clear cart
-        </button>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Unit price</th>
-              <th>Qty</th>
-              <th>Subtotal</th>
-              <th><span class="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.product_id">
-              <td><strong>{{ item.product_name }}</strong></td>
-              <td><span class="order-total">{{ formatPrice(item.unit_price) }}</span></td>
-              <td>
-                <div class="qty-stepper">
-                  <button
-                    type="button"
-                    :aria-label="`Decrease ${item.product_name}`"
-                    :disabled="busy || item.quantity <= 1"
-                    @click="step(item.product_id, item.quantity, -1)"
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    :value="item.quantity"
-                    :aria-label="`${item.product_name} quantity`"
-                    @change="onQtyInput(item.product_id, item.quantity, $event)"
-                  />
-                  <button
-                    type="button"
-                    :aria-label="`Increase ${item.product_name}`"
-                    :disabled="busy || item.quantity >= 100"
-                    @click="step(item.product_id, item.quantity, 1)"
-                  >
-                    +
-                  </button>
-                </div>
-              </td>
-              <td><span class="order-total">{{ formatPrice(item.subtotal) }}</span></td>
-              <td>
-                <button
-                  type="button"
-                  class="row-action row-delete"
-                  :aria-label="`Remove ${item.product_name}`"
-                  :disabled="busy"
-                  @click="removeItem(item.product_id, item.product_name)"
-                >
-                  <Icon name="close" :size="14" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="th-cell"><small>Sheet</small><b>CART-01</b></div>
     </section>
 
-    <section class="data-panel cart-summary">
+    <p v-if="loading" class="empty-state">Loading cart...</p>
+
+    <!-- 訪客：車屬於登入者，引導登入後回此頁 -->
+    <section v-else-if="!user" class="data-panel">
       <div class="panel-header">
         <div>
-          <h2>Total</h2>
-          <p>Stock is reserved at checkout.</p>
+          <h2>Your cart is waiting</h2>
+          <p>Carts are saved to your account — sign in to pick up where you left off.</p>
         </div>
-        <span class="cart-total">{{ formatPrice(total) }}</span>
       </div>
-      <div class="cart-summary-actions">
-        <button
-          type="button"
+      <div class="cart-empty-actions">
+        <router-link
           class="primary-button"
-          :disabled="busy || checkingOut"
-          @click="doCheckout"
+          :to="{ name: 'login', query: { redirect: '/cart' } }"
         >
-          <Icon name="bolt" :size="15" />
-          {{ checkingOut ? "Checking out..." : "Checkout" }}
-        </button>
+          Sign in to view your cart
+        </router-link>
       </div>
     </section>
-  </template>
 
-  <section v-else class="data-panel">
-    <div class="panel-header">
-      <div>
-        <h2>Your cart is empty</h2>
-        <p>Browse the catalog and add something you like.</p>
+    <template v-else-if="items.length > 0">
+      <section class="data-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Items</h2>
+            <p>{{ items.length }} product{{ items.length === 1 ? "" : "s" }} in your cart.</p>
+          </div>
+          <button type="button" class="ghost-button" :disabled="busy" @click="clearCart">
+            Clear cart
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="check-col">
+                  <input
+                    type="checkbox"
+                    :checked="allSelected()"
+                    aria-label="Select all items"
+                    @change="toggleAll"
+                  />
+                </th>
+                <th>Product</th>
+                <th>Unit price</th>
+                <th>Qty</th>
+                <th>Subtotal</th>
+                <th><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in items"
+                :key="item.product_id"
+                :class="{ dimmed: !isSelected(item.product_id) }"
+              >
+                <td class="check-col">
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(item.product_id)"
+                    :aria-label="`Select ${item.product_name}`"
+                    @change="toggleSelect(item.product_id)"
+                  />
+                </td>
+                <td><strong>{{ item.product_name }}</strong></td>
+                <td><span class="order-total">{{ formatPrice(item.unit_price) }}</span></td>
+                <td>
+                  <div class="qty-stepper">
+                    <button
+                      type="button"
+                      :aria-label="`Decrease ${item.product_name}`"
+                      :disabled="busy || item.quantity <= 1"
+                      @click="step(item.product_id, item.quantity, -1)"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      :value="item.quantity"
+                      :aria-label="`${item.product_name} quantity`"
+                      @change="onQtyInput(item.product_id, item.quantity, $event)"
+                    />
+                    <button
+                      type="button"
+                      :aria-label="`Increase ${item.product_name}`"
+                      :disabled="busy || item.quantity >= 100"
+                      @click="step(item.product_id, item.quantity, 1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </td>
+                <td><span class="order-total">{{ formatPrice(item.subtotal) }}</span></td>
+                <td>
+                  <button
+                    type="button"
+                    class="row-action row-delete"
+                    :aria-label="`Remove ${item.product_name}`"
+                    :disabled="busy"
+                    @click="removeItem(item.product_id, item.product_name)"
+                  >
+                    <Icon name="close" :size="14" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="data-panel cart-summary">
+        <div class="panel-header">
+          <div>
+            <h2>Selected</h2>
+            <p>
+              {{ selectedCount() }} item{{ selectedCount() === 1 ? "" : "s" }} selected ·
+              cart total {{ formatPrice(total) }}
+            </p>
+          </div>
+          <span class="cart-total">{{ formatPrice(selectedTotal()) }}</span>
+        </div>
+        <div class="cart-summary-actions">
+          <button
+            type="button"
+            class="primary-button"
+            :disabled="busy || selectedCount() === 0"
+            @click="goCheckout"
+          >
+            <Icon name="bolt" :size="15" />
+            Checkout ({{ selectedCount() }})
+          </button>
+        </div>
+      </section>
+    </template>
+
+    <section v-else class="data-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Your cart is empty</h2>
+          <p>Browse the catalog and add something you like.</p>
+        </div>
       </div>
-    </div>
-    <div class="cart-empty-actions">
-      <router-link :to="{ name: 'storefront' }" class="primary-button">
-        <Icon name="cart" :size="15" /> Browse catalog
-      </router-link>
-    </div>
-  </section>
+      <div class="cart-empty-actions">
+        <router-link :to="{ name: 'storefront' }" class="primary-button">
+          <Icon name="cart" :size="15" /> Browse catalog
+        </router-link>
+      </div>
+    </section>
   </main>
 </template>

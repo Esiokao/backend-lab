@@ -3,7 +3,8 @@ import { ref } from "vue";
 import { api } from "@/lib/api";
 
 // 購物車 store（v1.7）：對接後端 /cart 系列（持久化於 cart_items 表）。
-// 登入時 refresh；未登入不打 API（store 保持空，badge 隱藏）。
+// v1.8：勾選式結帳 —— selected 記錄勾選的商品（session 內狀態，重整後預設全選）；
+// checkout(product_ids) 只結帳選中品，其餘留車（後端支援）。
 
 export type CartItem = {
   product_id: number;
@@ -23,12 +24,41 @@ const total = ref<string | number>("0");
 const loaded = ref(false);
 const busy = ref(false);
 
+// 勾選狀態：product_id → 是否選中。新出現的商品預設選中；移除的自動清掉。
+const selected = ref<Record<number, boolean>>({});
+
 const count = () => items.value.reduce((n, item) => n + item.quantity, 0);
+
+const isSelected = (productId: number) => !!selected.value[productId];
+const selectedItems = () => items.value.filter((item) => selected.value[item.product_id]);
+const selectedCount = () => selectedItems().reduce((n, item) => n + item.quantity, 0);
+const selectedTotal = () =>
+  selectedItems().reduce((sum, item) => sum + Number(item.subtotal), 0);
+const allSelected = () =>
+  items.value.length > 0 && items.value.every((item) => selected.value[item.product_id]);
+
+function toggleSelect(productId: number): void {
+  selected.value = { ...selected.value, [productId]: !selected.value[productId] };
+}
+
+function toggleAll(): void {
+  const next = !allSelected();
+  const record: Record<number, boolean> = {};
+  for (const item of items.value) record[item.product_id] = next;
+  selected.value = record;
+}
 
 function apply(cart: Cart): void {
   items.value = cart.items;
   total.value = cart.total;
   loaded.value = true;
+
+  const previous = selected.value;
+  const record: Record<number, boolean> = {};
+  for (const item of cart.items) {
+    record[item.product_id] = previous[item.product_id] ?? true;
+  }
+  selected.value = record;
 }
 
 async function refresh(): Promise<void> {
@@ -77,11 +107,15 @@ async function clear(): Promise<void> {
 
 type CheckedOutOrder = { id: number };
 
-async function checkout(): Promise<CheckedOutOrder> {
+// 結帳：帶 product_ids 只結選中品（undefined = 整台車）；成功後重抓剩餘車況。
+async function checkout(productIds?: number[]): Promise<CheckedOutOrder> {
   busy.value = true;
   try {
-    const order = await api.post<CheckedOutOrder>("/cart/checkout");
-    apply({ items: [], total: "0" });
+    const order = await api.post<CheckedOutOrder>(
+      "/cart/checkout",
+      productIds === undefined ? undefined : { product_ids: productIds },
+    );
+    await refresh();
     return order;
   } finally {
     busy.value = false;
@@ -89,5 +123,25 @@ async function checkout(): Promise<CheckedOutOrder> {
 }
 
 export function useCart() {
-  return { items, total, loaded, busy, count, refresh, add, updateQty, remove, clear, checkout };
+  return {
+    items,
+    total,
+    loaded,
+    busy,
+    selected,
+    count,
+    isSelected,
+    selectedItems,
+    selectedCount,
+    selectedTotal,
+    allSelected,
+    toggleSelect,
+    toggleAll,
+    refresh,
+    add,
+    updateQty,
+    remove,
+    clear,
+    checkout,
+  };
 }

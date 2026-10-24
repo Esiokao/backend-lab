@@ -311,6 +311,25 @@ td.muted { color: var(--ink-faint); }
 .cart-total { color: var(--ink-strong); font: 600 22px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
 .cart-summary-actions { padding: 16px 23px 20px; display: flex; justify-content: flex-end; }
 .cart-empty-actions { padding: 26px; display: flex; justify-content: center; }
+.check-col { width: 40px; }
+.check-col input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; }
+tr.dimmed td { opacity: .5; }
+.payment-method { padding: 16px 23px 20px; }
+.payment-option { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1.5px solid var(--line-strong); border-radius: 9px; cursor: default; }
+.payment-option input[type="radio"] { accent-color: var(--brand); }
+.payment-option-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 7px; color: var(--brand-deep); background: var(--cream); }
+.payment-option strong { display: block; color: var(--ink-strong); font-size: 12.5px; }
+.payment-option small { display: block; margin-top: 2px; color: var(--ink-faint); font-size: 10.5px; }
+.pay-button { min-width: 180px; justify-content: center; }
+.result-hero { margin: 40px auto 0; max-width: 560px; padding: 44px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--card); box-shadow: var(--shadow-card); animation: rise-in .4s ease backwards; }
+.result-hero.paid { border-color: var(--success); }
+.result-hero.failed { border-color: var(--danger); }
+.result-icon { display: grid; width: 62px; height: 62px; place-items: center; border-radius: 50%; margin-bottom: 8px; }
+.result-icon.paid { color: var(--on-brand); background: var(--success); }
+.result-icon.failed { color: var(--on-brand); background: var(--danger); }
+.result-hero h1 { margin: 0; color: var(--ink-strong); font-size: 24px; }
+.result-hero p { margin: 0; max-width: 42ch; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.result-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .product-cart-row { padding: 0 16px 14px; }
 .product-add-button { width: 100%; justify-content: center; }
 /* 商品卡標籤：分類 + NEW IN（蓋章式） */
