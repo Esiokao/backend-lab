@@ -3,7 +3,9 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
+import StorefrontHeader from "@/components/StorefrontHeader.vue";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useToast } from "@/stores/toast";
 
@@ -12,6 +14,7 @@ import { useToast } from "@/stores/toast";
 
 const router = useRouter();
 const toast = useToast();
+const { user } = useAuth();
 const { items, total, busy, refresh, updateQty, remove, clear, checkout } = useCart();
 
 const loading = ref(true);
@@ -93,12 +96,15 @@ async function doCheckout(): Promise<void> {
 }
 
 onMounted(async () => {
-  await refresh();
+  if (user.value) await refresh();
   loading.value = false;
 });
 </script>
 
 <template>
+  <StorefrontHeader />
+
+  <main class="storefront-main">
   <section class="page-heading">
     <div class="th-main">
       <h1>Cart</h1>
@@ -111,6 +117,24 @@ onMounted(async () => {
   </section>
 
   <p v-if="loading" class="empty-state">Loading cart...</p>
+
+  <!-- 訪客：車屬於登入者，引導登入後回此頁 -->
+  <section v-else-if="!user" class="data-panel">
+    <div class="panel-header">
+      <div>
+        <h2>Your cart is waiting</h2>
+        <p>Carts are saved to your account — sign in to pick up where you left off.</p>
+      </div>
+    </div>
+    <div class="cart-empty-actions">
+      <router-link
+        class="primary-button"
+        :to="{ name: 'login', query: { redirect: '/cart' } }"
+      >
+        Sign in to view your cart
+      </router-link>
+    </div>
+  </section>
 
   <template v-else-if="items.length > 0">
     <section class="data-panel">
@@ -219,4 +243,5 @@ onMounted(async () => {
       </router-link>
     </div>
   </section>
+  </main>
 </template>

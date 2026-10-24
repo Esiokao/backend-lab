@@ -3,10 +3,10 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
+import StorefrontHeader from "@/components/StorefrontHeader.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
-import { useTheme } from "@/stores/theme";
 import { useToast } from "@/stores/toast";
 
 // 公開店面（v1.4）：訪客可瀏覽 GET /products；未登入按關注 → /login?redirect=（F12-7）。
@@ -45,8 +45,7 @@ const NEW_IN_DAYS = 7;
 
 const route = useRoute();
 const router = useRouter();
-const { user, logout } = useAuth();
-const { theme, toggleTheme } = useTheme();
+const { user } = useAuth();
 const { add: addToCart } = useCart();
 const { show: showToast } = useToast();
 
@@ -268,11 +267,6 @@ async function handleAddToCart(product: Product): Promise<void> {
   }
 }
 
-async function handleLogout(): Promise<void> {
-  // 登出後留在店面，header 自動切回訪客狀態。
-  await logout();
-}
-
 // ── Admin 商品 CRUD（F12-1）──
 
 async function createProduct(): Promise<void> {
@@ -395,42 +389,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <header class="storefront-header">
-    <div class="brand">
-      <span class="brand-mark"><Icon name="bolt" :size="16" /></span>
-      <span>Backend Lab</span>
-    </div>
-    <div class="storefront-actions">
-      <button
-        type="button"
-        class="ghost-button theme-toggle"
-        :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-        @click="toggleTheme"
-      >
-        <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="15" />
-      </button>
-      <router-link
-        v-if="user"
-        class="ghost-button theme-toggle"
-        :to="{ name: 'cart' }"
-        aria-label="Cart"
-      >
-        <Icon name="cart" :size="15" />
-      </router-link>
-      <template v-if="user">
-        <router-link class="ghost-button" :to="isAdmin ? { name: 'dashboard' } : { name: 'account' }">
-          <Icon :name="isAdmin ? 'grid' : 'users'" :size="14" />
-          {{ isAdmin ? "Workspace" : "My account" }}
-        </router-link>
-        <button type="button" class="ghost-button" @click="handleLogout">
-          <Icon name="logout" :size="14" /> Sign out
-        </button>
-      </template>
-      <router-link v-else class="primary-button" :to="{ name: 'login' }">
-        Sign in
-      </router-link>
-    </div>
-  </header>
+  <StorefrontHeader />
 
   <main class="storefront-main">
     <section class="page-heading">

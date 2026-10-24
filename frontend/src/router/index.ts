@@ -18,6 +18,13 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
     {
+      // 購物車（v1.7）：店面購物流的一環，不住在會員後台；
+      // 訪客可開頁，由頁面引導登入（車存在後端，屬於登入者）。
+      path: "/cart",
+      name: "cart",
+      component: () => import("@/views/CartView.vue"),
+    },
+    {
       // 登入後應用區（v1.4 自 / 前綴遷入）。
       // 原 /app/users 已移除：後端 GET /users 為 admin-only（repo 為準），
       // 使用者管理歸 /admin/users。
@@ -39,12 +46,6 @@ const router = createRouter({
           path: "orders/:id",
           name: "order-detail",
           component: () => import("@/views/OrderDetailView.vue"),
-        },
-        {
-          // 購物車（v1.7：後端 /cart 系列 + checkout → 訂單 → pay）。
-          path: "cart",
-          name: "cart",
-          component: () => import("@/views/CartView.vue"),
         },
         {
           // 會員中心：會員資料修改 + 修改密碼（F7）。
