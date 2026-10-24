@@ -6,7 +6,7 @@ import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
 import { ApiError, api } from "@/lib/api";
 import {
-  CategoryListSchema,
+  CategoryPageSchema,
   ProductFormSchema,
   ProductListSchema,
   type Category,
@@ -85,7 +85,8 @@ function isNew(product: Product): boolean {
 
 async function fetchCategories(): Promise<void> {
   try {
-    categories.value = await api.get("/categories", CategoryListSchema);
+    const data = await api.get("/categories", CategoryPageSchema);
+    categories.value = data.items;
   } catch {
     // 分類導覽抓不到不阻擋商品列表。
   }

@@ -206,6 +206,8 @@ html { scrollbar-width: thin; scrollbar-color: #c9bca8 transparent; }
 
 .data-panel { margin-top: 16px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow-card); animation: rise-in .4s ease .12s backwards; }
 .panel-header { padding: 21px 23px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line-soft); }
+.panel-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel-actions .search-field { width: 220px; }
 .panel-header h2 { margin: 0; color: var(--ink-strong); font-size: 15px; }
 .panel-header p { margin: 5px 0 0; color: var(--ink-faint); font-size: 12px; }
 .text-button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--brand-deep); font-size: 11px; font-weight: 600; }
@@ -312,6 +314,14 @@ td.muted { color: var(--ink-faint); }
 .catalog-chips button.active { border-color: var(--brand); color: var(--ink-strong); background: var(--cream); }
 .categories-panel { margin-top: 26px; }
 .cart-link { display: grid; text-decoration: none; }
+/* Modal：admin 表單對話框 */
+.modal-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(20, 17, 12, .45); backdrop-filter: blur(3px); animation: fade-in .15s ease; }
+.modal { width: min(440px, 100%); overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow-pop); animation: pop-in .18s ease; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line-soft); }
+.modal-header h3 { margin: 0; color: var(--ink-strong); font-size: 14px; }
+.modal-body { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line-soft); background: var(--card-soft); }
+@keyframes fade-in { from { opacity: 0; } }
 .cart-link-header { position: relative; width: 34px; padding: 0; justify-content: center; }
 .cart-count-badge { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; color: var(--on-brand); background: var(--danger); font: 700 9px "DM Sans"; }
 .qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }

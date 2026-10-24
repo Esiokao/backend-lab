@@ -22,7 +22,12 @@ export const CategorySchema = z.object({
   description: z.string().nullable(),
 });
 export type Category = z.infer<typeof CategorySchema>;
-export const CategoryListSchema = z.array(CategorySchema);
+export const CategoryPageSchema = z.object({
+  items: z.array(CategorySchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  page_size: z.number().int(),
+});
 
 export const ProductSchema = z.object({
   id: z.number().int(),
