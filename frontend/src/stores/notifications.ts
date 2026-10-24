@@ -17,10 +17,20 @@ export type NotificationItem = {
   read_at: string | null;
 };
 
+// admin 廣播公告（GET /notifications/broadcasts，全使用者可見的公告表）。
+export type BroadcastItem = {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  created_at: string;
+};
+
 const POLL_INTERVAL_MS = 10_000;
 
 const unreadCount = ref(0);
 const items = ref<NotificationItem[]>([]);
+const broadcasts = ref<BroadcastItem[]>([]);
 const panelOpen = ref(false);
 
 let timer: number | undefined;
@@ -41,6 +51,15 @@ async function refreshList(): Promise<void> {
     items.value = data.items;
   } catch {
     // 同上。
+  }
+}
+
+async function loadBroadcasts(): Promise<void> {
+  try {
+    const data = await api.get<{ items: BroadcastItem[] }>("/notifications/broadcasts");
+    broadcasts.value = data.items;
+  } catch {
+    // 公告抓不到不影響個人通知列表。
   }
 }
 
@@ -97,19 +116,24 @@ function stopPolling(): void {
 
 function togglePanel(): void {
   panelOpen.value = !panelOpen.value;
-  // 每次打開都抓最新清單。
-  if (panelOpen.value) void refreshList();
+  // 每次打開都抓最新清單（含公告）。
+  if (panelOpen.value) {
+    void refreshList();
+    void loadBroadcasts();
+  }
 }
 
 export function useNotifications() {
   return {
     unreadCount,
     items,
+    broadcasts,
     panelOpen,
     startPolling,
     stopPolling,
     togglePanel,
     refreshList,
+    loadBroadcasts,
     markRead,
     markAllRead,
   };

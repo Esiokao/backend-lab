@@ -10,6 +10,9 @@ const router = useRouter();
 
 const { login } = useAuth();
 
+// 改密碼成功後被導回來（/login?changed=1）：顯示持久確認，而不是無聲的登出。
+const passwordChanged = route.query.changed === "1";
+
 const email = ref("");
 const password = ref("");
 const error = ref("");
@@ -52,6 +55,9 @@ async function handleSubmit(): Promise<void> {
       <h1>Sign in</h1>
       <p>Use your Backend Lab account to access the workspace.</p>
 
+      <p v-if="passwordChanged" class="login-banner" role="status">
+        Password changed — sign in with your new password.
+      </p>
       <p v-if="error" class="login-error" role="alert">{{ error }}</p>
 
       <form @submit.prevent="handleSubmit">

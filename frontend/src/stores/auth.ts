@@ -40,5 +40,10 @@ export function useAuth() {
     }
   }
 
-  return { user, loaded, me, login, logout };
+  // 會員資料修改後同步整個 app 共享的使用者狀態（側欄、下拉選單即時更新）。
+  function setUser(next: CurrentUser): void {
+    user.value = next;
+  }
+
+  return { user, loaded, me, login, logout, setUser };
 }

@@ -81,12 +81,13 @@ async function saveEdit(target: UserRow): Promise<void> {
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">Administration</p>
+    <div class="th-main">
       <h1>User Management</h1>
       <p>Manage names, emails, and roles.</p>
     </div>
-  </section>
+
+      <div class="th-cell"><small>Sheet</small><b>ADMIN-USR-01</b></div>
+    </section>
 
   <section class="data-panel">
     <div class="panel-header">
@@ -162,7 +163,12 @@ async function saveEdit(target: UserRow): Promise<void> {
                 <div class="user-cell">
                   <span class="mini-avatar">{{ initials(user.name) }}</span>
                   <span>
-                    <strong>{{ user.name }}</strong>
+                    <router-link
+                      :to="{ name: 'admin-user-detail', params: { id: user.id } }"
+                      class="order-link user-link"
+                    >
+                      <strong>{{ user.name }}</strong>
+                    </router-link>
                     <small>{{ user.email }}</small>
                   </span>
                 </div>

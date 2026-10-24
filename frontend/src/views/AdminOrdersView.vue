@@ -32,6 +32,15 @@ const STATUSES: OrderStatusValue[] = [
   "cancelled",
 ];
 
+// 鏡像後端 app/core/enums.py 的 ALLOWED_TRANSITIONS：UI 只允許合法的下一狀態。
+const ALLOWED_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
+  created: ["pending", "cancelled"],
+  pending: ["processing", "cancelled"],
+  processing: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+};
+
 const PAGE_SIZE = 10;
 
 const orders = ref<AdminOrder[]>([]);
@@ -153,12 +162,13 @@ function onStatusChange(order: AdminOrder, event: Event): void {
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">Administration</p>
+    <div class="th-main">
       <h1>Order Management</h1>
       <p>All orders across users, with status control.</p>
     </div>
-  </section>
+
+      <div class="th-cell"><small>Sheet</small><b>ADMIN-ORD-01</b></div>
+    </section>
 
   <section class="data-panel">
     <div class="panel-header">
@@ -174,11 +184,12 @@ function onStatusChange(order: AdminOrder, event: Event): void {
           <Icon name="users" :size="14" />
           <input
             v-model="userIdFilter"
-            type="number"
-            min="1"
+            type="text"
+            inputmode="numeric"
             placeholder="Filter by user ID"
             aria-label="Filter by user ID"
             @keydown.enter="applyFilters"
+            @change="applyFilters"
           />
         </label>
         <select
@@ -213,7 +224,12 @@ function onStatusChange(order: AdminOrder, event: Event): void {
               <div class="user-cell">
                 <span class="mini-avatar">{{ ownerInitials(order.user_id) }}</span>
                 <span>
-                  <strong>{{ ownerName(order.user_id) }}</strong>
+                  <router-link
+                    :to="{ name: 'admin-user-detail', params: { id: order.user_id } }"
+                    class="order-link user-link"
+                  >
+                    <strong>{{ ownerName(order.user_id) }}</strong>
+                  </router-link>
                   <small>{{ ownerEmail(order.user_id) }}</small>
                 </span>
               </div>
@@ -233,7 +249,10 @@ function onStatusChange(order: AdminOrder, event: Event): void {
                     v-for="status in STATUSES"
                     :key="status"
                     :value="status"
-                    :disabled="status === order.status"
+                    :disabled="
+                      status === order.status ||
+                      !ALLOWED_TRANSITIONS[order.status].includes(status)
+                    "
                   >
                     {{ status }}
                   </option>

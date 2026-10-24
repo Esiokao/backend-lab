@@ -2,6 +2,8 @@
 // 內嵌 SVG 圖示（移植自設計模板，14 顆線性圖示）。
 export type IconName =
   | "activity"
+  | "moon"
+  | "sun"
   | "arrow"
   | "bell"
   | "bolt"
@@ -24,6 +26,8 @@ const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), {
 
 const iconPaths: Record<IconName, string[]> = {
   activity: ["M3 12h4l2.2-6 4.1 12 2.1-6H21"],
+  moon: ["M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"],
+  sun: ["M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4", "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"],
   arrow: ["m9 18 6-6-6-6"],
   bell: ["M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9", "M13.73 21a2 2 0 0 1-3.46 0"],
   bolt: ["m13 2-8 12h7l-1 8 8-12h-7l1-8Z"],

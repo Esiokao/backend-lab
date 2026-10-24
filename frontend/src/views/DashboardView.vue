@@ -1,79 +1,161 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import Icon from "@/components/Icon.vue";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 
-// Overview：metric 卡先用設計稿的裝飾數字（後端還沒有 stats 端點），
-// 最近訂單接真資料（GET /orders 取前 5 筆）。
+// Overview（admin 專屬 workspace 頁）：全部接真資料 ——
+// GET /stats（global 範圍）+ /ready 探測。Recent orders 可點進訂單與使用者詳情。
 
-type Order = { id: number; user_id: number };
+type OrderItem = { product_id: number; quantity: number; unit_price: string | number };
 
+type Order = {
+  id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  items: OrderItem[];
+};
+
+type Stats = {
+  scope: "global" | "personal";
+  total_users?: number;
+  total_orders: number;
+  orders_today: number;
+};
+
+type UserRow = { id: number; name: string; email: string; role: string };
+
+const stats = ref<Stats | null>(null);
 const orders = ref<Order[]>([]);
 const loading = ref(true);
 const loadError = ref("");
 
-const recentOrders = ref<Order[]>([]);
+// /ready 探測：即時打真端點量延遲。
+const probe = ref({ up: false, latencyMs: 0, checkedAt: "" });
+
+const users = ref<UserRow[]>([]);
+const userMap = computed(() => new Map(users.value.map((u) => [u.id, u])));
+
+const products = ref<{ id: number; name: string }[]>([]);
+
+const recentOrders = computed(() =>
+  [...orders.value].sort((a, b) => b.id - a.id).slice(0, 5),
+);
+
+function ownerName(userId: number): string {
+  return userMap.value.get(userId)?.name ?? `usr_${String(userId).padStart(4, "0")}`;
+}
+
+function productName(productId: number): string {
+  return products.value.find((p) => p.id === productId)?.name ?? `#${productId}`;
+}
+
+function orderTotal(order: Order): string {
+  const total = order.items.reduce(
+    (sum, item) => sum + Number(item.unit_price) * item.quantity,
+    0,
+  );
+  return `$${total.toFixed(2)}`;
+}
+
+async function probeBackend(): Promise<void> {
+  const started = performance.now();
+
+  try {
+    const response = await fetch("/api/ready", { credentials: "include" });
+    probe.value = {
+      up: response.ok,
+      latencyMs: Math.round(performance.now() - started),
+      checkedAt: new Date().toLocaleTimeString(),
+    };
+  } catch {
+    probe.value = { up: false, latencyMs: Math.round(performance.now() - started), checkedAt: new Date().toLocaleTimeString() };
+  }
+}
 
 onMounted(async () => {
   try {
-    // 後端一次回全部；儀表板只取前 5 筆展示。
-    orders.value = await api.get<Order[]>("/orders");
-    recentOrders.value = [...orders.value].sort((a, b) => b.id - a.id).slice(0, 5);
-  } catch {
-    loadError.value = "Failed to load recent orders.";
+    const [statsData, ordersData] = await Promise.all([
+      api.get<Stats>("/stats"),
+      api.get<Order[]>("/orders?page_size=100"),
+    ]);
+    stats.value = statsData;
+    orders.value = ordersData;
+  } catch (err) {
+    loadError.value =
+      err instanceof ApiError ? `Failed to load stats: ${err.message}` : "Failed to load stats.";
   } finally {
     loading.value = false;
   }
+
+  await probeBackend();
+
+  api
+    .get<UserRow[]>("/users")
+    .then((rows) => (users.value = rows))
+    .catch(() => {});
+  api
+    .get<{ id: number; name: string }[]>("/products?page_size=100")
+    .then((rows) => (products.value = rows))
+    .catch(() => {});
 });
 </script>
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">System workspace</p>
+    <div class="th-main">
       <h1>Overview</h1>
       <p>Monitor your API, users, and order activity from one place.</p>
     </div>
-    <p class="updated">Last updated <strong>just now</strong></p>
-  </section>
+    <p v-if="probe.checkedAt" class="updated">Last checked <strong>{{ probe.checkedAt }}</strong></p>
 
-  <section class="metrics" aria-label="Key metrics">
+      <div class="th-cell"><small>Sheet</small><b>OVERVIEW-01</b></div>
+      <div class="th-cell"><small>Rev</small><b>A · {{ new Date().toLocaleDateString() }}</b></div>
+    </section>
+
+  <p v-if="loading" class="empty-state">Loading stats...</p>
+  <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
+
+  <section v-else-if="stats" class="metrics" aria-label="Key metrics">
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon violet"><Icon name="users" /></span>
-        <span class="trend">+12.4%</span>
+        <span class="zone">A</span>
       </div>
       <p>Total users</p>
-      <strong>2,849</strong>
-      <small>312 joined this month</small>
+      <strong>{{ stats.total_users }}</strong>
+      <div class="dim"><small>live</small><div class="dline"></div><small>GET /stats</small></div>
     </article>
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon cyan"><Icon name="box" /></span>
-        <span class="trend">+8.2%</span>
+        <span class="zone">B</span>
       </div>
       <p>Total orders</p>
-      <strong>{{ orders.length > 0 ? orders.length : "—" }}</strong>
-      <small>Live from the API</small>
+      <strong>{{ stats.total_orders }}</strong>
+      <div class="dim"><small>live</small><div class="dline"></div><small>GET /stats</small></div>
     </article>
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon green"><Icon name="activity" /></span>
-        <span class="health-badge"><i /> Healthy</span>
+        <span class="zone">C</span>
       </div>
-      <p>API uptime</p>
-      <strong>99.99%</strong>
-      <small>Last 30 days</small>
+      <p>Orders today</p>
+      <strong>{{ stats.orders_today }}</strong>
+      <div class="dim"><small>since 00:00 UTC</small><div class="dline"></div><small>GET /stats</small></div>
     </article>
     <article class="metric-card">
       <div class="metric-top">
         <span class="metric-icon amber"><Icon name="database" /></span>
-        <span class="latency">24 ms</span>
+        <span class="zone">D</span>
       </div>
-      <p>Database</p>
-      <strong>Connected</strong>
-      <small>PostgreSQL · production</small>
+      <p>Database readiness</p>
+      <strong>{{ probe.up ? "Connected" : "Down" }}</strong>
+      <div class="dim">
+        <small>{{ probe.latencyMs }} ms</small><div class="dline"></div>
+        <span :class="probe.up ? 'health-badge' : 'health-badge down'"><i /> {{ probe.up ? "Healthy" : "Down" }}</span>
+      </div>
     </article>
   </section>
 
@@ -83,7 +165,7 @@ onMounted(async () => {
         <h2>Recent orders</h2>
         <p>Latest order activity across all users.</p>
       </div>
-      <router-link to="{ name: 'orders' }" class="text-button">
+      <router-link :to="{ name: 'orders' }" class="text-button">
         View all orders <Icon name="arrow" :size="15" />
       </router-link>
     </div>
@@ -93,17 +175,41 @@ onMounted(async () => {
         <thead>
           <tr>
             <th>Order ID</th>
-            <th>User ID</th>
+            <th>User</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
             <th><span class="sr-only">Open</span></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="order in recentOrders" :key="order.id">
-            <td><span class="order-id">#{{ order.id }}</span></td>
-            <td><code>usr_{{ String(order.user_id).padStart(4, "0") }}</code></td>
             <td>
               <router-link
-                :to="{ name: 'orders' }"
+                :to="{ name: 'order-detail', params: { id: order.id } }"
+                class="order-link"
+              >
+                #{{ order.id }}
+              </router-link>
+            </td>
+            <td>
+              <router-link
+                :to="{ name: 'admin-user-detail', params: { id: order.user_id } }"
+                class="order-link"
+              >
+                {{ ownerName(order.user_id) }}
+              </router-link>
+            </td>
+            <td>
+              <span v-for="item in order.items" :key="item.product_id" class="order-item">
+                {{ productName(item.product_id) }} × {{ item.quantity }}
+              </span>
+            </td>
+            <td><span class="order-total">{{ orderTotal(order) }}</span></td>
+            <td><span :class="['status-badge', order.status]">{{ order.status }}</span></td>
+            <td>
+              <router-link
+                :to="{ name: 'order-detail', params: { id: order.id } }"
                 class="row-action"
                 :aria-label="`Open order ${order.id}`"
               >
@@ -113,9 +219,7 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
-      <p v-if="loading" class="empty-state">Loading recent orders...</p>
-      <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
-      <p v-else-if="recentOrders.length === 0" class="empty-state">No orders yet.</p>
+      <p v-if="!loading && recentOrders.length === 0" class="empty-state">No orders yet.</p>
     </div>
   </section>
 

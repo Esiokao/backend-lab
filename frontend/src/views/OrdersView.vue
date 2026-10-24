@@ -3,10 +3,19 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
+import { useAuth } from "@/stores/auth";
 import { useToast } from "@/stores/toast";
 
-// 訂單型別（後端回傳只有 id 與 user_id）。
-type Order = { id: number; user_id: number };
+// 訂單型別（後端 GET /orders 回 id、user_id、status、created_at、items）。
+type OrderItem = { product_id: number; quantity: number; unit_price: string | number };
+
+type Order = {
+  id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  items: OrderItem[];
+};
 
 // 商品下拉選項（GET /products，active only）。
 type ProductOption = { id: number; name: string; price: string | number; stock: number };
@@ -21,6 +30,22 @@ const loading = ref(true);
 const loadError = ref("");
 
 const toast = useToast();
+const { user: me } = useAuth();
+
+// 一般使用者只看得到自己的訂單（每列都是自己，名字取自 session）；
+// admin 會看到全部訂單，另外抓 /users 對照 user_id → 姓名。
+const isAdmin = computed(() => me.value?.role === "admin");
+
+const users = ref<{ id: number; name: string }[]>([]);
+const userMap = computed(() => new Map(users.value.map((u) => [u.id, u])));
+
+function displayName(userId: number): string {
+  return (
+    userMap.value.get(userId)?.name ??
+    (userId === me.value?.id ? me.value?.name : undefined) ??
+    userCode(userId)
+  );
+}
 
 // 當前頁的客戶端搜尋（比對 id / user_id 字串）。
 const filteredOrders = computed(() => {
@@ -41,19 +66,48 @@ const selectedProductId = ref("");
 const quantity = ref("1");
 const creating = ref(false);
 
+// 目前選取的商品：數量上限與庫存提示用。
+const selectedProduct = computed(() =>
+  products.value.find((product) => product.id === Number(selectedProductId.value)),
+);
+
 async function openCreate(): Promise<void> {
   showCreate.value = true;
 
   // 每次開啟都重抓，確保庫存新鮮；demo 規模一頁 100 筆足夠。
+  await loadProducts();
+}
+
+async function loadProducts(): Promise<void> {
   try {
     products.value = await api.get<ProductOption[]>("/products?page_size=100");
   } catch (err) {
-    toast.show(
-      err instanceof ApiError
-        ? `Failed to load products: ${err.message}`
-        : "Failed to load products.",
-    );
+    // 名稱／庫存對照失敗不阻擋列表，僅退化顯示。
+    if (showCreate.value) {
+      toast.show(
+        err instanceof ApiError
+          ? `Failed to load products: ${err.message}`
+          : "Failed to load products.",
+      );
+    }
   }
+}
+
+// 訂單明細顯示用的商品名稱對照；抓不到就退回 #id。
+function productName(productId: number): string {
+  return products.value.find((product) => product.id === productId)?.name ?? `#${productId}`;
+}
+
+function orderTotal(order: Order): string {
+  const total = order.items.reduce(
+    (sum, item) => sum + Number(item.unit_price) * item.quantity,
+    0,
+  );
+  return formatPrice(total);
+}
+
+function formatCreated(iso: string): string {
+  return new Date(iso).toLocaleDateString();
 }
 
 function formatPrice(price: string | number): string {
@@ -63,8 +117,9 @@ function formatPrice(price: string | number): string {
 async function createOrder(): Promise<void> {
   const productId = Number(selectedProductId.value);
   const qty = Number(quantity.value);
+  const product = products.value.find((p) => p.id === productId);
 
-  if (!productId) {
+  if (!product) {
     toast.show("Select a product first.");
     return;
   }
@@ -72,6 +127,12 @@ async function createOrder(): Promise<void> {
   // 後端 OrderItemCreate：quantity gt=0 le=100。
   if (!Number.isInteger(qty) || qty < 1 || qty > 100) {
     toast.show("Quantity must be between 1 and 100.");
+    return;
+  }
+
+  // 庫存先在前端擋一次，不用等後端 409。
+  if (qty > product.stock) {
+    toast.show(`Only ${product.stock} left in stock for "${product.name}".`);
     return;
   }
 
@@ -90,8 +151,18 @@ async function createOrder(): Promise<void> {
     page.value = 1;
     await loadOrders();
   } catch (err) {
-    // 庫存不足 → 後端 409，toast 顯示原因。
-    toast.show(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
+    // 後端 409 帶內部 product_id：轉成商品名稱與剩餘庫存，別把原始訊息丟給使用者。
+    if (err instanceof ApiError && err.message.startsWith("Insufficient product stock:")) {
+      const id = Number(err.message.split(":").pop());
+      const stale = products.value.find((p) => p.id === id);
+      toast.show(
+        stale
+          ? `Not enough stock for "${stale.name}" (only ${stale.stock} left).`
+          : "Not enough stock for the selected product.",
+      );
+    } else {
+      toast.show(err instanceof ApiError ? `Create failed: ${err.message}` : "Create failed.");
+    }
   } finally {
     creating.value = false;
   }
@@ -133,14 +204,25 @@ function userCode(userId: number): string {
   return `usr_${String(userId).padStart(4, "0")}`;
 }
 
-onMounted(loadOrders);
+async function loadUsers(): Promise<void> {
+  try {
+    users.value = await api.get<{ id: number; name: string }[]>("/users");
+  } catch {
+    // 對照表失敗就退回 usr_XXXX 代碼顯示。
+  }
+}
+
+onMounted(() => {
+  void loadOrders();
+  void loadProducts();
+  if (isAdmin.value) void loadUsers();
+});
 watch([page, sortOrder], loadOrders);
 </script>
 
 <template>
   <section class="page-heading">
-    <div>
-      <p class="eyebrow">System workspace</p>
+    <div class="th-main">
       <h1>Orders</h1>
       <p>Browse your orders.</p>
     </div>
@@ -148,7 +230,9 @@ watch([page, sortOrder], loadOrders);
       <Icon name="plus" :size="15" />
       New order
     </button>
-  </section>
+
+      <div class="th-cell"><small>Sheet</small><b>ORDERS-01</b></div>
+    </section>
 
   <section v-if="showCreate" class="order-create-panel" aria-label="New order">
     <select
@@ -166,7 +250,7 @@ watch([page, sortOrder], loadOrders);
       class="row-edit-field order-create-qty"
       type="number"
       min="1"
-      max="100"
+      :max="selectedProduct ? Math.min(selectedProduct.stock, 100) : 100"
       aria-label="Quantity"
     />
     <button type="button" class="primary-button" :disabled="creating" @click="createOrder">
@@ -203,21 +287,49 @@ watch([page, sortOrder], loadOrders);
           <tr>
             <th>Order ID</th>
             <th>User</th>
-            <th><span class="sr-only">Open</span></th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Created</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="order in filteredOrders" :key="order.id">
             <td>
-              <span class="order-id">#{{ order.id }}</span>
+              <router-link
+                :to="{ name: 'order-detail', params: { id: order.id } }"
+                class="order-link"
+              >
+                #{{ order.id }}
+              </router-link>
             </td>
             <td>
-              <code>{{ userCode(order.user_id) }}</code>
-            </td>
-            <td>
-              <span class="row-action" aria-hidden="true">
-                <Icon name="arrow" :size="16" />
+              <!-- user info 詳情頁僅 admin 可用；一般使用者的訂單全是自己，顯示名字即可。 -->
+              <router-link
+                v-if="isAdmin"
+                :to="{ name: 'admin-user-detail', params: { id: order.user_id } }"
+                class="order-link user-link"
+                :title="userCode(order.user_id)"
+              >
+                {{ displayName(order.user_id) }}
+              </router-link>
+              <span v-else class="order-user" :title="userCode(order.user_id)">
+                {{ displayName(order.user_id) }}
               </span>
+            </td>
+            <td>
+              <span v-for="item in order.items" :key="item.product_id" class="order-item">
+                {{ productName(item.product_id) }} × {{ item.quantity }}
+              </span>
+            </td>
+            <td>
+              <span class="order-total">{{ orderTotal(order) }}</span>
+            </td>
+            <td>
+              <span :class="['status-badge', order.status]">{{ order.status }}</span>
+            </td>
+            <td>
+              <span class="order-date">{{ formatCreated(order.created_at) }}</span>
             </td>
           </tr>
         </tbody>

@@ -27,15 +27,30 @@ const router = createRouter({
       children: [
         { path: "", redirect: { name: "dashboard" } },
         {
+          // 系統監控儀表板屬 workspace：僅 admin（一般使用者走會員中心 /app/account）。
           path: "dashboard",
           name: "dashboard",
           component: () => import("@/views/DashboardView.vue"),
+          meta: { requiresAdmin: true },
         },
         { path: "orders", name: "orders", component: () => import("@/views/OrdersView.vue") },
+        {
+          // 訂單詳情（後端允許擁有者或 admin 讀取）。
+          path: "orders/:id",
+          name: "order-detail",
+          component: () => import("@/views/OrderDetailView.vue"),
+        },
+        {
+          // 會員中心：會員資料修改 + 修改密碼（F7）。
+          path: "account",
+          name: "account",
+          component: () => import("@/views/AccountView.vue"),
+        },
         {
           path: "api-health",
           name: "api-health",
           component: () => import("@/views/ApiHealthView.vue"),
+          meta: { requiresAdmin: true },
         },
       ],
     },
@@ -55,6 +70,24 @@ const router = createRouter({
           path: "users",
           name: "admin-users",
           component: () => import("@/views/AdminUsersView.vue"),
+        },
+        {
+          // 分類管理（v1.6：/categories CRUD）。
+          path: "categories",
+          name: "admin-categories",
+          component: () => import("@/views/AdminCategoriesView.vue"),
+        },
+        {
+          // 使用者詳情（GET /admin/users/{id}：基本資料 + 訂單）。
+          path: "users/:id",
+          name: "admin-user-detail",
+          component: () => import("@/views/AdminUserDetailView.vue"),
+        },
+        {
+          // 通知管理：定向發送 + 廣播（F11 admin UI）。
+          path: "notifications",
+          name: "admin-notifications",
+          component: () => import("@/views/AdminNotificationsView.vue"),
         },
       ],
     },
@@ -76,9 +109,10 @@ router.beforeEach(async (to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
 
-  // 角色化守衛（F10-2）：非 admin 直訪 /admin/* → 導回儀表板。
+  // 角色化守衛（F10-2）：非 admin 試圖進入 admin 專屬頁 → 導回會員中心
+  // （不能導回 dashboard：它現在本身也是 admin 專屬，會造成循環）。
   if (to.meta.requiresAdmin && user.value?.role !== "admin") {
-    return { name: "dashboard" };
+    return { name: "account" };
   }
 
   if (to.meta.guestOnly && user.value) {
