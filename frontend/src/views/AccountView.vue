@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
 
 // 會員中心（/app/account）：唯讀顯示目前使用者資料；
@@ -24,9 +23,6 @@ const initials = computed(() =>
       <h1>My account</h1>
       <p>Your membership information.</p>
     </div>
-    <router-link :to="{ name: 'account-edit' }" class="primary-button">
-      <Icon name="arrow" :size="15" /> Edit profile
-    </router-link>
     <div class="th-cell"><small>Sheet</small><b>ACCOUNT-01</b></div>
   </section>
 

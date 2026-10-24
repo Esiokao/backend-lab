@@ -16,7 +16,7 @@ const { theme, setTheme } = useTheme();
 const { count: cartCount, refresh: refreshCart } = useCart();
 const isAdmin = computed(() => user.value?.role === "admin");
 
-type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart"; to: { name: string }; dot?: boolean };
+type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart" | "pencil"; to: { name: string }; dot?: boolean };
 
 // 依角色分區（v1.5）：workspace（系統監控）僅 admin 可見；
 // 一般使用者是會員中心視角（My Orders / Account）。
@@ -32,6 +32,7 @@ const navItems = computed<NavItem[]>(() =>
         { label: "Storefront", icon: "bolt", to: { name: "storefront" } },
         { label: "My Orders", icon: "box", to: { name: "orders" } },
         { label: "Account", icon: "users", to: { name: "account" } },
+        { label: "Edit Profile", icon: "pencil", to: { name: "account-edit" } },
       ],
 );
 
