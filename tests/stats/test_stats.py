@@ -30,6 +30,8 @@ def test_admin_stats_include_revenue_excluding_cancelled(
     assert body["total_revenue"] == 200.0
     assert body["revenue_today"] == 200.0
     assert "visitors_today" in body
+    assert "visitors_total" in body
+    assert body["visitors_total"] >= 1  # 上面的導航請求已計入 HLL
 
 
 def test_admin_stats_reflect_global_counts(

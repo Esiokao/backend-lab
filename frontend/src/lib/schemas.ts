@@ -114,6 +114,7 @@ export const StatsSchema = z.object({
   total_revenue: z.number().optional(),
   revenue_today: z.number().optional(),
   visitors_today: z.number().int().optional(),
+  visitors_total: z.number().int().optional(),
 });
 export type Stats = z.infer<typeof StatsSchema>;
 

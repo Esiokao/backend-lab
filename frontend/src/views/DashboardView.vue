@@ -25,6 +25,7 @@ type Stats = {
   total_revenue?: number;
   revenue_today?: number;
   visitors_today?: number;
+  visitors_total?: number;
 };
 
 type UserRow = { id: number; name: string; email: string; role: string };
@@ -145,8 +146,8 @@ onMounted(async () => {
       <p>Visitors today</p>
       <strong>{{ stats.visitors_today ?? 0 }}</strong>
       <div class="dim">
-        <small>unique (bl_vid cookie)</small>
-        <div class="dline"></div><small>Redis daily set</small>
+        <small>{{ stats.visitors_total ?? 0 }} all-time (HLL)</small>
+        <div class="dline"></div><small>Redis · bl_vid</small>
       </div>
     </article>
   </section>

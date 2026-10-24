@@ -23,18 +23,30 @@ def is_document_request(accept_header: str | None, path: str) -> bool:
     return accept_header is not None and "text/html" in accept_header
 
 
+TOTAL_HLL_KEY = "visitors:hll:total"
+
+# 全量唯一訪客走 HyperLogLog：固定 12KB、誤差 ~0.81%，
+# 訪客成長到百萬也不漲記憶體——總數指標的正確工具。
+# （要歷史趨勢/回訪分析才值得另開 DB 表。）
+
+
 def _day_key(day: date) -> str:
     return f"visitors:{day.isoformat()}"
 
 
 def track_visitor(redis, cookie_value: str | None) -> str:
-    """回傳該訪客的 vid（既有或新建）；並計入今日集合。"""
+    """回傳該訪客的 vid（既有或新建）；計入今日集合與全量 HLL。"""
     vid = cookie_value or secrets.token_hex(16)
     key = _day_key(date.today())
     redis.sadd(key, vid)
     redis.expire(key, VISITOR_TTL_SECONDS)
+    redis.pfadd(TOTAL_HLL_KEY, vid)
     return vid
 
 
 def visitors_today_count(redis) -> int:
     return int(redis.scard(_day_key(date.today())))
+
+
+def visitors_total_count(redis) -> int:
+    return int(redis.pfcount(TOTAL_HLL_KEY))

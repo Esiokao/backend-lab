@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.core.redis import redis_client
-from app.core.visitors import visitors_today_count
+from app.core.visitors import visitors_today_count, visitors_total_count
 from app.database import get_db
 from app.models import Notification, Order, OrderItem, User
 
@@ -62,6 +62,7 @@ def get_stats(
             "total_revenue": float(total_revenue),
             "revenue_today": float(revenue_today),
             "visitors_today": visitors_today_count(redis_client),
+            "visitors_total": visitors_total_count(redis_client),
         }
 
     total_orders = db.scalar(
