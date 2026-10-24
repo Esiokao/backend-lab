@@ -120,6 +120,8 @@ function togglePanel(): void {
   }
 }
 
+export type { NotificationItem } from "@/lib/schemas";
+
 export function useNotifications() {
   return {
     unreadCount,
