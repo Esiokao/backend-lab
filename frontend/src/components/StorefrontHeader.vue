@@ -4,8 +4,6 @@ import { useRoute } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import NotificationCenter from "@/components/NotificationCenter.vue";
-import { api } from "@/lib/api";
-import { CategoryListSchema, type Category } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
 import { useTheme } from "@/stores/theme";
@@ -28,17 +26,6 @@ const initials = computed(() =>
     .join("")
     .toUpperCase(),
 );
-
-// ── 分類導覽：header 中央連結（前 4 個分類 + All products）──
-const categories = ref<Category[]>([]);
-
-onMounted(async () => {
-  try {
-    categories.value = await api.get("/categories", CategoryListSchema);
-  } catch {
-    // 導覽列抓不到分類不影響頁面。
-  }
-});
 
 // ── My account 下拉：點按鈕開、點外部/Esc/切頁收 ──
 const menuOpen = ref(false);
@@ -82,16 +69,10 @@ async function handleLogout(): Promise<void> {
       <span>Backend Lab</span>
     </router-link>
 
-    <!-- 分類導覽（手機隱藏，頁內有 chips） -->
+    <!-- 導覽：All products ＋ About us（手機隱藏） -->
     <nav class="sf-nav" aria-label="Catalog shortcuts">
-      <router-link
-        v-for="category in categories.slice(0, 4)"
-        :key="category.id"
-        :to="{ name: 'storefront', query: { cat: String(category.id) } }"
-      >
-        {{ category.name }}
-      </router-link>
       <router-link :to="{ name: 'storefront' }">All products</router-link>
+      <router-link :to="{ name: 'about' }">About us</router-link>
     </nav>
 
     <div class="storefront-actions">

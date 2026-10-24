@@ -37,6 +37,12 @@ const router = createRouter({
       component: () => import("@/views/CheckoutResultView.vue"),
     },
     {
+      // About us：repo 的 tech stack（公開）。
+      path: "/about",
+      name: "about",
+      component: () => import("@/views/AboutView.vue"),
+    },
+    {
       // 登入後應用區（v1.4 自 / 前綴遷入）。
       // 原 /app/users 已移除：後端 GET /users 為 admin-only（repo 為準），
       // 使用者管理歸 /admin/users。

@@ -285,7 +285,7 @@ td.muted { color: var(--ink-faint); }
 .sf-nav::-webkit-scrollbar { display: none; }
 .sf-nav a { color: var(--ink-soft); font-size: 12px; font-weight: 600; letter-spacing: .02em; text-decoration: none; white-space: nowrap; padding: 4px 0; border-bottom: 2px solid transparent; transition: .15s ease; }
 .sf-nav a:hover { color: var(--ink-strong); }
-.sf-nav a.router-link-exact-active[href="/"] { border-bottom-color: transparent; }
+.sf-nav a.router-link-active { color: var(--ink-strong); border-bottom-color: var(--brand); }
 /* My account 按鈕（店面 header） */
 .sf-account-wrap { position: relative; }
 .sf-account-btn { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px 0 4px; border: 1px solid transparent; border-radius: 999px; color: var(--ink-soft); background: transparent; transition: .18s ease; }
