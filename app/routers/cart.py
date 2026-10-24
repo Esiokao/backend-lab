@@ -111,7 +111,7 @@ def clear_cart(
     for item in _get_items(db, current_user.id):
         db.delete(item)
     db.commit()
-    return {"items": [], "total": Decimal("0")}
+    return {"items": [], "total": Decimal(0)}
 
 
 @router.post("/checkout", response_model=OrderResponse)
@@ -159,5 +159,5 @@ def _cart_response(items: list[CartItem]) -> dict:
     ]
     return {
         "items": response_items,
-        "total": sum((item["subtotal"] for item in response_items), Decimal("0")),
+        "total": sum((item["subtotal"] for item in response_items), Decimal(0)),
     }
