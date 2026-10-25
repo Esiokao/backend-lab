@@ -16,3 +16,13 @@ function closePopover(name: string): void {
 export function usePopover() {
   return { active, openPopover, closePopover };
 }
+
+// Esc 關閉任何浮層（通知面板 / 帳號選單）：store 是浮層狀態的唯一真相，全域掛一次即可。
+// 產品 modal 有自己的 Esc handler（僅 admin），兩者互不干擾。
+function onEscKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") active.value = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("keydown", onEscKeydown);
+}

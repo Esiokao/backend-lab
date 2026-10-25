@@ -196,7 +196,6 @@ watch([page, sortOrder], loadOrders);
             <th>Status</th>
             <th>Created</th>
             <th><span class="sr-only">Actions</span></th>
-            <th>Created</th>
           </tr>
         </thead>
         <tbody>
