@@ -238,6 +238,14 @@ watch([page, sortOrder], loadOrders);
             </td>
             <td>
               <div class="order-actions">
+                <router-link
+                  v-if="order.status === 'created' && order.user_id === me?.id"
+                  :to="{ name: 'order-detail', params: { id: order.id }, query: { pay: '1' } }"
+                  class="primary-button pay-row-button"
+                  :aria-label="`Pay order ${order.id}`"
+                >
+                  Pay
+                </router-link>
                 <button
                   v-if="order.status === 'created' || order.status === 'pending'"
                   type="button"

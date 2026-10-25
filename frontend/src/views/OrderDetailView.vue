@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
+import PayOrderModal, { type PayLine } from "@/components/PayOrderModal.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useToast } from "@/stores/toast";
@@ -117,21 +118,31 @@ async function cancelOrder(): Promise<void> {
   }
 }
 
-// 付款（v1.7）：自己的 created 訂單 → POST /orders/{id}/pay → pending（扣款模擬 + 通知）。
-const paying = ref(false);
+// 付款（v1.20）：自己的 created 訂單 → 付款 Modal（與 checkout 同語彙）→ POST /orders/{id}/pay
+// → pending（扣款模擬 + 通知）。Modal 由 title block 的 Pay now 開啟，
+// 訂單列表的 Pay 捷徑則帶 ?pay=1 進來自動彈出。
 const isOwnOrder = computed(() => order.value?.user_id === me.value?.id);
+const payModalOpen = ref(false);
+const payLines = computed<PayLine[]>(() =>
+  (order.value?.items ?? []).map((item) => ({
+    name: productName(item.product_id),
+    quantity: item.quantity,
+    amount: Number(item.unit_price) * item.quantity,
+  })),
+);
 
-async function payOrder(): Promise<void> {
-  if (!order.value) return;
-  paying.value = true;
-  try {
-    await api.post(`/orders/${order.value.id}/pay`);
-    toast.show(`Order #${order.value.id} paid.`);
+function openPayModal(): void {
+  payModalOpen.value = true;
+}
+
+function closePayModal(): void {
+  payModalOpen.value = false;
+}
+
+async function onPaid(): Promise<void> {
+  payModalOpen.value = false;
+  if (order.value) {
     order.value = await api.get<Order>(`/orders/${order.value.id}`);
-  } catch (err) {
-    toast.show(err instanceof ApiError ? `Payment failed: ${err.message}` : "Payment failed.");
-  } finally {
-    paying.value = false;
   }
 }
 
@@ -145,6 +156,15 @@ onMounted(async () => {
     loadError.value = notFound.value ? "" : "Failed to load order.";
     loading.value = false;
     return;
+  }
+
+  // 訂單列表的 Pay 捷徑：?pay=1 → 載入成功後自動彈出付款 Modal（僅限本人 created 訂單）。
+  if (
+    route.query.pay === "1" &&
+    order.value.status === "created" &&
+    order.value.user_id === me.value?.id
+  ) {
+    payModalOpen.value = true;
   }
 
   // admin 補齊擁有者與商品名稱對照；失敗不阻擋頁面。
@@ -173,19 +193,9 @@ onMounted(async () => {
       v-if="order && order.status === 'created' && isOwnOrder"
       type="button"
       class="primary-button"
-      :disabled="paying"
-      @click="payOrder"
+      @click="openPayModal"
     >
-      <Icon name="bolt" :size="15" /> {{ paying ? "Paying..." : "Pay now" }}
-    </button>
-    <button
-      v-if="cancellable"
-      type="button"
-      class="ghost-button"
-      :disabled="cancelling"
-      @click="cancelOrder"
-    >
-      <Icon name="close" :size="14" /> {{ cancelling ? "Cancelling..." : "Cancel order" }}
+      <Icon name="bolt" :size="15" /> Pay now
     </button>
     <router-link :to="{ name: 'orders' }" class="text-button">
       <Icon name="arrow" :size="15" /> Back to orders
@@ -275,5 +285,24 @@ onMounted(async () => {
         </table>
       </div>
     </section>
+
+    <!-- 取消訂單：放在 Line items 下方（danger strip），不再佔 title block。 -->
+    <section v-if="cancellable" class="data-panel cancel-strip" aria-label="Cancel order">
+      <div>
+        <strong>Cancel this order</strong>
+        <p>Unpaid orders only. Cancelling cannot be undone.</p>
+      </div>
+      <button type="button" class="ghost-button cancel-button" :disabled="cancelling" @click="cancelOrder">
+        <Icon name="close" :size="14" /> {{ cancelling ? "Cancelling..." : "Cancel order" }}
+      </button>
+    </section>
   </template>
+
+  <PayOrderModal
+    v-if="order && payModalOpen"
+    :order-id="order.id"
+    :lines="payLines"
+    @close="closePayModal"
+    @paid="onPaid"
+  />
 </template>

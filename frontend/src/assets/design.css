@@ -369,6 +369,20 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .payment-option strong { display: block; color: var(--ink-strong); font-size: 12.5px; }
 .payment-option small { display: block; margin-top: 2px; color: var(--ink-faint); font-size: 10.5px; }
 .pay-button { min-width: 180px; justify-content: center; }
+/* 訂單付款 Modal（v1.20）：明細列 + 總額 + demo 付款聲明 */
+.pay-modal { width: min(480px, 100%); }
+.pay-modal-body { gap: 14px; }
+.pay-lines { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.pay-lines li { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.pay-lines li:last-child { border-bottom: 0; }
+.pay-line-name { color: var(--ink); font-size: 13px; }
+.pay-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-top: 12px; border-top: 1.5px solid var(--brand); }
+.pay-total-row small { color: var(--ink-faint); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+/* 取消訂單：danger strip（置於 Line items 下方，不再是 title block 的幽靈按鈕） */
+.cancel-strip { margin-top: 16px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; border: 1px solid #e3c4ba; border-radius: 11px; background: var(--danger-bg); animation: rise-in .35s ease .1s backwards; }
+.cancel-strip div { flex: 1; min-width: 200px; }
+.cancel-strip strong { color: var(--danger-ink); font-size: 11px; }
+.cancel-strip p { margin: 4px 0 0; color: var(--danger-ink); font-size: 11px; }
 .result-hero { margin: 40px auto 0; max-width: 560px; padding: 44px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--card); box-shadow: var(--shadow-card); animation: rise-in .4s ease backwards; }
 .result-hero.paid { border-color: var(--success); }
 .result-hero.failed { border-color: var(--danger); }
@@ -521,6 +535,7 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .role-badge.admin { color: var(--brand-deep); background: transparent; }
 .role-badge.user { color: var(--ink-soft); background: transparent; }
 .order-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.pay-row-button { height: 30px; padding: 0 12px; font-size: 11px; border-radius: 6px; }
 .row-action.row-delete:hover { border-color: #e3c4ba; color: var(--danger-ink); background: var(--danger-bg); }
 .cancel-button { color: var(--danger-ink); }
 .cancel-button:hover { color: var(--danger); border-color: #e3c4ba; background: var(--danger-bg); }
