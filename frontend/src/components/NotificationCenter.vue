@@ -123,7 +123,7 @@ function onKeydown(event: KeyboardEvent): void {
             class="text-button"
             @click="markAllRead"
           >
-            Mark all read
+            Mark all as read
           </button>
           <button
             v-if="notifTab === 'broadcast' && broadcastsUnread > 0"
@@ -131,7 +131,7 @@ function onKeydown(event: KeyboardEvent): void {
             class="text-button"
             @click="markAllBroadcastsRead"
           >
-            Mark all read
+            Mark all as read
           </button>
           <button type="button" class="row-action" aria-label="Close notifications" @click="togglePanel">
             <Icon name="close" :size="14" />
