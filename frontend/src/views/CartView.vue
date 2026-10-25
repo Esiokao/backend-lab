@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
+import StorefrontFooter from "@/components/StorefrontFooter.vue";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
@@ -160,7 +161,7 @@ onMounted(async () => {
           </button>
         </div>
         <div class="table-scroll">
-          <table>
+          <table class="cart-table">
             <thead>
               <tr>
                 <th class="check-col">
@@ -201,7 +202,7 @@ onMounted(async () => {
                     @change="toggleSelect(item.product_id)"
                   />
                 </td>
-                <td>
+                <td class="cart-product">
                   <strong>{{ item.product_name }}</strong>
                   <p v-if="!isSelectable(item) && item.stock > 0" class="field-error">
                     Only {{ item.stock }} in stock — reduce quantity to select.
@@ -210,13 +211,13 @@ onMounted(async () => {
                     Out of stock — follow it in the storefront for a restock alert.
                   </p>
                 </td>
-                <td><span class="order-total">{{ formatPrice(item.unit_price) }}</span></td>
-                <td>
+                <td class="cart-price"><span class="order-total">{{ formatPrice(item.unit_price) }}</span></td>
+                <td class="cart-stock">
                   <span :class="['stock-badge', item.stock > 0 ? 'in' : 'out']">
-                    {{ item.stock > 0 ? `${item.stock}` : "Out" }}
+                    {{ item.stock > 0 ? `In stock · ${item.stock}` : "Out of stock" }}
                   </span>
                 </td>
-                <td>
+                <td class="cart-qty">
                   <div class="qty-stepper">
                     <button
                       type="button"
@@ -244,8 +245,8 @@ onMounted(async () => {
                     </button>
                   </div>
                 </td>
-                <td><span class="order-total">{{ formatPrice(item.subtotal) }}</span></td>
-                <td>
+                <td class="cart-subtotal"><span class="order-total">{{ formatPrice(item.subtotal) }}</span></td>
+                <td class="cart-remove">
                   <button
                     type="button"
                     class="row-action row-delete"
@@ -301,4 +302,6 @@ onMounted(async () => {
       </div>
     </section>
   </main>
+
+  <StorefrontFooter />
 </template>
