@@ -8,6 +8,7 @@ from app.models import Notification, Product, ProductFollow
 from app.workers.notifications import (
     notify_admin_notification,
     notify_order_created,
+    notify_order_paid,
     notify_product_restocked,
 )
 
@@ -263,6 +264,39 @@ def test_restock_worker_notifies_all_followers(
         user_a.id,
         user_b.id,
     }
+
+
+def test_paid_worker_notifies_owner(
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_order,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    user = create_test_user(**test_user_data)
+    order = create_test_order(user_id=user.id, status="paid")
+    event = create_test_outbox_event(
+        event_type=EventType.order_paid,
+        payload={"order_id": order.id},
+    )
+
+    notify_order_paid(
+        {"outbox_event_id": event.id, "order_id": order.id},
+        session_factory=worker_session_factory,
+    )
+
+    notification = test_db.execute(
+        select(Notification).where(Notification.source_event_id == event.id)
+    ).scalar_one()
+
+    assert notification.user_id == user.id
+    assert notification.type == "order_paid"
+    assert notification.data == {"order_id": order.id}
+    assert str(order.id) in notification.body
+
+    test_db.refresh(event)
+    assert event.status == "processed"
 
 
 def test_completed_worker_notifies_owner(

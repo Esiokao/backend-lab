@@ -282,20 +282,20 @@ def notify_order_paid(
     """將訂單付款事件轉成站內通知，並確保重複執行不會重複建檔。"""
 
     def create_notifications(
-        session: Session, event: NotificationOutbox, job: OrderCreatedJobPayload
+        session: Session, event: NotificationOutbox, job: OrderPaidJobPayload
     ) -> None:
         _create_order_notification(
             session,
             event,
-            notification_type=NotificationType.order_created,
+            notification_type=NotificationType.order_paid,
             title="訂單已付款",
             body="訂單 #{order_id} 已成功付款。點擊查看訂單詳情。",
         )
 
     _run_notification_job(
         payload,
-        OrderCreatedJobPayload,
-        expected_event_type=EventType.order_created,
+        OrderPaidJobPayload,
+        expected_event_type=EventType.order_paid,
         session_factory=session_factory,
         create_notifications=create_notifications,
     )
