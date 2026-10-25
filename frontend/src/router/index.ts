@@ -146,8 +146,19 @@ const router = createRouter({
         },
       ],
     },
-    // 舊路徑（/orders、/users、/api-health、/app/users）與未知路徑一律回店面。
-    { path: "/:pathMatch(.*)*", redirect: "/" },
+    // 舊路徑保留明確 redirect（/orders、/users、/api-health、/app/users），
+    // 讓舊書籤仍能到家；其餘未知路徑才落到 404 頁。
+    { path: "/orders", redirect: { name: "orders" } },
+    { path: "/users", redirect: { name: "admin-users" } },
+    { path: "/api-health", redirect: { name: "api-health" } },
+    { path: "/app/users", redirect: { name: "admin-users" } },
+    {
+      // 全域 404：未知路由顯示 Not Found 頁，不再靜默回首頁。
+      path: "/:pathMatch(.*)*",
+      name: "not-found",
+      component: () => import("@/views/NotFoundView.vue"),
+      meta: { title: "Not found" },
+    },
   ],
 });
 
