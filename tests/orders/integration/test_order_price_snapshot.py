@@ -2,25 +2,6 @@
 # 訂單價格快照不變量（issue #3）：order_items.unit_price 為下單當下的快照，
 # 商品之後改價不影響歷史訂單；cart 則顯示 live price（結帳當下才定錨）。
 
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-def _admin_client(test_admin_user_data):
-    # 獨立的 admin client：session_auth_client 共用同一個 test_client，
-    # 第二次登入會蓋掉前一次的 session cookie，這裡需要兩個 session 並存。
-    create_client = TestClient(app)
-    login = create_client.post(
-        "/login",
-        json={
-            "email": test_admin_user_data["email"],
-            "password": test_admin_user_data["password"],
-        },
-    )
-    assert login.status_code == 200
-    return create_client
-
 
 def test_order_unit_price_is_snapshot_after_product_price_change(
     session_auth_client,
@@ -36,7 +17,7 @@ def test_order_unit_price_is_snapshot_after_product_price_change(
     product = create_test_product(price=32)
     order = create_test_order(user_id=user.id, product=product, quantity=2)
     owner_client = session_auth_client(test_user_data)
-    admin_client = _admin_client(test_admin_user_data)
+    admin_client = session_auth_client(test_admin_user_data)
 
     before = owner_client.get(f"/orders/{order.id}")
     assert before.status_code == 200
@@ -73,7 +54,7 @@ def test_cart_shows_live_price_after_product_price_change(
     assert add.json()["items"][0]["unit_price"] == "32.00"
 
     # Act：admin 改價 32 → 99.99。
-    admin_client = _admin_client(test_admin_user_data)
+    admin_client = session_auth_client(test_admin_user_data)
     patch = admin_client.patch(f"/products/{product.id}", json={"price": "99.99"})
     assert patch.status_code == 200
 
