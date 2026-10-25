@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
+import StorefrontFooter from "@/components/StorefrontFooter.vue";
 import { ApiError, api } from "@/lib/api";
 import {
   CategoryPageSchema,
@@ -342,6 +343,11 @@ function formatPrice(price: string | number): string {
   return `$${Number(price).toFixed(2)}`;
 }
 
+// 卡片 → 詳情頁（v1.18 修 P0「商品卡是死路」）：圖片與名稱可點；星星/加購按鈕 stopPropagation。
+function goProduct(product: Product): void {
+  void router.push({ name: "product-detail", params: { id: product.id } });
+}
+
 // 加入購物車（v1.7）：訪客 → 登入頁帶 redirect（同 follow 行為）。
 async function handleAddToCart(product: Product): Promise<void> {
   if (!user.value) {
@@ -661,7 +667,7 @@ onMounted(() => {
             :key="product.id"
             :class="['product-card', { oos: product.stock <= 0 }]"
           >
-                  <div class="product-media">
+                  <div class="product-media" @click="goProduct(product)">
                 <img
                   v-if="product.image_url && !brokenImages[product.id]"
                   :src="product.image_url"
@@ -678,7 +684,7 @@ onMounted(() => {
                     followedIds[product.id] ? `Unfollow ${product.name}` : `Follow ${product.name}`
                   "
                   :aria-pressed="!!followedIds[product.id]"
-                  @click="toggleFollow(product)"
+                  @click.stop="toggleFollow(product)"
                 >
                   <Icon name="star" :size="15" />
                 </button>
@@ -687,13 +693,19 @@ onMounted(() => {
                   type="button"
                   class="follow-star"
                   :aria-label="`Sign in to follow ${product.name}`"
-                  @click="toggleFollow(product)"
+                  @click.stop="toggleFollow(product)"
                 >
                   <Icon name="star" :size="15" />
                 </button>
               </div>
               <div class="product-foot">
-                <span class="product-name" :title="product.name">{{ product.name }}</span>
+                <router-link
+                  class="product-name"
+                  :to="{ name: 'product-detail', params: { id: product.id } }"
+                  :title="product.name"
+                >
+                  {{ product.name }}
+                </router-link>
                 <div class="product-meta">
                   <span v-if="product.description" class="product-desc" :title="product.description">
                     {{ product.description }}
@@ -880,4 +892,6 @@ onMounted(() => {
       </table>
     </section>
   </main>
+
+  <StorefrontFooter />
 </template>

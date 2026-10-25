@@ -41,6 +41,13 @@ const router = createRouter({
       meta: { title: "Checkout result" },
     },
     {
+      // 商品詳情頁（v1.18）：公開；店面卡片圖片與名稱連入（修「商品卡是死路」）。
+      path: "/product/:id",
+      name: "product-detail",
+      component: () => import("@/views/ProductDetailView.vue"),
+      meta: { title: "Product" },
+    },
+    {
       // About us：repo 的 tech stack（公開）。
       path: "/about",
       name: "about",
