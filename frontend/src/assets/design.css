@@ -383,6 +383,11 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .cancel-strip div { flex: 1; min-width: 200px; }
 .cancel-strip strong { color: var(--danger-ink); font-size: 11px; }
 .cancel-strip p { margin: 4px 0 0; color: var(--danger-ink); font-size: 11px; }
+/* 付款到期：Line items 下的行動條（與 cancel-strip 同結構、正向色）。 */
+.pay-strip { margin-top: 16px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; border: 1px solid #cdddd0; border-radius: 11px; background: var(--success-bg); animation: rise-in .35s ease backwards; }
+.pay-strip div { flex: 1; min-width: 200px; }
+.pay-strip strong { color: var(--success-ink); font-size: 11px; }
+.pay-strip p { margin: 4px 0 0; color: var(--success-ink); font-size: 11px; }
 .result-hero { margin: 40px auto 0; max-width: 560px; padding: 44px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--card); box-shadow: var(--shadow-card); animation: rise-in .4s ease backwards; }
 .result-hero.paid { border-color: var(--success); }
 .result-hero.failed { border-color: var(--danger); }

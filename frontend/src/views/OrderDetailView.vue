@@ -189,14 +189,6 @@ onMounted(async () => {
       <h1>Order #{{ route.params.id }}</h1>
       <p>Order details and line items.</p>
     </div>
-    <button
-      v-if="order && order.status === 'created' && isOwnOrder"
-      type="button"
-      class="primary-button"
-      @click="openPayModal"
-    >
-      <Icon name="bolt" :size="15" /> Pay now
-    </button>
     <router-link :to="{ name: 'orders' }" class="text-button">
       <Icon name="arrow" :size="15" /> Back to orders
     </router-link>
@@ -286,7 +278,22 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- 取消訂單：放在 Line items 下方（danger strip），不再佔 title block。 -->
+    <!-- 付款到期：與取消同樣放在 Line items 下方——title block 只留身份，動作跟著明細走。 -->
+    <section
+      v-if="order.status === 'created' && isOwnOrder"
+      class="data-panel pay-strip"
+      aria-label="Pay order"
+    >
+      <div>
+        <strong>Payment due</strong>
+        <p>Stock is reserved for this order. Pay to confirm it.</p>
+      </div>
+      <button type="button" class="primary-button" @click="openPayModal">
+        <Icon name="bolt" :size="15" /> Pay now · {{ orderTotal() }}
+      </button>
+    </section>
+
+    <!-- 取消訂單：danger strip。 -->
     <section v-if="cancellable" class="data-panel cancel-strip" aria-label="Cancel order">
       <div>
         <strong>Cancel this order</strong>
