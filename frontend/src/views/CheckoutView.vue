@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
+import StorefrontFooter from "@/components/StorefrontFooter.vue";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
@@ -167,4 +168,6 @@ onMounted(async () => {
       </section>
     </template>
   </main>
+
+  <StorefrontFooter />
 </template>

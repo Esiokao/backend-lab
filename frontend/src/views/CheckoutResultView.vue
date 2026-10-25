@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
+import StorefrontFooter from "@/components/StorefrontFooter.vue";
 
 // 結帳結果頁（v1.8）：/checkout/result?order=N&status=paid|failed[&total=][&reason=]
 // paid → 完成畫面（看訂單 / 繼續購物）；failed → 訂單已成立但付款失敗（到訂單重試 Pay now）。
@@ -57,4 +58,6 @@ onMounted(() => {
       </div>
     </section>
   </main>
+
+  <StorefrontFooter />
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
+import StorefrontFooter from "@/components/StorefrontFooter.vue";
 
 // About us（/about）：這個 repo 的技術棧與工程實踐。
 // 新頁面慣例：Tailwind utilities + token 主題（dark mode 隨 [data-theme] 自動翻）。
@@ -116,4 +117,6 @@ const design = [
       </section>
     </div>
   </main>
+
+  <StorefrontFooter />
 </template>
