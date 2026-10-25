@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
@@ -146,8 +146,12 @@ async function onPaid(): Promise<void> {
   }
 }
 
-onMounted(async () => {
-  const orderId = Number(route.params.id);
+// 載入訂單：onMounted 與路由參數變化共用（GUI 測試抓到的 bug：
+// 通知跳轉 65→66 時元件被重用，只重跑標題不重抓資料 → 標題是 66、內容是 65）。
+async function loadOrder(orderId: number): Promise<void> {
+  loading.value = true;
+  notFound.value = false;
+  loadError.value = "";
 
   try {
     order.value = await api.get<Order>(`/orders/${orderId}`);
@@ -180,7 +184,18 @@ onMounted(async () => {
     .catch(() => {});
 
   loading.value = false;
-});
+}
+
+onMounted(() => loadOrder(Number(route.params.id)));
+
+watch(
+  () => route.params.id,
+  (next, prev) => {
+    if (next === prev || next === undefined) return;
+    payModalOpen.value = false;
+    void loadOrder(Number(next));
+  },
+);
 </script>
 
 <template>
