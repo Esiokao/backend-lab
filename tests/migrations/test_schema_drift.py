@@ -14,13 +14,13 @@ import os
 from pathlib import Path
 
 import pytest
-from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
+from alembic import command
 from app.models import Base
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

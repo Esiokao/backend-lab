@@ -25,6 +25,8 @@ TASK_REGISTRY: dict[EventType, str] = {
     ),
     EventType.product_restocked: ("app.workers.notifications.notify_product_restocked"),
     EventType.order_paid: ("app.workers.notifications.notify_order_paid"),
+    EventType.order_completed: ("app.workers.notifications.notify_order_completed"),
+    EventType.order_cancelled: ("app.workers.notifications.notify_order_cancelled"),
 }
 
 

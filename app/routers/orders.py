@@ -187,6 +187,40 @@ def pay_order(
     return {"message": "Payment successful", "order": order}
 
 
+@router.post("/orders/{order_id}/complete", response_model=OrderResponse)
+def complete_order(
+    order_id: int,
+    current_user: User = Depends(require_admin),
+    session: Session = Depends(get_db),
+):
+    # 只有 admin 可以將訂單標記為完成。
+    stmt = select(Order).where(Order.id == order_id)
+    result = session.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.pending.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order cannot be completed in its current status: {order.status}",
+        )
+
+    # 建立訂單完成的 Outbox 事件，交給 Worker 發送通知。
+    event = NotificationOutbox(
+        event_type=EventType.order_completed,
+        payload={"order_id": order.id},
+    )
+
+    order.status = OrderStatus.completed.value
+    session.add(event)
+    session.commit()
+    session.refresh(order)
+
+    return order
+
+
 @router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
     page: int = Query(1, ge=1),

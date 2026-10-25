@@ -3,7 +3,7 @@
 import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,23 +12,21 @@ from app.core.enums import NotificationType
 from app.core.events import EventType
 from app.database import SessionLocal
 from app.models import Notification, NotificationOutbox, Order, Product, ProductFollow
-from app.schemas.Notification import AdminNotificationJobPayload
-from app.schemas.Product import ProductRestockJobPayload
+from app.schemas.WorkersJobPayload import (
+    AdminNotificationJobPayload,
+    OrderCancelledJobPayload,
+    OrderCompletedJobPayload,
+    OrderCreatedJobPayload,
+    OrderPaidJobPayload,
+    OutboxJobPayload,
+    ProductRestockJobPayload,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # ── 共用骨架：載入 / 檢查 / 標記 outbox 事件 ─────────────────────────
-
-
-def _require_outbox_event_id(payload: dict[str, object]) -> int:
-    """從 RQ payload 取得 outbox 事件 ID。"""
-    outbox_event_id = payload.get("outbox_event_id")
-
-    if type(outbox_event_id) is not int:
-        raise TypeError("payload must contain an integer outbox_event_id")
-
-    return outbox_event_id
+JobT = TypeVar("JobT", bound=OutboxJobPayload)
 
 
 def _load_outbox_event(
@@ -67,14 +65,13 @@ def _mark_event_processed(event: NotificationOutbox) -> None:
 def _event_payload_int(
     event: NotificationOutbox,
     key: str,
-    exc_cls: type[Exception],
     message: str,
 ) -> int:
     """以資料庫中的事件內容為準，不完全信任 RQ 傳入的 payload。"""
     value = event.payload.get(key)
 
     if type(value) is not int:
-        raise exc_cls(message)
+        raise ValueError(message)
 
     return value
 
@@ -108,48 +105,60 @@ def _create_notification_once(
         session.add(Notification(source_event_id=event.id, **fields))
 
 
-# ── 任務處理器 ──────────────────────────────────────────────────────
-
-
-def notify_order_created(
-    payload: dict[str, object],
+def _create_order_notification(
+    session: Session,
+    event: NotificationOutbox,
     *,
-    session_factory: Callable[[], Session] = SessionLocal,
+    notification_type: NotificationType,
+    title: str,
+    body: str,
 ) -> None:
-    """將訂單建立事件轉成站內通知，並確保重複執行不會重複建檔。"""
-    outbox_event_id = _require_outbox_event_id(payload)
+    """從事件取得訂單並建立單筆通知；body 用 {order_id} 當佔位符。"""
+    order_id = _event_payload_int(
+        event,
+        "order_id",
+        f"Outbox event {event.id} has an invalid order_id",
+    )
+    order = _get_or_raise(session, Order, order_id, f"Order not found: {order_id}")
+
+    _create_notification_once(
+        session,
+        event,
+        user_id=order.user_id,
+        type=notification_type.value,
+        title=title,
+        body=body.format(order_id=order.id),
+        data={"order_id": order.id},
+    )
+
+
+def _run_notification_job(
+    payload: Any,
+    payload_cls: type[JobT],
+    *,
+    session_factory: Callable[[], Session],
+    expected_event_type: EventType | None,
+    create_notifications: Callable[[Session, NotificationOutbox, JobT], None],
+):
+    """所有通知任務共用的外殼：驗證 → 開交易 → 鎖事件 → 冪等檢查 → 建通知 → 標記完成。"""
+
+    job = payload_cls.model_validate(payload)
 
     with session_factory() as session, session.begin():
-        event = _load_outbox_event(session, outbox_event_id, EventType.order_created)
+        event = _load_outbox_event(session, job.outbox_event_id, expected_event_type)
 
         if _is_already_processed(event):
             logger.info("Outbox event already processed: id=%s", event.id)
             return
 
-        order_id = _event_payload_int(
-            event,
-            "order_id",
-            ValueError,
-            f"Outbox event {event.id} has an invalid order_id",
-        )
-        order = _get_or_raise(session, Order, order_id, f"Order not found: {order_id}")
-
-        _create_notification_once(
-            session,
-            event,
-            user_id=order.user_id,
-            type=NotificationType.order_created.value,
-            title="訂單已建立",
-            body=f"訂單 #{order.id} 已成功建立。",
-            data={"order_id": order.id},
-        )
+        create_notifications(session, event, job)
 
         _mark_event_processed(event)
 
-    logger.info(
-        "Order notification processed: outbox_event_id=%s",
-        outbox_event_id,
-    )
+    logger.info("Notification job processed: outbox_event_id=%s", job.outbox_event_id)
+
+
+# ── notification job ─────────────────────────
 
 
 def notify_admin_notification(
@@ -158,15 +167,10 @@ def notify_admin_notification(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
     """將 admin 定向通知事件轉成站內通知。"""
-    job = AdminNotificationJobPayload.model_validate(payload)
 
-    with session_factory() as session, session.begin():
-        event = _load_outbox_event(session, job.outbox_event_id)
-
-        if _is_already_processed(event):
-            logger.info("Outbox event already processed: id=%s", event.id)
-            return
-
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: AdminNotificationJobPayload
+    ) -> None:
         session.add(
             Notification(
                 user_id=job.user_id,
@@ -178,7 +182,13 @@ def notify_admin_notification(
             )
         )
 
-        _mark_event_processed(event)
+    _run_notification_job(
+        payload,
+        AdminNotificationJobPayload,
+        expected_event_type=None,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
+    )
 
 
 def notify_product_restocked(
@@ -187,19 +197,13 @@ def notify_product_restocked(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
     """將商品補貨事件 fan-out 成每位關注者的到貨通知。"""
-    job = ProductRestockJobPayload.model_validate(payload)
 
-    with session_factory() as session, session.begin():
-        event = _load_outbox_event(session, job.outbox_event_id)
-
-        if _is_already_processed(event):
-            logger.info("Outbox event already processed: id=%s", event.id)
-            return
-
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: ProductRestockJobPayload
+    ) -> None:
         product_id = _event_payload_int(
             event,
             "product_id",
-            TypeError,
             "outbox payload must contain an integer product_id",
         )
         product = _get_or_raise(
@@ -218,51 +222,127 @@ def notify_product_restocked(
                     user_id=user_id,
                     type=NotificationType.product_restocked.value,
                     title="商品補貨了",
-                    body=f"{product.name} 已補貨",
+                    body=f"您關注的商品 {product.name} 已補貨，快去看看吧！",
                     data={"product_id": product_id},
                     source_event_id=event.id,
                 )
             )
 
-        _mark_event_processed(event)
+    _run_notification_job(
+        payload,
+        ProductRestockJobPayload,
+        expected_event_type=None,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
+    )
+
+
+# ── order job ─────────────────────────
+
+
+def notify_order_created(
+    payload: OrderCreatedJobPayload,
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    """將訂單建立事件轉成站內通知，並確保重複執行不會重複建檔。"""
+
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: OrderCreatedJobPayload
+    ) -> None:
+        _create_order_notification(
+            session,
+            event,
+            notification_type=NotificationType.order_created,
+            title="訂單已建立",
+            body="訂單編號 #{order_id} 已成功建立。",
+        )
+
+    _run_notification_job(
+        payload,
+        OrderCreatedJobPayload,
+        expected_event_type=EventType.order_created,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
+    )
 
 
 def notify_order_paid(
-    payload: dict[str, object],
+    payload: OrderPaidJobPayload,
     *,
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
     """將訂單付款事件轉成站內通知，並確保重複執行不會重複建檔。"""
-    outbox_event_id = _require_outbox_event_id(payload)
 
-    with session_factory() as session, session.begin():
-        event = _load_outbox_event(session, outbox_event_id, EventType.order_paid)
-
-        if _is_already_processed(event):
-            logger.info("Outbox event already processed: id=%s", event.id)
-            return
-
-        order_id = _event_payload_int(
-            event,
-            "order_id",
-            ValueError,
-            f"Outbox event {event.id} has an invalid order_id",
-        )
-        order = _get_or_raise(session, Order, order_id, f"Order not found: {order_id}")
-
-        _create_notification_once(
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: OrderCreatedJobPayload
+    ) -> None:
+        _create_order_notification(
             session,
             event,
-            user_id=order.user_id,
-            type=NotificationType.order_paid.value,
+            notification_type=NotificationType.order_created,
             title="訂單已付款",
-            body=f"訂單 #{order.id} 已成功付款。",
-            data={"order_id": order.id},
+            body="訂單 #{order_id} 已成功付款。點擊查看訂單詳情。",
         )
 
-        _mark_event_processed(event)
+    _run_notification_job(
+        payload,
+        OrderCreatedJobPayload,
+        expected_event_type=EventType.order_created,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
+    )
 
-    logger.info(
-        "Order notification processed: outbox_event_id=%s",
-        outbox_event_id,
+
+def notify_order_completed(
+    payload: OrderCompletedJobPayload,
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    """將訂單完成事件轉成站內通知，並確保重複執行不會重複建檔。"""
+
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: OrderCompletedJobPayload
+    ) -> None:
+        _create_order_notification(
+            session,
+            event,
+            notification_type=NotificationType.order_completed,
+            title="訂單已完成",
+            body="您的訂單 #{order_id} 已完成。感謝您的購買！",
+        )
+
+    _run_notification_job(
+        payload,
+        OrderCompletedJobPayload,
+        expected_event_type=EventType.order_completed,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
+    )
+
+
+def notify_order_cancelled(
+    payload: OrderCancelledJobPayload,
+    *,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> None:
+    """將訂單取消事件轉成站內通知，並確保重複執行不會重複建檔。"""
+
+    def create_notifications(
+        session: Session, event: NotificationOutbox, job: OrderCancelledJobPayload
+    ) -> None:
+        _create_order_notification(
+            session,
+            event,
+            notification_type=NotificationType.order_cancelled,
+            title="訂單已取消",
+            body="您的訂單 #{order_id} 已取消。如有疑問請聯絡客服",
+        )
+
+    _run_notification_job(
+        payload,
+        OrderCancelledJobPayload,
+        expected_event_type=EventType.order_cancelled,
+        session_factory=session_factory,
+        create_notifications=create_notifications,
     )

@@ -10,3 +10,5 @@ class EventType(str, Enum):
     admin_notification_created = "notifications.admin_created"  # admin 發送的通知
     product_restocked = "notifications.product_restocked"  # 商品補貨
     order_paid = "notifications.order_paid"  # 訂單付款
+    order_completed = "notifications.order_completed"  # 訂單完成
+    order_cancelled = "notifications.order_cancelled"  # 訂單取消

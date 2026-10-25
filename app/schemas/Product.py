@@ -35,8 +35,3 @@ class ProductResponse(BaseModel):
     category_id: int | None
     created_at: datetime
     is_active: bool
-
-
-class ProductRestockJobPayload(BaseModel):
-    outbox_event_id: int = Field(gt=0)
-    product_id: int = Field(gt=0)

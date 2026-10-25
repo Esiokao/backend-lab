@@ -29,7 +29,7 @@ def test_worker_creates_notification(
 
     # Act：執行 Worker。
     notify_order_created(
-        {"outbox_event_id": event.id},
+        {"outbox_event_id": event.id, "order_id": order.id},
         session_factory=worker_session_factory,
     )
 
@@ -62,7 +62,7 @@ def test_worker_does_not_create_duplicate_notification(
         payload={"order_id": order.id},
     )
 
-    payload = {"outbox_event_id": event.id}
+    payload = {"outbox_event_id": event.id, "order_id": order.id}
 
     # Act：對同一個事件執行兩次。
     notify_order_created(payload, session_factory=worker_session_factory)
@@ -88,7 +88,7 @@ def test_worker_raises_error_when_outbox_event_not_found(
     # 使用不存在的 Outbox ID，確認 Worker 不會默默忽略錯誤。
     with pytest.raises(LookupError, match="Outbox event not found"):
         notify_order_created(
-            {"outbox_event_id": 999999999},
+            {"outbox_event_id": 999999999, "order_id": 1},
             session_factory=worker_session_factory,
         )
 
@@ -107,7 +107,7 @@ def test_worker_rejects_unsupported_event_type(
     # Worker 應該拒絕處理這種事件。
     with pytest.raises(ValueError, match="Unsupported outbox event type"):
         notify_order_created(
-            {"outbox_event_id": event.id},
+            {"outbox_event_id": event.id, "order_id": 1},
             session_factory=worker_session_factory,
         )
 
@@ -117,10 +117,12 @@ def test_worker_rejects_unsupported_event_type(
 
 
 def test_worker_rejects_non_integer_outbox_event_id(worker_session_factory):
-    # payload 的 outbox_event_id 必須是整數。
-    with pytest.raises(TypeError, match="outbox_event_id"):
+    # payload 的 outbox_event_id 必須是整數（Pydantic 驗證）。
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="outbox_event_id"):
         notify_order_created(
-            {"outbox_event_id": "42"},
+            {"outbox_event_id": "not-a-number", "order_id": 1},
             session_factory=worker_session_factory,
         )
 
@@ -137,7 +139,7 @@ def test_worker_raises_error_when_order_not_found(
 
     with pytest.raises(LookupError, match="Order not found"):
         notify_order_created(
-            {"outbox_event_id": event.id},
+            {"outbox_event_id": event.id, "order_id": 1},
             session_factory=worker_session_factory,
         )
 
@@ -261,3 +263,38 @@ def test_restock_worker_notifies_all_followers(
         user_a.id,
         user_b.id,
     }
+
+
+def test_completed_worker_notifies_owner(
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_order,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    from app.workers.notifications import notify_order_completed
+
+    user = create_test_user(**test_user_data)
+    order = create_test_order(user_id=user.id, status="completed")
+    event = create_test_outbox_event(
+        event_type=EventType.order_completed,
+        payload={"order_id": order.id},
+    )
+
+    notify_order_completed(
+        {"outbox_event_id": event.id, "order_id": order.id},
+        session_factory=worker_session_factory,
+    )
+
+    notification = test_db.execute(
+        select(Notification).where(Notification.source_event_id == event.id)
+    ).scalar_one()
+
+    assert notification.user_id == user.id
+    assert notification.type == "order_completed"
+    assert notification.data == {"order_id": order.id}
+    assert str(order.id) in notification.body
+
+    test_db.refresh(event)
+    assert event.status == "processed"
