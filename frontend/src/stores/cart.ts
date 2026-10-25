@@ -17,6 +17,14 @@ const selected = ref<Record<number, boolean>>({});
 
 const count = () => items.value.reduce((n, item) => n + item.quantity, 0);
 
+// 登出時清空 client 端車狀態：車屬於登入者，badge 不該殘留給訪客或下一位使用者。
+function reset(): void {
+  items.value = [];
+  total.value = "0";
+  selected.value = {};
+  loaded.value = false;
+}
+
 const isSelected = (productId: number) => !!selected.value[productId];
 
 // 撞庫存（quantity > stock 或零庫存）→ 不可勾選結帳。
@@ -131,6 +139,7 @@ export function useCart() {
     allSelected,
     toggleSelect,
     toggleAll,
+    reset,
     refresh,
     add,
     updateQty,

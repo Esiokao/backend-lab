@@ -2,6 +2,7 @@ import { ref } from "vue";
 
 import { api } from "@/lib/api";
 import { CurrentUserSchema, type CurrentUser } from "@/lib/schemas";
+import { useCart } from "@/stores/cart";
 
 // 極簡 auth 狀態（模組級 ref，整個 app 共享）。
 // 之後如果狀態變複雜再考慮 Pinia。
@@ -31,6 +32,8 @@ export function useAuth() {
       await api.post("/logout");
     } finally {
       user.value = null;
+      // 車屬於登入者：登出連 client 端的 badge/勾選狀態一起清（GUI 測試抓到的殘留）。
+      useCart().reset();
     }
   }
 
