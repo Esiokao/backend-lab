@@ -15,3 +15,6 @@ docs/PRD.md
 .claude/
 .impeccable/questions/
 .agents/skills/impeccable/
+
+# GUI 測試截圖（僅本地測試產物）
+gui-test-screenshots/
