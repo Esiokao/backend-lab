@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, TypeVar
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.enums import NotificationType
@@ -185,7 +186,7 @@ def notify_admin_notification(
     _run_notification_job(
         payload,
         AdminNotificationJobPayload,
-        expected_event_type=None,
+        expected_event_type=EventType.admin_notification_created,
         session_factory=session_factory,
         create_notifications=create_notifications,
     )
@@ -202,36 +203,42 @@ def notify_product_restocked(
         session: Session, event: NotificationOutbox, job: ProductRestockJobPayload
     ) -> None:
         product_id = _event_payload_int(
-            event,
-            "product_id",
-            "outbox payload must contain an integer product_id",
+            event, "product_id", "outbox payload must contain an integer product_id"
         )
         product = _get_or_raise(
             session, Product, product_id, f"Product not found: {product_id}"
         )
 
         follower_ids = session.scalars(
-            select(ProductFollow.user_id).where(
-                ProductFollow.product_id == product_id,
-            )
+            select(ProductFollow.user_id).where(ProductFollow.product_id == product_id)
         ).all()
 
-        for user_id in follower_ids:
-            session.add(
-                Notification(
-                    user_id=user_id,
-                    type=NotificationType.product_restocked.value,
-                    title="商品補貨了",
-                    body=f"您關注的商品 {product.name} 已補貨，快去看看吧！",
-                    data={"product_id": product_id},
-                    source_event_id=event.id,
-                )
-            )
+        rows = [
+            {
+                "user_id": user_id,
+                "type": NotificationType.product_restocked.value,
+                "title": "商品補貨了",
+                "body": f"您關注的商品 {product.name} 已補貨，快去看看吧！",
+                "data": {"product_id": product_id},
+                "source_event_id": event.id,
+            }
+            for user_id in follower_ids
+        ]
+
+        stmt = pg_insert(Notification).values(rows)
+
+        stmt = stmt.on_conflict_do_nothing(
+            index_elements=[
+                "source_event_id",
+                "user_id",
+            ]  # ← 對應你的 unique constraint
+        )
+        session.execute(stmt)
 
     _run_notification_job(
         payload,
         ProductRestockJobPayload,
-        expected_event_type=None,
+        expected_event_type=EventType.product_restocked,
         session_factory=session_factory,
         create_notifications=create_notifications,
     )
