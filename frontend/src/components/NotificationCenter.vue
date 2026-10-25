@@ -138,30 +138,6 @@ function onKeydown(event: KeyboardEvent): void {
           </button>
         </div>
       </div>
-      <div class="notif-tabs" role="tablist" aria-label="Notification type">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="notifTab === 'general'"
-          :class="['notif-tab', { active: notifTab === 'general' }]"
-          @click="notifTab = 'general'"
-        >
-          General
-          <span v-if="unreadCount > 0" class="notif-tab-badge">
-            {{ unreadCount > 99 ? "99+" : unreadCount }}
-          </span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="notifTab === 'broadcast'"
-          :class="['notif-tab', { active: notifTab === 'broadcast' }]"
-          @click="notifTab = 'broadcast'"
-        >
-          System
-          <span v-if="broadcastsUnread > 0" class="notif-tab-badge">{{ broadcastsUnread }}</span>
-        </button>
-      </div>
       <div class="notif-panel-body">
         <div v-if="notifTab === 'general'">
           <p v-if="notifications.length === 0" class="notif-empty">
@@ -205,6 +181,31 @@ function onKeydown(event: KeyboardEvent): void {
             </li>
           </ul>
         </div>
+      </div>
+      <!-- 分頁列放在清單下面：先讀內容、再切類型（清單是主角）。 -->
+      <div class="notif-tabs" role="tablist" aria-label="Notification type">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="notifTab === 'general'"
+          :class="['notif-tab', { active: notifTab === 'general' }]"
+          @click="notifTab = 'general'"
+        >
+          General
+          <span v-if="unreadCount > 0" class="notif-tab-badge">
+            {{ unreadCount > 99 ? "99+" : unreadCount }}
+          </span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="notifTab === 'broadcast'"
+          :class="['notif-tab', { active: notifTab === 'broadcast' }]"
+          @click="notifTab = 'broadcast'"
+        >
+          System
+          <span v-if="broadcastsUnread > 0" class="notif-tab-badge">{{ broadcastsUnread }}</span>
+        </button>
       </div>
     </div>
   </div>

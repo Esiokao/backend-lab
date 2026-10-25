@@ -550,7 +550,8 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .bell-button { position: relative; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-soft); background: var(--card); }
 .bell-button:hover { color: var(--ink); border-color: var(--line-strong); }
 .bell-badge { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; color: var(--on-brand); background: var(--danger); font: 700 9px "DM Sans"; }
-.notif-tabs { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+/* 分頁列在清單下方：上緣收邊線。 */
+.notif-tabs { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line-soft); }
 .notif-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 30px; border: 1px solid transparent; border-radius: 7px; color: var(--ink-soft); background: transparent; font-size: 11px; font-weight: 600; }
 .notif-tab:hover { color: var(--ink); }
 .notif-tab.active { border-color: var(--line-strong); color: var(--ink-strong); background: var(--cream); }
