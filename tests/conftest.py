@@ -32,7 +32,6 @@ from tests.fixtures.products import *
 # Load user fixtures.
 from tests.fixtures.users import *
 
-
 # 測試環境：Redis 連不上就快失敗。
 # 預設的指數退避 retry 會讓每個觸碰 Redis 的 autouse fixture
 # 卡數十秒 → 整套測試假死（本機沒起 redis 時必炸）。

@@ -8,9 +8,9 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
-  # Python formatter.
+  # Python formatter.（rev 與 pyproject 的 ruff 版本對齊，避免本地 hook 與 CI 規則不一致）
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.16.10
     hooks:
       - id: ruff-format
       - id: ruff-check
