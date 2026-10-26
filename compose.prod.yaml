@@ -165,6 +165,17 @@ services:
       migration:
         condition: service_completed_successfully
 
+  # =========================
+  # Frontend（靜態站，由 edge nginx 反代）
+  # =========================
+  frontend:
+    image: ghcr.io/esiokao/backend-lab-frontend:${IMAGE_TAG}
+    restart: unless-stopped
+
+    depends_on:
+      api:
+        condition: service_healthy
+
   nginx:
     image: nginx:alpine
     restart: unless-stopped
@@ -174,12 +185,15 @@ services:
       - "443:443"
 
     volumes:
+      # deploy.yml 上傳的是 nginx.prod.conf（前後端路由）；伺服器上檔名維持 nginx.conf。
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
 
     depends_on:
       api:
         condition: service_healthy
+      frontend:
+        condition: service_started
 
 volumes:
   postgres_data:

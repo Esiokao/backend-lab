@@ -79,11 +79,11 @@ jobs:
             compose.prod.yaml \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/compose.prod.yaml"
 
-      # 傳送 Nginx 設定。
+      # 傳送 Nginx 設定（prod 版：前後端路由）。
       - name: Upload nginx config
         run: |
           scp $SSH_OPTS \
-            nginx/nginx.conf \
+            nginx/nginx.prod.conf \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/nginx.conf"
 
       # 傳送公開 TLS certificate。

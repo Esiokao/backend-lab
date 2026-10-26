@@ -38,3 +38,18 @@ def test_ready():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.deployment
+def test_home_serves_html():
+    """首頁應由 frontend image 服務出 HTML（edge nginx → frontend）。"""
+    base_url = os.environ["DEPLOY_BASE_URL"]
+
+    response = requests.get(
+        base_url,
+        verify=False,
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers.get("content-type", "")

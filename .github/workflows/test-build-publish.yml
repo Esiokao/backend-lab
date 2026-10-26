@@ -139,9 +139,29 @@ jobs:
           name: backend-lab-image
           path: backend-lab.tar
 
+  frontend-docker-build:
+    needs: testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Frontend Docker image
+        run: docker build --tag backend-lab-frontend:${{ github.sha }} ./frontend
+
+      - name: Save Docker image
+        run: docker save backend-lab-frontend:${{ github.sha }} -o backend-lab-frontend.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-lab-frontend-image
+          path: backend-lab-frontend.tar
+
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: docker-build
+    needs: [docker-build, frontend-docker-build]
     runs-on: ubuntu-latest
 
     permissions:
@@ -154,8 +174,15 @@ jobs:
         with:
           name: backend-lab-image
 
-      - name: Load Docker image
-        run: docker load -i backend-lab.tar
+      - name: Download Frontend Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-lab-frontend-image
+
+      - name: Load Docker images
+        run: |
+          docker load -i backend-lab.tar
+          docker load -i backend-lab-frontend.tar
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
@@ -163,8 +190,13 @@ jobs:
       - name: Set lowercase image name
         run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      - name: Tag Docker image
-        run: docker tag backend-lab:${{ github.sha }} "$IMAGE_NAME:${{ github.sha }}"
+      - name: Tag and push backend image
+        run: |
+          docker tag backend-lab:${{ github.sha }} "$IMAGE_NAME:${{ github.sha }}"
+          docker push "$IMAGE_NAME:${{ github.sha }}"
 
-      - name: Push Docker image
-        run: docker push "$IMAGE_NAME:${{ github.sha }}"
+      # Frontend image 與後端同一個 commit sha，部署機用同一個 IMAGE_TAG 對齊版本。
+      - name: Tag and push frontend image
+        run: |
+          docker tag backend-lab-frontend:${{ github.sha }} "$IMAGE_NAME-frontend:${{ github.sha }}"
+          docker push "$IMAGE_NAME-frontend:${{ github.sha }}"
