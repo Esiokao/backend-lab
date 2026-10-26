@@ -11,10 +11,11 @@ certs/*.key
 # 產品需求文件：僅本地維護，不入版控
 docs/PRD.md
 
-# 本地工具狀態（CLI symlink / impeccable 決策頁 runtime / vendored skill 由 skills CLI 重裝）
+# 本地工具狀態（CLI symlink / impeccable 決策頁 runtime）
+# .agents/skills/ 內容一律由 skills CLI 依 skills-lock.json 重裝，不入版控
 .claude/
 .impeccable/questions/
-.agents/skills/impeccable/
+.agents/skills/
 
 # GUI 測試截圖（僅本地測試產物）
 gui-test-screenshots/
