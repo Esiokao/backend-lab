@@ -108,7 +108,10 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+/* footer 貼底：內容不足一屏時，讓 main 撐開剩餘高度，footer 固定在視窗底。 */
+body { margin: 0; min-width: 320px; min-height: 100vh; display: flex; flex-direction: column; }
+#app { flex: 1 0 auto; display: flex; flex-direction: column; }
+#app > main { flex: 1 0 auto; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 a, button, input, select { outline: 0; }
