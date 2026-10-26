@@ -25,9 +25,14 @@ class NotificationType(str, Enum):
 
 
 # 合法的狀態轉移（狀態機）：key = 現狀，value = 允許的下一個狀態。
+# pending -> completed 與 POST /orders/{id}/complete 一致（v1.18 快速完成）。
 ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.created: {OrderStatus.pending, OrderStatus.cancelled},
-    OrderStatus.pending: {OrderStatus.processing, OrderStatus.cancelled},
+    OrderStatus.pending: {
+        OrderStatus.processing,
+        OrderStatus.completed,
+        OrderStatus.cancelled,
+    },
     OrderStatus.processing: {OrderStatus.completed, OrderStatus.cancelled},
     OrderStatus.completed: set(),
     OrderStatus.cancelled: set(),

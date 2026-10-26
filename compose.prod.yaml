@@ -89,6 +89,33 @@ services:
       disable: true
 
   # =========================
+  # Fulfillment Worker（模擬倉儲履約）
+  # =========================
+  fulfillment-worker:
+    image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
+    restart: unless-stopped
+
+    # 依時間把已付款訂單推進 pending -> processing -> completed；
+    # completed 同交易寫 order_completed outbox，通知走既有鏈路發出。
+    command: ["python", "-m", "app.workers.fulfillment"]
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+
+      # 履約節奏（秒）：付款後進 processing 的延遲 / 自付款起算完成的總延遲。
+      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-5}
+      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-65}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+    healthcheck:
+      disable: true
+
+  # =========================
   # Notifications Worker
   # =========================
   notifications-worker:

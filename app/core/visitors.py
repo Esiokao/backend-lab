@@ -7,7 +7,7 @@ curl / fetch / XHR / 健康探測的 Accept 是 */*，一律不計，
 """
 
 import secrets
-from datetime import date
+from datetime import date, datetime, timezone
 
 VISITOR_COOKIE = "bl_vid"
 VISITOR_TTL_SECONDS = 2 * 24 * 60 * 60  # 集合保留兩天，過期自動清
@@ -37,7 +37,7 @@ def _day_key(day: date) -> str:
 def track_visitor(redis, cookie_value: str | None) -> str:
     """回傳該訪客的 vid（既有或新建）；計入今日集合與全量 HLL。"""
     vid = cookie_value or secrets.token_hex(16)
-    key = _day_key(date.today())
+    key = _day_key(datetime.now(timezone.utc).date())
     redis.sadd(key, vid)
     redis.expire(key, VISITOR_TTL_SECONDS)
     redis.pfadd(TOTAL_HLL_KEY, vid)
@@ -45,7 +45,7 @@ def track_visitor(redis, cookie_value: str | None) -> str:
 
 
 def visitors_today_count(redis) -> int:
-    return int(redis.scard(_day_key(date.today())))
+    return int(redis.scard(_day_key(datetime.now(timezone.utc).date())))
 
 
 def visitors_total_count(redis) -> int:

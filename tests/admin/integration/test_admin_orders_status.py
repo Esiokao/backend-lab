@@ -2,8 +2,10 @@
 # 測試 Admin 訂單狀態機、權限、輸入驗證與資料庫狀態。
 
 import pytest
+from sqlalchemy import select
 
-from app.models import Order, OrderItem, Product
+from app.core.events import EventType
+from app.models import NotificationOutbox, Order, OrderItem, Product
 
 
 def create_order(test_db, owner, order_status):
@@ -65,6 +67,7 @@ def test_admin_can_update_order_status(
     ("initial_status", "new_status"),
     [
         ("pending", "processing"),
+        ("pending", "completed"),  # v1.18 快速完成：與 POST /complete 一致
         ("pending", "cancelled"),
         ("processing", "completed"),
         ("processing", "cancelled"),
@@ -103,7 +106,6 @@ def test_admin_can_make_valid_status_transitions(
 @pytest.mark.parametrize(
     ("initial_status", "new_status"),
     [
-        ("pending", "completed"),
         ("pending", "pending"),  # 不允許重複設定相同狀態
         ("processing", "pending"),
         ("processing", "processing"),  # 不允許重複設定相同狀態
@@ -147,6 +149,74 @@ def test_admin_cannot_make_invalid_status_transitions(
     unchanged_order = test_db.get(Order, order_id)
     assert unchanged_order is not None
     assert unchanged_order.status == initial_status
+
+
+@pytest.mark.parametrize(
+    ("new_status", "expected_event"),
+    [
+        ("completed", EventType.order_completed),
+        ("cancelled", EventType.order_cancelled),
+    ],
+)
+def test_admin_terminal_transition_writes_outbox_event(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+    new_status,
+    expected_event,
+):
+    """admin 下拉把訂單推到終態時，同一交易寫入對應的 outbox 事件。"""
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(test_db, owner, "processing")
+    order_id = order.id
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": new_status},
+    )
+
+    assert response.status_code == 200
+
+    event = test_db.scalar(
+        select(NotificationOutbox).where(
+            NotificationOutbox.event_type == expected_event,
+            NotificationOutbox.payload["order_id"].as_integer() == order_id,
+        )
+    )
+    assert event is not None
+
+
+def test_admin_processing_transition_writes_no_outbox_event(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+):
+    """processing 不是終態，沒有對應通知，不應產生事件。"""
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(test_db, owner, "pending")
+    order_id = order.id
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": "processing"},
+    )
+
+    assert response.status_code == 200
+
+    events = test_db.scalars(
+        select(NotificationOutbox).where(
+            NotificationOutbox.payload["order_id"].as_integer() == order_id,
+        )
+    ).all()
+    assert events == []
 
 
 def test_admin_cannot_update_nonexistent_order(

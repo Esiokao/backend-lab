@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import require_admin
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
+from app.core.events import EventType
 from app.database import get_db
-from app.models import Order, User
+from app.models import NotificationOutbox, Order, User
 from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
 
@@ -14,6 +15,12 @@ router = APIRouter(
     prefix="/admin/orders",
     tags=["Admin Orders"],
 )
+
+# 到達終態時要寫入的 outbox 事件（processing 無對應通知，不發）。
+_OUTBOX_EVENT_BY_STATUS = {
+    OrderStatus.completed: EventType.order_completed,
+    OrderStatus.cancelled: EventType.order_cancelled,
+}
 
 
 @router.get("")
@@ -88,6 +95,18 @@ def update_order_status(
         )
 
     order.status = new_status
+
+    # 終態轉移與 POST /orders/{id}/complete 相同：同一交易寫 outbox 事件發通知，
+    # 讓 admin 下拉改狀態和專用端點的行為一致。
+    event_type = _OUTBOX_EVENT_BY_STATUS.get(new_status)
+    if event_type is not None:
+        db.add(
+            NotificationOutbox(
+                event_type=event_type,
+                payload={"order_id": order.id},
+            )
+        )
+
     db.commit()
     db.refresh(order)
 

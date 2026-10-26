@@ -141,6 +141,15 @@ def cancel_order(
         )
 
     order.status = OrderStatus.cancelled.value
+
+    # 與 admin PATCH 一致：取消（終態）同一交易寫 outbox 事件發通知。
+    session.add(
+        NotificationOutbox(
+            event_type=EventType.order_cancelled,
+            payload={"order_id": order.id},
+        )
+    )
+
     session.commit()
     session.refresh(order)
 

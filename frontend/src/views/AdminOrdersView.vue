@@ -35,7 +35,7 @@ const STATUSES: OrderStatusValue[] = [
 // 鏡像後端 app/core/enums.py 的 ALLOWED_TRANSITIONS：UI 只允許合法的下一狀態。
 const ALLOWED_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
   created: ["pending", "cancelled"],
-  pending: ["processing", "cancelled"],
+  pending: ["processing", "completed", "cancelled"],
   processing: ["completed", "cancelled"],
   completed: [],
   cancelled: [],

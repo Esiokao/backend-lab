@@ -3,9 +3,9 @@
 from fastapi import APIRouter
 
 from .list_broadcasts import router as list_broadcasts_router
-from .mark_broadcasts_read import router as mark_broadcasts_read_router
 from .list_notifications import router as list_router
 from .mark_all_notification_read import router as mark_all_read_router
+from .mark_broadcasts_read import router as mark_broadcasts_read_router
 from .mark_notification_read import router as mark_read_router
 from .unread_count import router as unread_count_router
 
