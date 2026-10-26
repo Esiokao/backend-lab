@@ -288,6 +288,7 @@ def test_create_order_owner(
 
 def test_create_order_writes_outbox_event(
     auth_client,
+    clean_outbox,
     create_test_user,
     create_test_product,
     test_user_data,
@@ -326,6 +327,7 @@ def test_create_order_writes_outbox_event(
 
 def test_outbox_dispatcher_publishes_pending_events(
     auth_client,
+    clean_outbox,
     create_test_user,
     create_test_product,
     test_user_data,
@@ -377,6 +379,7 @@ def test_outbox_dispatcher_publishes_pending_events(
 
 def test_dispatcher_skips_events_within_visibility_timeout(
     auth_client,
+    clean_outbox,
     create_test_user,
     create_test_product,
     test_user_data,
