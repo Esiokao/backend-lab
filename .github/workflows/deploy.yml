@@ -165,24 +165,26 @@ jobs:
 
       # 使用 .env.prod 中的 IMAGE_TAG 部署 immutable image。
       - name: Deploy application
+        timeout-minutes: 5
         run: |
-          ssh $SSH_OPTS \
+          timeout 4m ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
-             docker compose \
+             timeout 4m docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml pull && \
-             docker compose \
+             timeout 4m docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml up -d"
 
       # 確認 production containers 狀態。
       - name: Verify deployment
+        timeout-minutes: 1
         run: |
-          ssh $SSH_OPTS \
+          timeout 45s ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
-             docker compose \
+             timeout 20s docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml ps"
 

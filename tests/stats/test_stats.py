@@ -23,6 +23,12 @@ def test_admin_stats_include_revenue_excluding_cancelled(
     cancelled.status = "cancelled"  # 取消 → 不計
 
     client = session_auth_client(test_admin_user_data)
+
+    # 明確種一個訪客：帶 Accept: text/html 的文件導航請求（middleware 只計這種）。
+    # TestClient 預設 accept 是 */* → 不會被計入；沒有這步，全新 Redis 上
+    # visitors_total 恆為 0（本地會過是因為 Redis 有歷史訪客 —— 共享狀態依賴）。
+    client.get("/nonexistent", headers={"Accept": "text/html"})
+
     response = client.get("/stats")
 
     assert response.status_code == 200
