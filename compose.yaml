@@ -108,6 +108,57 @@ services:
       disable: true
 
   # =========================
+  # Fulfillment Worker（模擬倉儲履約）
+  # =========================
+  fulfillment-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # 依時間把已付款訂單推進 pending → processing → completed；
+    # completed 同交易寫 order_completed outbox，通知走既有鏈路發出。
+    command: ["python", "-m", "app.workers.fulfillment"]
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
+
+      # 履約節奏（秒）：付款後進 processing 的延遲 / 自付款起算完成的總延遲。
+      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-5}
+      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-65}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      disable: true
+
+  # =========================
+  # Frontend（Vite dev server）
+  # =========================
+  frontend:
+    image: node:22-alpine
+
+    working_dir: /app
+
+    # 原始碼用 bind mount，Vite HMR 即時反映主機上的編輯。
+    volumes:
+      - ./frontend:/app
+
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+    environment:
+      # 容器內 Vite proxy 目標：走 Compose 網路連 API（同源 /api，零 CORS）。
+      VITE_API_PROXY_TARGET: http://api:8000
+
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      api:
+        condition: service_started
+
+  # =========================
   # FastAPI
   # =========================
   api:
