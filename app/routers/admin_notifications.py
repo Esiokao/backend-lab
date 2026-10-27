@@ -1,12 +1,17 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
-from app.core.events import EventType
+from app.core.events import BROADCAST_CHANNEL, EventType
+from app.core.redis import redis_client
 from app.database import get_db
 from app.models import NotificationBroadcast, NotificationOutbox, User
 from app.schemas.AdminNotification import AdminNotificationCreate
 from app.schemas.Notification import NotificationBroadcastCreate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin/notifications",
@@ -65,6 +70,15 @@ def create_notification_broadcast(
     db.add(broadcast)
     db.commit()
     db.refresh(broadcast)
+
+    # 公告是全體廣播：對公告頻道喊一聲，所有連著 SSE 的瀏覽器即時刷新。
+    # 失敗不影響公告本身（已落庫），輪詢會兜底。
+    try:
+        redis_client.publish(BROADCAST_CHANNEL, "refresh")
+    except Exception:
+        logger.warning(
+            "Broadcast SSE publish failed (poller will catch up)", exc_info=True
+        )
 
     return broadcast
 

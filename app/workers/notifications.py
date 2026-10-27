@@ -10,7 +10,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.enums import NotificationType
-from app.core.events import EventType
+from app.core.events import EventType, user_channel
+from app.core.redis import redis_client
 from app.database import SessionLocal
 from app.models import Notification, NotificationOutbox, Order, Product, ProductFollow
 from app.schemas.WorkersJobPayload import (
@@ -131,6 +132,25 @@ def _create_order_notification(
         body=body.format(order_id=order.id),
         data={"order_id": order.id},
     )
+    return order.user_id
+
+
+def _publish_refresh(user_ids: list[int]) -> None:
+    """通知落庫後對各使用者頻道喊「該刷新了」。
+
+    at-most-once：Redis 掛掉／當下沒人訂閱都不補發，漏掉的部分
+    由前端輪詢兜底。所以這裡任何失敗只記 log，絕不讓 job 失敗——
+    通知本身已經 commit 完成了。
+    """
+    for user_id in set(user_ids):
+        try:
+            redis_client.publish(user_channel(user_id), "refresh")
+        except Exception:
+            logger.warning(
+                "SSE publish failed for user %s (poller will catch up)",
+                user_id,
+                exc_info=True,
+            )
 
 
 def _run_notification_job(
@@ -139,9 +159,9 @@ def _run_notification_job(
     *,
     session_factory: Callable[[], Session],
     expected_event_type: EventType | None,
-    create_notifications: Callable[[Session, NotificationOutbox, JobT], None],
+    create_notifications: Callable[[Session, NotificationOutbox, JobT], list[int]],
 ):
-    """所有通知任務共用的外殼：驗證 → 開交易 → 鎖事件 → 冪等檢查 → 建通知 → 標記完成。"""
+    """所有通知任務共用的外殼：驗證 → 開交易 → 鎖事件 → 冪等檢查 → 建通知 → 標記完成 → 推播提醒。"""
 
     job = payload_cls.model_validate(payload)
 
@@ -152,9 +172,13 @@ def _run_notification_job(
             logger.info("Outbox event already processed: id=%s", event.id)
             return
 
-        create_notifications(session, event, job)
+        # create_notifications 回傳「這次通知到了哪些使用者」，
+        # commit 成功後才拿去喊話——沒 commit 就喊是開空頭支票。
+        notified_user_ids = create_notifications(session, event, job)
 
         _mark_event_processed(event)
+
+    _publish_refresh(notified_user_ids)
 
     logger.info("Notification job processed: outbox_event_id=%s", job.outbox_event_id)
 
@@ -182,6 +206,7 @@ def notify_admin_notification(
                 source_event_id=event.id,
             )
         )
+        return [job.user_id]
 
     _run_notification_job(
         payload,
@@ -234,6 +259,7 @@ def notify_product_restocked(
             ]  # ← 對應你的 unique constraint
         )
         session.execute(stmt)
+        return follower_ids
 
     _run_notification_job(
         payload,
@@ -257,13 +283,14 @@ def notify_order_created(
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCreatedJobPayload
     ) -> None:
-        _create_order_notification(
+        order_user_id = _create_order_notification(
             session,
             event,
             notification_type=NotificationType.order_created,
             title="訂單已建立",
             body="訂單編號 #{order_id} 已成功建立。",
         )
+        return [order_user_id]
 
     _run_notification_job(
         payload,
@@ -284,13 +311,14 @@ def notify_order_paid(
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderPaidJobPayload
     ) -> None:
-        _create_order_notification(
+        order_user_id = _create_order_notification(
             session,
             event,
             notification_type=NotificationType.order_paid,
             title="訂單已付款",
             body="訂單 #{order_id} 已成功付款。點擊查看訂單詳情。",
         )
+        return [order_user_id]
 
     _run_notification_job(
         payload,
@@ -311,13 +339,14 @@ def notify_order_completed(
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCompletedJobPayload
     ) -> None:
-        _create_order_notification(
+        order_user_id = _create_order_notification(
             session,
             event,
             notification_type=NotificationType.order_completed,
             title="訂單已完成",
             body="您的訂單 #{order_id} 已完成。感謝您的購買！",
         )
+        return [order_user_id]
 
     _run_notification_job(
         payload,
@@ -338,13 +367,14 @@ def notify_order_cancelled(
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCancelledJobPayload
     ) -> None:
-        _create_order_notification(
+        order_user_id = _create_order_notification(
             session,
             event,
             notification_type=NotificationType.order_cancelled,
             title="訂單已取消",
             body="您的訂單 #{order_id} 已取消。如有疑問請聯絡客服",
         )
+        return [order_user_id]
 
     _run_notification_job(
         payload,

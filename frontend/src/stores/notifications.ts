@@ -13,8 +13,9 @@ import {
 
 // 站內通知 store（F11）：鈴鐺徽章輪詢 + 通知面板資料。
 // - 表為真相來源：未讀數由 /notifications/unread-count 補齊（F11-6）
-// - admin 的 SSE 即時推送（F11-4）等後端端點存在後再接，屆時只需在此 store 加訂閱
-// - 輪詢間隔 10s，與 API Health 頁一致
+// - 即時推送（F11-4）：登入期間開一條 SSE，收到事件只當「該刷新了」的提醒，
+//   資料一律重新 GET——推送漏了有輪詢兜底，輪詢在 SSE 連著時自動降頻
+// - 輪詢間隔動態：SSE 連著 30s（兜底）／斷線 10s（原節奏）
 
 // 清單回應包裝（items + next_cursor）；廣播公告 GET /notifications/broadcasts。
 const NotificationListSchema = z.object({
@@ -26,7 +27,8 @@ const BroadcastListSchema = z.object({
   unread_count: z.number().int(),
 });
 
-const POLL_INTERVAL_MS = 10_000;
+const SSE_POLL_INTERVAL_MS = 30_000; // SSE 連著：輪詢只是保險
+const FALLBACK_POLL_INTERVAL_MS = 10_000; // SSE 斷線：回到原節奏
 
 const unreadCount = ref(0);
 const broadcastsUnread = ref(0);
@@ -36,6 +38,8 @@ const panelOpen = ref(false);
 
 let timer: number | undefined;
 let polling = false;
+let pollIntervalMs = FALLBACK_POLL_INTERVAL_MS;
+let eventSource: EventSource | undefined;
 
 async function refreshUnread(): Promise<void> {
   try {
@@ -108,19 +112,54 @@ function scheduleNext(): void {
     // 面板開著時順便刷新清單。
     if (panelOpen.value) await refreshList();
     scheduleNext();
-  }, POLL_INTERVAL_MS);
+  }, pollIntervalMs);
+}
+
+// ── SSE（F11-4）：登入期間常駐的即時推送連線 ──
+// EventSource 不能走 api.ts（那是 fetch 包裝）；同源 + cookie 自動帶，
+// 直接 new 即可。收到任何事件都只當「提醒」，資料重新 GET。
+function startEventSource(): void {
+  if (eventSource) return;
+
+  eventSource = new EventSource("/api/notifications/stream");
+
+  // 後端開場事件：連線確立 → 輪詢降頻 + 立刻對一次錶。
+  eventSource.addEventListener("connected", () => {
+    pollIntervalMs = SSE_POLL_INTERVAL_MS;
+    void refreshUnread();
+  });
+
+  // 通知／公告都推這個事件名稱：徽章即時跳號；面板開著才多刷清單。
+  eventSource.addEventListener("notification", () => {
+    void refreshUnread();
+    if (panelOpen.value) void refreshList();
+  });
+
+  // 斷線：回到 10 秒兜底節奏。EventSource 會自動重連，
+  // 連上後 "connected" 事件會再把節奏放寬——這裡不需要重連邏輯。
+  eventSource.onerror = () => {
+    pollIntervalMs = FALLBACK_POLL_INTERVAL_MS;
+  };
+}
+
+function stopEventSource(): void {
+  eventSource?.close();
+  eventSource = undefined;
+  pollIntervalMs = FALLBACK_POLL_INTERVAL_MS;
 }
 
 function startPolling(): void {
   if (polling) return;
   polling = true;
 
+  startEventSource();
   void refreshUnread();
   scheduleNext();
 }
 
 function stopPolling(): void {
   polling = false;
+  stopEventSource();
   if (timer !== undefined) {
     window.clearTimeout(timer);
     timer = undefined;

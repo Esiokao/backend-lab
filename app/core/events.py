@@ -12,3 +12,15 @@ class EventType(str, Enum):
     order_paid = "notifications.order_paid"  # 訂單付款
     order_completed = "notifications.order_completed"  # 訂單完成
     order_cancelled = "notifications.order_cancelled"  # 訂單取消
+
+
+# ── SSE 推播頻道命名（worker / API 端點共用的約定）──
+# 推送內容只是「該刷新了」的提示，資料一律以 DB 為準（輪詢兜底）。
+
+
+def user_channel(user_id: int) -> str:
+    """個人通知頻道：該使用者的 Notification 建立後對此頻道喊話。"""
+    return f"notify:user:{user_id}"
+
+
+BROADCAST_CHANNEL = "notify:broadcast"  # 公告頻道：廣播建立後全體喊一次

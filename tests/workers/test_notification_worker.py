@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
-from app.core.events import EventType
+from app.core.events import EventType, user_channel
 from app.models import Notification, Product, ProductFollow
 from app.workers.notifications import (
     notify_admin_notification,
@@ -197,6 +197,67 @@ def test_admin_worker_creates_notification(
     assert notification.type == "admin_announcement"
     assert notification.title == "系統公告"
     assert notification.body == "今晚維護。"
+
+    test_db.refresh(event)
+    assert event.status == "processed"
+
+
+def test_worker_publishes_refresh_hint_after_commit(
+    monkeypatch,
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_order,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    """通知落庫後，worker 對該使用者的頻道發「該刷新了」提示。"""
+    published: list[tuple[str, str]] = []
+
+    class FakeRedis:
+        def publish(self, channel, message):
+            published.append((channel, message))
+
+    monkeypatch.setattr("app.workers.notifications.redis_client", FakeRedis())
+
+    user = create_test_user(**test_user_data)
+    order = create_test_order(user_id=user.id)
+    event = create_test_outbox_event(payload={"order_id": order.id})
+
+    notify_order_created(
+        {"outbox_event_id": event.id, "order_id": order.id},
+        session_factory=worker_session_factory,
+    )
+
+    assert published == [(user_channel(user.id), "refresh")]
+
+
+def test_publish_failure_does_not_fail_job(
+    monkeypatch,
+    test_db,
+    create_test_user,
+    test_user_data,
+    create_test_order,
+    create_test_outbox_event,
+    worker_session_factory,
+):
+    """Redis 掛掉時：job 仍成功、事件仍標 processed（輪詢兜底，不炸 worker）。"""
+
+    class BrokenRedis:
+        def publish(self, channel, message):
+            raise ConnectionError("redis down")
+
+    monkeypatch.setattr("app.workers.notifications.redis_client", BrokenRedis())
+
+    user = create_test_user(**test_user_data)
+    order = create_test_order(user_id=user.id)
+    event = create_test_outbox_event(payload={"order_id": order.id})
+
+    # 不應拋例外。
+    notify_order_created(
+        {"outbox_event_id": event.id, "order_id": order.id},
+        session_factory=worker_session_factory,
+    )
 
     test_db.refresh(event)
     assert event.status == "processed"
