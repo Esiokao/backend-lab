@@ -706,10 +706,11 @@ onMounted(() => {
                 >
                   {{ product.name }}
                 </router-link>
+                <!-- 描述吃滿整行（298px > 最長描述 190px）：名稱不再與描述搶位，零截斷 -->
+                <span v-if="product.description" class="product-desc" :title="product.description">
+                  {{ product.description }}
+                </span>
                 <div class="product-meta">
-                  <span v-if="product.description" class="product-desc" :title="product.description">
-                    {{ product.description }}
-                  </span>
                   <span class="product-price-row">
                     <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
                       {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
