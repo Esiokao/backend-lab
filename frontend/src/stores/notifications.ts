@@ -70,6 +70,12 @@ async function loadBroadcasts(): Promise<void> {
   }
 }
 
+// 面板開著時的完整刷新：個人通知 + 公告兩個來源都要。
+// 只刷個人清單的話，開著面板時新廣播永遠進不來（ 直到關掉重開）。
+async function refreshPanel(): Promise<void> {
+  await Promise.all([refreshList(), loadBroadcasts()]);
+}
+
 async function markRead(notification: NotificationItem): Promise<void> {
   if (notification.read_at !== null) return;
 
@@ -87,6 +93,8 @@ async function markAllBroadcastsRead(): Promise<void> {
   try {
     await api.post("/notifications/broadcasts/read-all");
     broadcastsUnread.value = 0;
+    // 水位已推進：重抓公告（伺服器只回水位之上的，已讀的照契約消失）。
+    await loadBroadcasts();
   } catch {
     // 靜默。
   }
@@ -109,8 +117,8 @@ function scheduleNext(): void {
 
   timer = window.setTimeout(async () => {
     await refreshUnread();
-    // 面板開著時順便刷新清單。
-    if (panelOpen.value) await refreshList();
+    // 面板開著時順便刷新清單（個人 + 公告）。
+    if (panelOpen.value) await refreshPanel();
     scheduleNext();
   }, pollIntervalMs);
 }
@@ -129,10 +137,10 @@ function startEventSource(): void {
     void refreshUnread();
   });
 
-  // 通知／公告都推這個事件名稱：徽章即時跳號；面板開著才多刷清單。
+  // 通知／公告都推這個事件名稱：徽章即時跳號；面板開著才多刷清單（兩個來源）。
   eventSource.addEventListener("notification", () => {
     void refreshUnread();
-    if (panelOpen.value) void refreshList();
+    if (panelOpen.value) void refreshPanel();
   });
 
   // 斷線：回到 10 秒兜底節奏。EventSource 會自動重連，
@@ -170,8 +178,7 @@ function togglePanel(): void {
   panelOpen.value = !panelOpen.value;
   // 每次打開都抓最新清單（含公告）。
   if (panelOpen.value) {
-    void refreshList();
-    void loadBroadcasts();
+    void refreshPanel();
   }
 }
 
