@@ -170,10 +170,10 @@ jobs:
           timeout 4m ssh $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_DIR' && \
-             timeout 4m docker compose \
+             timeout 2m docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml pull && \
-             timeout 4m docker compose \
+             timeout 2m docker compose \
              --env-file .env.prod \
              -f compose.prod.yaml up -d"
 
