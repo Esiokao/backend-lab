@@ -452,14 +452,17 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .skeleton-line { height: 10px; border-radius: 5px; }
 .skeleton-line.short { width: 60%; }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-.product-foot { padding: 14px 16px 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+/* grid 兩欄（名稱 / 描述+價格）：flex 時 -webkit-line-clamp 的 -webkit-box
+   尺寸計算不可靠，名稱與描述會互搶寬度並實際重疊（量測到最多疊 30px）。
+   grid 嚴格分欄不可能重疊，空間不足時名稱先換行、描述再截斷。 */
+.product-foot { padding: 14px 16px 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 42%); align-items: end; gap: 12px; }
 /* 商品名 14px + 兩行 clamp（v1.18 修：12.5px 單行截斷 ≈13 字是死路感的來源之一）；
    名稱同時是詳情頁連結。 */
 .product-name { min-width: 0; overflow: hidden; color: var(--ink-strong); font-size: var(--text-base); font-weight: 600; line-height: 1.35; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .product-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .product-media { cursor: pointer; }
 .product-meta { min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.product-desc { max-width: 190px; overflow: hidden; color: var(--ink-faint); font-size: 12px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.product-desc { max-width: 100%; overflow: hidden; color: var(--ink-faint); font-size: 12px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .product-price-row { display: flex; align-items: center; gap: 8px; }
 .product-price { color: var(--ink-strong); font: 600 15px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
 .stock-badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
