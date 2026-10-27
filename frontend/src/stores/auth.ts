@@ -21,9 +21,14 @@ export function useAuth() {
     return user.value;
   }
 
-  async function login(email: string, password: string): Promise<void> {
+  async function login(
+    email: string,
+    password: string,
+    rememberMe = false,
+  ): Promise<void> {
     // 成功時 Set-Cookie 由瀏覽器自動保管，前端不碰任何 token。
-    await api.post("/login", { email, password });
+    // rememberMe：後端把 session／cookie 的 TTL 從 7 天拉長到 30 天。
+    await api.post("/login", { email, password, remember_me: rememberMe });
     await me();
   }
 

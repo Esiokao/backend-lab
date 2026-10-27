@@ -13,7 +13,7 @@ import Icon from "@/components/Icon.vue";
         Backend Lab
       </router-link>
       <nav class="footer-nav" aria-label="Footer">
-        <router-link :to="{ name: 'storefront' }">Storefront</router-link>
+        <router-link :to="{ name: 'storefront' }">Store</router-link>
         <router-link :to="{ name: 'cart' }">Cart</router-link>
         <router-link :to="{ name: 'about' }">About us</router-link>
       </nav>

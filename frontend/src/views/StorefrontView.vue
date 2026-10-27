@@ -489,7 +489,7 @@ async function restoreProduct(product: Product): Promise<void> {
 
 // 所在位置反映：標題塊 h1 與分頁標題跟著分類走（在哪裡就顯示在哪裡）。
 const headingTitle = computed(() =>
-  selectedCategory.value === null ? "Storefront" : categoryName(selectedCategory.value),
+  selectedCategory.value === null ? "Store" : categoryName(selectedCategory.value),
 );
 const headingSub = computed(() => {
   if (selectedCategory.value !== null) {

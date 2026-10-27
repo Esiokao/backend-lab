@@ -10,6 +10,7 @@ from app.core.request_size import RequestSizeRoute, request_size_limit
 from app.core.security import hash_password, verify_password
 from app.core.session import (
     COOKIE_NAME,
+    REMEMBER_TTL_SECONDS,
     SESSION_TTL_SECONDS,
     cookie_secure,
     create_session,
@@ -257,12 +258,15 @@ def login(
     # JS 讀不到（防 XSS 偷取）、只走 https（Secure）、
     # SameSite=strict 擋 CSRF。
     # 每次登入都產生全新 sid，天然防 session fixation。
-    sid = create_session(db_user.id)
+    # 「Keep me signed in」：session 與 cookie 都用 30 天 TTL
+    # （滑動過期照常適用——30 天內有活動就一直續）。
+    session_ttl = REMEMBER_TTL_SECONDS if user.remember_me else SESSION_TTL_SECONDS
+    sid = create_session(db_user.id, ttl_seconds=session_ttl)
 
     response.set_cookie(
         key=COOKIE_NAME,
         value=sid,
-        max_age=SESSION_TTL_SECONDS,
+        max_age=session_ttl,
         path="/",
         httponly=True,
         secure=cookie_secure(),

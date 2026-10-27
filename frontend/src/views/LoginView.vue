@@ -23,6 +23,7 @@ const password = ref("");
 const error = ref("");
 const fieldErrors = ref<Record<string, string>>({});
 const submitting = ref(false);
+const rememberMe = ref(false);
 
 // Sign up（F1）：POST /users 註冊後自動登入。與 Sign in 同卡切換。
 const mode = ref<"signin" | "signup">("signin");
@@ -52,7 +53,7 @@ async function handleSubmit(): Promise<void> {
   submitting.value = true;
 
   try {
-    await login(parsed.data.email, parsed.data.password);
+    await login(parsed.data.email, parsed.data.password, rememberMe.value);
 
     // 登入成功 → 回到原本想去的頁面（守衛帶進來的 redirect）或店面（F2-1：進入 /）。
     const redirect = route.query.redirect;
@@ -203,6 +204,21 @@ function switchMode(next: "signin" | "signup"): void {
               {{ fieldErrors.password }}
             </p>
           </div>
+
+          <!-- Keep me signed in（v1.19）：30 天滑動 session；僅 Sign in 模式顯示 -->
+          <label
+            v-if="mode === 'signin'"
+            for="remember-me"
+            class="flex cursor-pointer select-none items-center gap-2 text-[12px] text-ink-soft"
+          >
+            <input
+              id="remember-me"
+              v-model="rememberMe"
+              type="checkbox"
+              class="h-3.5 w-3.5 accent-[var(--brand)]"
+            />
+            Keep me signed in for 30 days
+          </label>
 
           <button
             type="submit"

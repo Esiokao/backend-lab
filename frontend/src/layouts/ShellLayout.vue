@@ -25,13 +25,13 @@ type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "us
 const navItems = computed<NavItem[]>(() =>
   isAdmin.value
     ? [
-        { label: "Storefront", icon: "bolt", to: { name: "storefront" } },
+        { label: "Store", icon: "bolt", to: { name: "storefront" } },
         { label: "Overview", icon: "grid", to: { name: "dashboard" } },
         { label: "Orders", icon: "box", to: { name: "orders" } },
         { label: "API Health", icon: "activity", to: { name: "api-health" }, dot: true },
       ]
     : [
-        { label: "Storefront", icon: "bolt", to: { name: "storefront" } },
+        { label: "Store", icon: "bolt", to: { name: "storefront" } },
         { label: "My Orders", icon: "box", to: { name: "orders" } },
         { label: "Account", icon: "users", to: { name: "account" } },
         { label: "Edit Profile", icon: "pencil", to: { name: "account-edit" } },

@@ -10,7 +10,7 @@ const router = createRouter({
       path: "/",
       name: "storefront",
       component: () => import("@/views/StorefrontView.vue"),
-      meta: { title: "Storefront" },
+      meta: { title: "Store" },
     },
     {
       path: "/login",

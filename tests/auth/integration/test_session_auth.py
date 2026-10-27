@@ -215,3 +215,47 @@ def test_session_index_ttl_slides_with_session():
         assert get_session_user_id(sid) is None
     finally:
         delete_session(sid)
+
+
+def test_remember_me_extends_cookie_and_redis_ttl(test_client, create_test_user):
+    """勾選 Keep me signed in：cookie Max-Age 與 Redis TTL 都是 30 天。"""
+    from datetime import timedelta
+
+    from app.core.session import REMEMBER_TTL_SECONDS
+
+    create_test_user(email="remember@example.com", password="testpassword")
+
+    response = test_client.post(
+        "/login",
+        json={
+            "email": "remember@example.com",
+            "password": "testpassword",
+            "remember_me": True,
+        },
+    )
+
+    assert response.status_code == 200
+
+    set_cookie = response.headers["set-cookie"]
+    assert f"Max-Age={REMEMBER_TTL_SECONDS}" in set_cookie
+
+    # Redis 的 session key TTL 也應接近 30 天（遠大於預設 7 天）。
+    sid = response.cookies[COOKIE_NAME]
+    ttl = redis_client.ttl(f"{COOKIE_NAME}:{sid}" if False else f"session:{sid}")
+    assert ttl > int(timedelta(days=29).total_seconds())
+    assert ttl <= REMEMBER_TTL_SECONDS
+
+
+def test_default_login_keeps_seven_day_ttl(test_client, create_test_user):
+    """沒勾 Keep me signed in：維持 7 天 TTL。"""
+    create_test_user(email="default-ttl@example.com", password="testpassword")
+
+    response = test_client.post(
+        "/login",
+        json={"email": "default-ttl@example.com", "password": "testpassword"},
+    )
+
+    assert response.status_code == 200
+
+    set_cookie = response.headers["set-cookie"]
+    assert f"Max-Age={SESSION_TTL_SECONDS}" in set_cookie
