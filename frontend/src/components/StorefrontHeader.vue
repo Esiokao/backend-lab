@@ -91,11 +91,12 @@ async function handleLogout(): Promise<void> {
     <div class="storefront-actions">
       <button
         type="button"
-        class="ghost-button theme-toggle"
+        class="ghost-button theme-switch"
         :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
         @click="toggleTheme"
       >
-        <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="15" />
+        <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="16" />
+        <span class="theme-switch-label">{{ theme === "dark" ? "Light" : "Dark" }}</span>
       </button>
       <router-link class="ghost-button theme-toggle cart-link-header" :to="{ name: 'cart' }" aria-label="Cart">
         <Icon name="cart" :size="15" />

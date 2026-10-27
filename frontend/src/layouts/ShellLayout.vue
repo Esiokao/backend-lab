@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 
 const { user, logout } = useAuth();
-const { theme, setTheme } = useTheme();
+const { theme, setTheme, toggleTheme } = useTheme();
 const { count: cartCount, refresh: refreshCart } = useCart();
 const { active: activePopover, openPopover, closePopover } = usePopover();
 const isAdmin = computed(() => user.value?.role === "admin");
@@ -194,6 +194,15 @@ watch(activePopover, (name) => {
           <Icon name="arrow" :size="14" /><strong>{{ currentLabel }}</strong>
         </div>
         <div class="topbar-actions">
+          <button
+            type="button"
+            class="ghost-button theme-switch"
+            :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+            @click="toggleTheme"
+          >
+            <Icon :name="theme === 'dark' ? 'sun' : 'moon'" :size="16" />
+            <span class="theme-switch-label">{{ theme === "dark" ? "Light" : "Dark" }}</span>
+          </button>
           <router-link :to="{ name: 'cart' }" class="bell-button cart-link" aria-label="Cart">
             <Icon name="cart" :size="17" />
             <span v-if="cartCount() > 0" class="bell-badge">
