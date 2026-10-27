@@ -43,19 +43,29 @@ def add_to_cart(
             CartItem.product_id == payload.product_id,
         )
     )
+    new_quantity = (
+        payload.quantity if item is None else item.quantity + payload.quantity
+    )
+
+    # 購物車階段就擋超庫存：讓使用者在點按鈕的當下被擋，而不是結帳時。
+    # 結帳的原子檢查（WHERE stock >= quantity）仍是真正防線（並發競態）。
+    if new_quantity > 100:
+        raise HTTPException(status_code=422, detail="Cart quantity cannot exceed 100")
+    if new_quantity > product.stock:
+        raise HTTPException(
+            status_code=422, detail=f"Only {product.stock} left in stock"
+        )
+
     if item is None:
         item = CartItem(
             user_id=current_user.id,
             product_id=payload.product_id,
-            quantity=payload.quantity,
+            quantity=new_quantity,
         )
         db.add(item)
     else:
-        item.quantity += payload.quantity
-        if item.quantity > 100:
-            raise HTTPException(
-                status_code=422, detail="Cart quantity cannot exceed 100"
-            )
+        item.quantity = new_quantity
+
     db.commit()
     return _cart_response(_get_items(db, current_user.id))
 
@@ -75,12 +85,16 @@ def update_cart_item(
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
-        select(CartItem).where(
-            CartItem.user_id == current_user.id, CartItem.product_id == product_id
-        )
+        select(CartItem)
+        .options(selectinload(CartItem.product))
+        .where(CartItem.user_id == current_user.id, CartItem.product_id == product_id)
     )
     if item is None:
         raise HTTPException(status_code=404, detail="Cart item not found")
+    if payload.quantity > item.product.stock:
+        raise HTTPException(
+            status_code=422, detail=f"Only {item.product.stock} left in stock"
+        )
     item.quantity = payload.quantity
     db.commit()
     return _cart_response(_get_items(db, current_user.id))

@@ -146,3 +146,55 @@ def test_cart_is_private_between_users(
 def test_guest_cannot_use_cart(test_client):
     response = test_client.get("/cart")
     assert response.status_code == 401
+
+
+def test_add_cannot_exceed_stock(
+    create_test_user, create_test_product, test_user_data, session_auth_client
+):
+    """單次加購不得超過庫存（bug fix：原本只擋 100 上限）。"""
+    create_test_user(**test_user_data)
+    product = create_test_product(stock=12)
+    client = session_auth_client(test_user_data)
+
+    response = client.post(
+        "/cart/items", json={"product_id": product.id, "quantity": 13}
+    )
+    assert response.status_code == 422
+    assert "12" in response.json()["detail"]
+
+
+def test_cart_accumulation_cannot_exceed_stock(
+    create_test_user, create_test_product, test_user_data, session_auth_client
+):
+    """已達庫存上限的購物車項目，再加 1 也要被擋（原 bug：12+1 變 13）。"""
+    create_test_user(**test_user_data)
+    product = create_test_product(stock=12)
+    client = session_auth_client(test_user_data)
+
+    ok = client.post("/cart/items", json={"product_id": product.id, "quantity": 12})
+    assert ok.status_code == 201
+
+    response = client.post(
+        "/cart/items", json={"product_id": product.id, "quantity": 1}
+    )
+    assert response.status_code == 422
+
+    # 購物車維持 12，不是 13。
+    cart = client.get("/cart").json()
+    assert cart["items"][0]["quantity"] == 12
+
+
+def test_update_cart_quantity_cannot_exceed_stock(
+    create_test_user, create_test_product, test_user_data, session_auth_client
+):
+    """PATCH 直接覆寫數量同樣不得超過庫存。"""
+    create_test_user(**test_user_data)
+    product = create_test_product(stock=5)
+    client = session_auth_client(test_user_data)
+    client.post("/cart/items", json={"product_id": product.id, "quantity": 2})
+
+    response = client.patch(f"/cart/items/{product.id}", json={"quantity": 999})
+    assert response.status_code == 422
+
+    cart = client.get("/cart").json()
+    assert cart["items"][0]["quantity"] == 2
