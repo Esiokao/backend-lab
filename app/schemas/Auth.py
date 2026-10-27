@@ -10,7 +10,7 @@ class UserLogin(BaseModel):
     # 密碼長度限制。
     password: str = Field(min_length=8, max_length=128)
 
-    # 「Keep me signed in」：勾選時 session 與 cookie 用 30 天 TTL。
+    # 「Keep me signed in」：勾選時 session 與 cookie 用 7 天 TTL（預設 30 分鐘）。
     remember_me: bool = False
 
 

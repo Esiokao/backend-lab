@@ -217,7 +217,7 @@ function switchMode(next: "signin" | "signup"): void {
               type="checkbox"
               class="h-3.5 w-3.5 accent-[var(--brand)]"
             />
-            Keep me signed in for 30 days
+            Keep me signed in for 7 days
           </label>
 
           <button

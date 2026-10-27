@@ -5,11 +5,11 @@ from datetime import timedelta
 from app.core.redis import redis_client
 
 # Session 有效期；每次成功驗證會續期（滑動過期），閒置超過 TTL 才失效。
-SESSION_TTL_SECONDS = int(timedelta(days=7).total_seconds())
+# 預設 30 分鐘：登入後半小時沒動作就要重新登入。
+SESSION_TTL_SECONDS = int(timedelta(minutes=30).total_seconds())
 
-# 「Keep me signed in」的加長有效期；滑動續期同樣適用——
-# 只要在 30 天內有活動就一直續，閒置 30 天才失效。
-REMEMBER_TTL_SECONDS = int(timedelta(days=30).total_seconds())
+# 「Keep me signed in」的加長有效期（7 天滑動：一週內有活動就一直續）。
+REMEMBER_TTL_SECONDS = int(timedelta(days=7).total_seconds())
 
 # 與 rate_limit 的 key 空間分開。
 SESSION_PREFIX = "session:"

@@ -218,7 +218,7 @@ def test_session_index_ttl_slides_with_session():
 
 
 def test_remember_me_extends_cookie_and_redis_ttl(test_client, create_test_user):
-    """勾選 Keep me signed in：cookie Max-Age 與 Redis TTL 都是 30 天。"""
+    """勾選 Keep me signed in：cookie Max-Age 與 Redis TTL 都是 7 天（預設 30 分鐘）。"""
     from datetime import timedelta
 
     from app.core.session import REMEMBER_TTL_SECONDS
@@ -239,10 +239,10 @@ def test_remember_me_extends_cookie_and_redis_ttl(test_client, create_test_user)
     set_cookie = response.headers["set-cookie"]
     assert f"Max-Age={REMEMBER_TTL_SECONDS}" in set_cookie
 
-    # Redis 的 session key TTL 也應接近 30 天（遠大於預設 7 天）。
+    # Redis 的 session key TTL 也應接近 7 天（遠大於預設 30 分鐘）。
     sid = response.cookies[COOKIE_NAME]
-    ttl = redis_client.ttl(f"{COOKIE_NAME}:{sid}" if False else f"session:{sid}")
-    assert ttl > int(timedelta(days=29).total_seconds())
+    ttl = redis_client.ttl(f"session:{sid}")
+    assert ttl > int(timedelta(days=6).total_seconds())
     assert ttl <= REMEMBER_TTL_SECONDS
 
 

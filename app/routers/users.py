@@ -258,8 +258,8 @@ def login(
     # JS 讀不到（防 XSS 偷取）、只走 https（Secure）、
     # SameSite=strict 擋 CSRF。
     # 每次登入都產生全新 sid，天然防 session fixation。
-    # 「Keep me signed in」：session 與 cookie 都用 30 天 TTL
-    # （滑動過期照常適用——30 天內有活動就一直續）。
+    # 「Keep me signed in」：session 與 cookie 都用 7 天 TTL
+    # （滑動過期照常適用——一週內有活動就一直續；預設只有 30 分鐘）。
     session_ttl = REMEMBER_TTL_SECONDS if user.remember_me else SESSION_TTL_SECONDS
     sid = create_session(db_user.id, ttl_seconds=session_ttl)
 
