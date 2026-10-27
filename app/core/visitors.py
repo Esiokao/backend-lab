@@ -7,7 +7,7 @@ curl / fetch / XHR / 健康探測的 Accept 是 */*，一律不計，
 """
 
 import secrets
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 VISITOR_COOKIE = "bl_vid"
 VISITOR_TTL_SECONDS = 2 * 24 * 60 * 60  # 集合保留兩天，過期自動清
@@ -34,10 +34,19 @@ def _day_key(day: date) -> str:
     return f"visitors:{day.isoformat()}"
 
 
+def _today() -> date:
+    """訪客計數的「今天」：本地時區的日期（統計頁給人看的日界）。
+
+    不用 date.today()（ruff DTZ011）、也不用 UTC（深夜會跟本地日錯開），
+    以本機時區取當下日期。
+    """
+    return datetime.now().astimezone().date()
+
+
 def track_visitor(redis, cookie_value: str | None) -> str:
     """回傳該訪客的 vid（既有或新建）；計入今日集合與全量 HLL。"""
     vid = cookie_value or secrets.token_hex(16)
-    key = _day_key(datetime.now(timezone.utc).date())
+    key = _day_key(_today())
     redis.sadd(key, vid)
     redis.expire(key, VISITOR_TTL_SECONDS)
     redis.pfadd(TOTAL_HLL_KEY, vid)
@@ -45,7 +54,7 @@ def track_visitor(redis, cookie_value: str | None) -> str:
 
 
 def visitors_today_count(redis) -> int:
-    return int(redis.scard(_day_key(datetime.now(timezone.utc).date())))
+    return int(redis.scard(_day_key(_today())))
 
 
 def visitors_total_count(redis) -> int:
