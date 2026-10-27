@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "cleanup": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < cleanup.sql"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
