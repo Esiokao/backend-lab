@@ -1,8 +1,8 @@
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.queue import get_task_publisher
@@ -22,7 +22,10 @@ def dispatch_once(
     session: Session, batch_size: int = BATCH_SIZE, *, publisher: TaskPublisher
 ) -> int:
     """批次發布待處理事件，回傳本輪嘗試處理的事件數。"""
-    now = datetime.now(timezone.utc)
+    # 時鐘一律以 DB 為準：available_at 是 server_default now()（DB 時鐘）寫的，
+    # 若拿主機時鐘比較，容器時鐘差幾毫秒就會把「剛建立」的事件誤判為未到期
+    # （間歇性 dispatched == 0 的 flaky 根因）。
+    now = session.scalar(select(func.now()))
 
     # 同時處理新事件，以及已發布但逾時未完成的事件。
     stmt = (
