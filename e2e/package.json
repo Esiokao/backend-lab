@@ -8,7 +8,9 @@
     "cleanup": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < cleanup.sql"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@10.28.1"
 }
