@@ -1,7 +1,19 @@
 // ESLint flat config for the e2e package.
 import tseslint from 'typescript-eslint'
+import playwright from 'eslint-plugin-playwright'
 
 export default tseslint.config(
+  // Playwright discipline: these rules codify the repo's flaky-test policy.
+  {
+    files: ['tests/**/*.ts'],
+    plugins: { playwright },
+    rules: {
+      'playwright/no-wait-for-timeout': 'error',
+      'playwright/no-force-option': 'error',
+      'playwright/no-element-handle': 'error',
+      'playwright/no-page-pause': 'error'
+    }
+  },
   // Type-aware rules (no-floating-promises) need project info.
   {
     files: ['tests/**/*.ts', 'playwright.config.ts'],
