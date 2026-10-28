@@ -25,3 +25,13 @@ repos:
         language: system
         files: ^frontend/
         pass_filenames: false
+
+  # E2E type-check (tsc) on e2e changes.
+  - repo: local
+    hooks:
+      - id: e2e-tsc
+        name: e2e typecheck (tsc)
+        entry: bash -c "cd e2e && pnpm exec tsc --noEmit"
+        language: system
+        files: ^e2e/
+        pass_filenames: false
