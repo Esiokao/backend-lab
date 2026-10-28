@@ -11,7 +11,8 @@ export default tseslint.config(
       'playwright/no-wait-for-timeout': 'error',
       'playwright/no-force-option': 'error',
       'playwright/no-element-handle': 'error',
-      'playwright/no-page-pause': 'error'
+      'playwright/no-page-pause': 'error',
+      'playwright/require-top-level-describe': 'error'
     }
   },
   // Type-aware rules (no-floating-promises) need project info.
