@@ -4,13 +4,19 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "seed": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < seed.sql",
     "cleanup": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < cleanup.sql"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^26.6.5",
-    "typescript": "^7.0.2"
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
   },
   "packageManager": "pnpm@10.28.1"
 }

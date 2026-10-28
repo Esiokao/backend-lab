@@ -26,12 +26,26 @@ repos:
         files: ^frontend/
         pass_filenames: false
 
-  # E2E type-check (tsc) on e2e changes.
+  # E2E checks (tsc + eslint + prettier) on e2e changes.
   - repo: local
     hooks:
       - id: e2e-tsc
         name: e2e typecheck (tsc)
         entry: bash -c "cd e2e && pnpm exec tsc --noEmit"
+        language: system
+        files: ^e2e/
+        pass_filenames: false
+
+      - id: e2e-eslint
+        name: e2e lint (eslint)
+        entry: bash -c "cd e2e && pnpm exec eslint ."
+        language: system
+        files: ^e2e/
+        pass_filenames: false
+
+      - id: e2e-prettier
+        name: e2e format check (prettier)
+        entry: bash -c "cd e2e && pnpm exec prettier --check ."
         language: system
         files: ^e2e/
         pass_filenames: false
