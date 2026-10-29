@@ -101,10 +101,17 @@ async function handleSignup(): Promise<void> {
     const target = typeof route.query.redirect === "string" ? route.query.redirect : "/";
     await router.push(target.startsWith("/") ? target : "/");
   } catch (err) {
-    error.value =
-      err instanceof Error && err.message.includes("already")
-        ? "That email is already registered — try signing in."
-        : "Sign up failed. Please try again.";
+    if (err instanceof ApiError && err.status === 429) {
+      // 限流：註冊本身不限流，但註冊成功後的自動登入會打 /login（5 次/60 秒）。
+      // 不提示的話使用者只會看到「Sign up failed」，以為帳號沒建成功而重複嘗試——
+      // 越試越撞牆。
+      error.value = "Too many attempts — wait a minute and try again.";
+    } else {
+      error.value =
+        err instanceof Error && err.message.includes("already")
+          ? "That email is already registered — try signing in."
+          : "Sign up failed. Please try again.";
+    }
   } finally {
     submitting.value = false;
   }
