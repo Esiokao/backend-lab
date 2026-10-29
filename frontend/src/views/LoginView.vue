@@ -5,7 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
 import { useTheme } from "@/stores/theme";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { LoginFormSchema, SignupFormSchema } from "@/lib/schemas";
 
 // 登入頁 —— Tailwind utilities 的遷移範本（tokens 經 @theme 引 var()，
@@ -64,10 +64,15 @@ async function handleSubmit(): Promise<void> {
         : "/";
     await router.push(target);
   } catch (err) {
-    error.value =
-      err instanceof Error && err.message.includes("Invalid")
-        ? "Invalid email or password"
-        : "Login failed. Please try again.";
+    if (err instanceof ApiError && err.status === 429) {
+      // 限流（5 次/60 秒）：把後端訊息顯示出來，不然使用者只會看到通用的失敗。
+      error.value = "Too many attempts — wait a minute and try again.";
+    } else {
+      error.value =
+        err instanceof Error && err.message.includes("Invalid")
+          ? "Invalid email or password"
+          : "Login failed. Please try again.";
+    }
   } finally {
     submitting.value = false;
   }
