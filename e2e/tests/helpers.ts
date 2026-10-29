@@ -1,5 +1,12 @@
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { expect, type Page } from '@playwright/test'
+
+// repo 根目錄（本檔在 e2e/tests/）：compose.yaml 在這一層。
+// 相對 cwd 會隨「從哪裡呼叫 playwright」而變——從 repo 根跑時 cwd:'..' 指向
+// C:\Projects，compose.yaml 找不到，限流清不掉且不報錯 → flaky 回歸。
+// 錨定檔案自己的位置（同 auth.setup.ts 的慣例），從哪裡跑都正確。
+const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 // 每條測試的資料獨立：email 帶隨機後綴，避免測試間互相污染。
 export function uniqueEmail(prefix: string): string {
@@ -54,7 +61,7 @@ export { PASSWORD }
 export function clearRateLimit(): void {
   const out = execSync(
     'docker compose exec -T redis redis-cli --scan --pattern "rate_limit:*"',
-    { cwd: '..', stdio: 'pipe' }
+    { cwd: ROOT, stdio: 'pipe' }
   )
     .toString()
     .trim()
@@ -63,7 +70,7 @@ export function clearRateLimit(): void {
 
   if (out.length > 0) {
     execSync(`docker compose exec -T redis redis-cli DEL ${out.join(' ')}`, {
-      cwd: '..',
+      cwd: ROOT,
       stdio: 'pipe'
     })
   }
