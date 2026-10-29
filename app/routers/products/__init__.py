@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from app.core.request_size import SizeLimitedAPIRouter
 
 from .archive_product import router as archive_product_router
 from .create_product import router as create_product_router
@@ -12,7 +12,7 @@ from .list_products import router as list_products_router
 from .restore_product import router as restore_product_router
 from .update_product import router as update_product_router
 
-router = APIRouter(tags=["Products"])
+router = SizeLimitedAPIRouter(tags=["Products"])
 
 router.include_router(list_archived_products_router)
 router.include_router(archive_product_router)

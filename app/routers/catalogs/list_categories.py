@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Category
 from app.schemas.Category import CategoryListResponse, CategoryResponse
 
-router = APIRouter(prefix="/categories")
+router = SizeLimitedAPIRouter(prefix="/categories")
 
 
 @router.get("", response_model=CategoryListResponse)

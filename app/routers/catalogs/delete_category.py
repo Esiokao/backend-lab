@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Category, Product, User
 
-router = APIRouter(prefix="/categories")
+router = SizeLimitedAPIRouter(prefix="/categories")
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)

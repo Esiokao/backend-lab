@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.dependencies import require_admin
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.core.events import EventType
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import NotificationOutbox, Order, User
 from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     prefix="/admin/orders",
     tags=["Admin Orders"],
 )
@@ -138,7 +139,7 @@ def delete_order(
 
 # ── Admin 使用者管理 ────────────────────────────────────────────────
 
-users_router = APIRouter(
+users_router = SizeLimitedAPIRouter(
     prefix="/admin/users",
     tags=["Admin Users"],
 )

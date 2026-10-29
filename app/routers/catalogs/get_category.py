@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Category
 from app.schemas.Category import CategoryResponse
 
-router = APIRouter(prefix="/categories")
+router = SizeLimitedAPIRouter(prefix="/categories")
 
 
 @router.get("/{category_id}", response_model=CategoryResponse)

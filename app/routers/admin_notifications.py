@@ -1,11 +1,12 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.core.events import BROADCAST_CHANNEL, EventType
 from app.core.redis import redis_client
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import NotificationBroadcast, NotificationOutbox, User
 from app.schemas.AdminNotification import AdminNotificationCreate
@@ -13,7 +14,7 @@ from app.schemas.Notification import NotificationBroadcastCreate
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     prefix="/admin/notifications",
     tags=["Admin Notifications"],
 )

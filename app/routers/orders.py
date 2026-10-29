@@ -1,18 +1,19 @@
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user, require_admin
 from app.core.enums import OrderStatus
 from app.core.events import EventType
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     tags=["Orders"],
 )
 logger = logging.getLogger(__name__)

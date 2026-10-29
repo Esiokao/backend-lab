@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import NotificationBroadcast, User
 
-router = APIRouter(prefix="/notifications")
+router = SizeLimitedAPIRouter(prefix="/notifications")
 
 
 @router.post("/broadcasts/read-all")

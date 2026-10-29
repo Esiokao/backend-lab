@@ -10,15 +10,16 @@ pub/sub 不保證送達，漏掉的由前端 10 秒輪詢兜底。
 import asyncio
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from fastapi.responses import StreamingResponse
 from redis import asyncio as aioredis
 
 from app.core.dependencies import get_current_user
 from app.core.events import BROADCAST_CHANNEL, user_channel
+from app.core.request_size import SizeLimitedAPIRouter
 from app.models import User
 
-router = APIRouter(prefix="/notifications")
+router = SizeLimitedAPIRouter(prefix="/notifications")
 
 # 心跳週期：SSE 註解行（": ping"）讓中間層知道連線活著，
 # 也讓 async generator 有機會被喚醒、察覺客戶端已斷開。

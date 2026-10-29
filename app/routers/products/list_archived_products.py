@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Product, User
 from app.schemas.Product import ProductResponse
 
-router = APIRouter(prefix="/products")
+router = SizeLimitedAPIRouter(prefix="/products")
 
 
 @router.get("/archived", response_model=list[ProductResponse])

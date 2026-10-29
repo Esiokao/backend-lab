@@ -2,15 +2,16 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Notification, User
 
-router = APIRouter(prefix="/notifications")
+router = SizeLimitedAPIRouter(prefix="/notifications")
 
 
 @router.patch("/{notification_id}/read")

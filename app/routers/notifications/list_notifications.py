@@ -2,11 +2,12 @@ import base64
 import json
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Notification, User
 from app.schemas.Notification import (
@@ -14,7 +15,7 @@ from app.schemas.Notification import (
     NotificationResponse,
 )
 
-router = APIRouter(prefix="/notifications")
+router = SizeLimitedAPIRouter(prefix="/notifications")
 
 
 def encode_cursor(notification: Notification) -> str:

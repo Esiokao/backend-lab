@@ -1,17 +1,18 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import get_current_user
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import CartItem, Product, User
 from app.routers.orders import create_order
 from app.schemas.Cart import CartCheckout, CartItemAdd, CartItemUpdate, CartResponse
 from app.schemas.Order import OrderCreate, OrderItemCreate, OrderResponse
 
-router = APIRouter(prefix="/cart", tags=["Cart"])
+router = SizeLimitedAPIRouter(prefix="/cart", tags=["Cart"])
 
 
 def _get_items(db: Session, user_id: int):

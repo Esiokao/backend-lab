@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user, require_admin
 from app.core.jwt import create_access_token
 from app.core.rate_limit import rate_limit
-from app.core.request_size import RequestSizeRoute, request_size_limit
+from app.core.request_size import SizeLimitedAPIRouter, request_size_limit
 from app.core.security import hash_password, verify_password
 from app.core.session import (
     COOKIE_NAME,
@@ -22,10 +22,8 @@ from app.models import User
 from app.schemas.Auth import UserLogin
 from app.schemas.User import UserCreate, UserPatch, UserResponse, UserUpdate
 
-router = APIRouter(
-    route_class=RequestSizeRoute,
-    tags=["Users"],
-)
+# body 上限由 app.main 的全域 route_class（RequestSizeRoute）統一套用。
+router = SizeLimitedAPIRouter(tags=["Users"])
 
 
 def _ensure_self_or_admin(current_user: User, user_id: int) -> None:

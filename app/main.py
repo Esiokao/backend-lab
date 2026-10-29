@@ -16,6 +16,11 @@ from app.routers.users import router as users_router
 
 app = FastAPI()
 
+# 全域 request body 上限改由 SizeLimitedAPIRouter 承擔：FastAPI >= 0.118
+# 的 include_router 是惰性掛載，app.router.route_class 蓋不到 include
+# 進來的路由，所以每個 router 必須自帶 route_class（見
+# app/core/request_size.py 的 SizeLimitedAPIRouter）。
+
 
 @app.middleware("http")
 async def track_visitors(request, call_next):

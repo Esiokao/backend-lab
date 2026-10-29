@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import require_admin
 from app.core.events import EventType
+from app.core.request_size import SizeLimitedAPIRouter
 from app.database import get_db
 from app.models import Category, NotificationOutbox, Product, User
 from app.schemas.Product import ProductPatch, ProductResponse
 
-router = APIRouter(prefix="/products")
+router = SizeLimitedAPIRouter(prefix="/products")
 
 
 @router.patch(
