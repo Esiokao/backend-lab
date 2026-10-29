@@ -13,6 +13,10 @@ export async function signupViaUi(
   name: string,
   email: string
 ): Promise<void> {
+  // 註冊成功後前端會自動登入（打 /login）——跟 loginViaUi 一樣要先清限流，
+  // 否則整批跑時 setup/auth/store 的登入擠進同一個 60s 窗口就撞 429。
+  clearRateLimit()
+
   await page.goto('/login')
   await page.getByRole('button', { name: 'Sign up' }).click()
   await page.getByLabel('Name', { exact: true }).fill(name)

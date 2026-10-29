@@ -24,14 +24,19 @@ export default defineConfig({
     //    storageState = 開新瀏覽器時預先貼上的 cookie（三部手機的概念）
     {
       name: 'guest',
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, /admin\.spec\.ts/],
       use: { storageState: { cookies: [], origins: [] } },
       dependencies: ['setup']
     },
     {
       name: 'shopper',
       // guest 旅程（UI 登入/註冊）不適用已登入身份：/login 是 guestOnly 會被彈走
-      testIgnore: [/auth\.setup\.ts/, /auth\.spec\.ts/, /store\.spec\.ts/],
+      testIgnore: [
+        /auth\.setup\.ts/,
+        /auth\.spec\.ts/,
+        /store\.spec\.ts/,
+        /admin\.spec\.ts/
+      ],
       use: { storageState: '.auth/shopper.json' },
       dependencies: ['setup']
     },
