@@ -1,19 +1,17 @@
-from fastapi import Depends
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import NotificationBroadcast, User
+from app.database import DbSession
+from app.models import NotificationBroadcast
 
 router = SizeLimitedAPIRouter(prefix="/notifications")
 
 
 @router.post("/broadcasts/read-all")
 def mark_all_broadcasts_read(
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 廣播已讀水位（v1.12）：推到最新一則的 id（全有全無）。
     latest_id = session.execute(

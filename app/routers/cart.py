@@ -1,13 +1,13 @@
 from decimal import Decimal
 
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import CartItem, Product, User
+from app.database import DbSession
+from app.models import CartItem, Product
 from app.routers.orders import create_order
 from app.schemas.Cart import CartCheckout, CartItemAdd, CartItemUpdate, CartResponse
 from app.schemas.Order import OrderCreate, OrderItemCreate, OrderResponse
@@ -27,8 +27,8 @@ def _get_items(db: Session, user_id: int):
 @router.post("/items", response_model=CartResponse, status_code=status.HTTP_201_CREATED)
 def add_to_cart(
     payload: CartItemAdd,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: CurrentUser,
+    db: DbSession,
 ):
     product = db.scalar(
         select(Product).where(
@@ -72,9 +72,7 @@ def add_to_cart(
 
 
 @router.get("", response_model=CartResponse)
-def get_cart(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+def get_cart(current_user: CurrentUser, db: DbSession):
     return _cart_response(_get_items(db, current_user.id))
 
 
@@ -82,8 +80,8 @@ def get_cart(
 def update_cart_item(
     product_id: int,
     payload: CartItemUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: CurrentUser,
+    db: DbSession,
 ):
     item = db.scalar(
         select(CartItem)
@@ -104,8 +102,8 @@ def update_cart_item(
 @router.delete("/items/{product_id}", response_model=CartResponse)
 def remove_from_cart(
     product_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: CurrentUser,
+    db: DbSession,
 ):
     item = db.scalar(
         select(CartItem).where(
@@ -120,9 +118,7 @@ def remove_from_cart(
 
 
 @router.delete("", response_model=CartResponse)
-def clear_cart(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+def clear_cart(current_user: CurrentUser, db: DbSession):
     for item in _get_items(db, current_user.id):
         db.delete(item)
     db.commit()
@@ -131,9 +127,9 @@ def clear_cart(
 
 @router.post("/checkout", response_model=OrderResponse)
 def checkout(
+    current_user: CurrentUser,
+    db: DbSession,
     payload: CartCheckout | None = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     items = _get_items(db, current_user.id)
 

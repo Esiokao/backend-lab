@@ -1,11 +1,10 @@
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import Product, ProductFollow, User
+from app.database import DbSession
+from app.models import Product, ProductFollow
 
 router = SizeLimitedAPIRouter(prefix="/products")
 
@@ -13,8 +12,8 @@ router = SizeLimitedAPIRouter(prefix="/products")
 @router.post("/{product_id}/follow")
 def follow_product(
     product_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: CurrentUser,
+    db: DbSession,
 ):
     # 先確認商品存在，避免建立指向不存在商品的關注資料。
     product = db.get(Product, product_id)
@@ -51,8 +50,8 @@ def follow_product(
 @router.delete("/{product_id}/follow")
 def unfollow_product(
     product_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: CurrentUser,
+    db: DbSession,
 ):
     # 只尋找目前登入使用者自己的關注資料。
     follow = db.scalar(

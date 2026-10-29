@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Cookie, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -81,3 +83,10 @@ def require_admin(
         )
 
     return current_user
+
+
+# FastAPI 官方建議的 Annotated 寫法：工單放便條裡，型別標註保持乾淨。
+# endpoint 直接寫 `current_user: CurrentUser` / `_: AdminUser`，
+# 不必重複 `User = Depends(...)`。DbSession 同理，定義在 app/database.py。
+CurrentUser = Annotated[User, Depends(get_current_user)]
+AdminUser = Annotated[User, Depends(require_admin)]

@@ -1,14 +1,12 @@
 from datetime import datetime, timezone
 
-from fastapi import Depends
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.redis import redis_client
 from app.core.request_size import SizeLimitedAPIRouter
 from app.core.visitors import visitors_today_count, visitors_total_count
-from app.database import get_db
+from app.database import DbSession
 from app.models import Notification, Order, OrderItem, User
 
 router = SizeLimitedAPIRouter(prefix="/stats", tags=["Stats"])
@@ -16,8 +14,8 @@ router = SizeLimitedAPIRouter(prefix="/stats", tags=["Stats"])
 
 @router.get("")
 def get_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: DbSession,
+    current_user: CurrentUser,
 ):
     """儀表板真實數據，依角色分範圍：
 

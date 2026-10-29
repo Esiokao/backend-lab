@@ -1,9 +1,8 @@
-from fastapi import Depends, Query
+from fastapi import Query
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
+from app.database import DbSession
 from app.models import Category
 from app.schemas.Category import CategoryListResponse, CategoryResponse
 
@@ -12,10 +11,10 @@ router = SizeLimitedAPIRouter(prefix="/categories")
 
 @router.get("", response_model=CategoryListResponse)
 def list_categories(
+    db: DbSession,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=100),
     q: str | None = Query(default=None, max_length=100),
-    db: Session = Depends(get_db),
 ):
     # 公開端點：店面導覷列取全量（預設 page_size=100）；admin 管理頁帶 q/分頁。
     base = select(Category)

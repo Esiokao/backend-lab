@@ -1,10 +1,9 @@
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import AdminUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import Category, Product, User
+from app.database import DbSession
+from app.models import Category, Product
 from app.schemas.Product import ProductCreate, ProductResponse
 
 router = SizeLimitedAPIRouter(prefix="/products")
@@ -17,8 +16,8 @@ router = SizeLimitedAPIRouter(prefix="/products")
 )
 def create_product(
     payload: ProductCreate,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     if (
         payload.category_id is not None

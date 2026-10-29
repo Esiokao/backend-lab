@@ -2,14 +2,13 @@ import base64
 import json
 from datetime import datetime
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import HTTPException, Query
 from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import Notification, User
+from app.database import DbSession
+from app.models import Notification
 from app.schemas.Notification import (
     NotificationListResponse,
     NotificationResponse,
@@ -61,10 +60,10 @@ def decode_cursor(cursor: str) -> tuple[datetime, int]:
 
 @router.get("", response_model=NotificationListResponse)
 def list_notifications(
+    current_user: CurrentUser,
+    db: DbSession,
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     # 每次查詢都限制在目前登入者的通知範圍內。
     stmt = select(Notification).where(Notification.user_id == current_user.id)

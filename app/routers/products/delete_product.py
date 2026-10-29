@@ -1,11 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import AdminUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import OrderItem, Product, User
+from app.database import DbSession
+from app.models import OrderItem, Product
 
 router = SizeLimitedAPIRouter(prefix="/products")
 
@@ -16,8 +15,8 @@ router = SizeLimitedAPIRouter(prefix="/products")
 )
 def delete_product(
     product_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     product = db.get(Product, product_id)
 

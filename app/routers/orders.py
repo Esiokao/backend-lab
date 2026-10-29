@@ -1,15 +1,18 @@
 import logging
 from typing import Literal
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import HTTPException, Query
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import (
+    AdminUser,
+    CurrentUser,
+)
 from app.core.enums import OrderStatus
 from app.core.events import EventType
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
+from app.database import DbSession
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
 
@@ -25,8 +28,8 @@ logger = logging.getLogger(__name__)
 )
 def create_order(
     payload: OrderCreate,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 同一商品在請求中重複出現 → 拒絕（前端合併後再送）。
     product_ids = [item.product_id for item in payload.items]
@@ -120,8 +123,8 @@ def create_order(
 @router.post("/orders/{order_id}/cancel", response_model=OrderResponse)
 def cancel_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 擁有者取消自己的訂單；狀態機僅允許 created / pending → cancelled。
     stmt = select(Order).where(
@@ -161,8 +164,8 @@ def cancel_order(
 @router.post("/orders/{order_id}/pay", response_model=PaymentResponse)
 def pay_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 只允許付款自己的訂單。
     stmt = select(Order).where(
@@ -200,8 +203,8 @@ def pay_order(
 @router.post("/orders/{order_id}/complete", response_model=OrderResponse)
 def complete_order(
     order_id: int,
-    current_user: User = Depends(require_admin),
-    session: Session = Depends(get_db),
+    current_user: AdminUser,
+    session: DbSession,
 ):
     # 只有 admin 可以將訂單標記為完成。
     stmt = select(Order).where(Order.id == order_id)
@@ -233,13 +236,13 @@ def complete_order(
 
 @router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
+    session: DbSession,
+    current_user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     user_id: int | None = Query(None),
     sort_by: Literal["id", "user_id"] = "id",
     order: Literal["asc", "desc"] = "asc",
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     stmt = select(Order).options(selectinload(Order.items))
 
@@ -263,8 +266,8 @@ def get_orders(
 )
 def get_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 允許訂單擁有者或 admin 取得；admin 從管理頁 / 儀表板點進詳情需要跨使用者讀取。
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
@@ -287,8 +290,8 @@ def get_order(
 )
 def get_user_orders(
     user_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 只能查詢自己的訂單。
     if user_id != current_user.id:
@@ -304,8 +307,8 @@ def get_user_orders(
 
 @router.get("/users-with-orders")
 def get_users_with_orders(
-    current_user: User = Depends(require_admin),
-    session: Session = Depends(get_db),
+    current_user: AdminUser,
+    session: DbSession,
 ):
     # 只有 admin 可以查看所有使用者的訂單。
     users = (

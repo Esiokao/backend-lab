@@ -1,13 +1,13 @@
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import AdminUser
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.core.events import EventType
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
+from app.database import DbSession
 from app.models import NotificationOutbox, Order, User
 from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
@@ -26,12 +26,12 @@ _OUTBOX_EVENT_BY_STATUS = {
 
 @router.get("")
 def list_orders(
+    db: DbSession,
+    _: AdminUser,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     order_status: OrderStatus | None = Query(default=None, alias="status"),
     user_id: int | None = Query(default=None, ge=1),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
 ):
     """列出訂單，支援分頁與狀態、使用者篩選。"""
     stmt = select(Order)
@@ -77,8 +77,8 @@ def list_orders(
 def update_order_status(
     order_id: int,
     new_status: OrderStatus,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """更新訂單狀態，並拒絕不合法的狀態轉換。"""
     order = db.get(Order, order_id)
@@ -121,8 +121,8 @@ def update_order_status(
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_order(
     order_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """刪除指定訂單。"""
     order = db.get(Order, order_id)
@@ -149,8 +149,8 @@ users_router = SizeLimitedAPIRouter(
 def update_user_as_admin(
     user_id: int,
     payload: AdminUserPatch,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    db: DbSession,
+    current_admin: AdminUser,
 ):
     """admin 更新使用者資料（name/email/role）。"""
     # 防呆：admin 不能改變自己的 role，避免把自己鎖在門外。
@@ -189,8 +189,8 @@ def update_user_as_admin(
 @users_router.get("/{user_id}")
 def get_user_detail(
     user_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """admin 檢視使用者詳情：基本資料 + 該使用者的全部訂單（含明細）。"""
     user = db.get(User, user_id)

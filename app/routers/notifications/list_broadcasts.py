@@ -1,19 +1,17 @@
-from fastapi import Depends
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.request_size import SizeLimitedAPIRouter
-from app.database import get_db
-from app.models import NotificationBroadcast, User
+from app.database import DbSession
+from app.models import NotificationBroadcast
 
 router = SizeLimitedAPIRouter(prefix="/notifications")
 
 
 @router.get("/broadcasts")
 def list_notification_broadcasts(
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     stmt = select(NotificationBroadcast).order_by(
         NotificationBroadcast.created_at.desc(),
