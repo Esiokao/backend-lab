@@ -60,7 +60,13 @@ const userMap = computed(() => new Map(users.value.map((user) => [user.id, user]
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 const hasNext = computed(() => page.value < totalPages.value);
 
+// 世代序號：loadOrders 可能並發（onMounted 的初始載入 vs 快速的篩選/翻頁），
+// 回應抵達順序不保證——舊回應後到會蓋掉新結果（畫面顯示過期資料）。
+// 每次呼叫領號碼，回來時不是最新的一號就整包丟棄（同 StorefrontView 的 epoch 防護）。
+let loadSeq = 0;
+
 async function loadOrders(): Promise<void> {
+  const seq = ++loadSeq;
   loading.value = true;
   loadError.value = "";
 
@@ -76,6 +82,9 @@ async function loadOrders(): Promise<void> {
     if (userId) params.set("user_id", userId);
 
     const data = await api.get<AdminOrdersResponse>(`/admin/orders?${params.toString()}`);
+
+    if (seq !== loadSeq) return; // 過期回應：已有更新的查詢，丟棄
+
     orders.value = data.items;
     total.value = data.total;
 
@@ -85,10 +94,11 @@ async function loadOrders(): Promise<void> {
       await loadOrders();
     }
   } catch (err) {
+    if (seq !== loadSeq) return; // 過期回應的錯誤也一樣不覆蓋
     loadError.value =
       err instanceof ApiError ? `Failed to load orders: ${err.message}` : "Failed to load orders.";
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
