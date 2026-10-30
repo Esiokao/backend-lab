@@ -24,7 +24,7 @@ export default defineConfig({
     //    storageState = 開新瀏覽器時預先貼上的 cookie（三部手機的概念）
     {
       name: 'guest',
-      testIgnore: [/auth\.setup\.ts/, /admin\.spec\.ts/],
+      testIgnore: [/auth\.setup\.ts/, /admin\.spec\.ts/, /orders\.spec\.ts/],
       use: { storageState: { cookies: [], origins: [] } },
       dependencies: ['setup']
     },
@@ -42,7 +42,12 @@ export default defineConfig({
     },
     {
       name: 'admin',
-      testIgnore: [/auth\.setup\.ts/, /auth\.spec\.ts/, /store\.spec\.ts/],
+      testIgnore: [
+        /auth\.setup\.ts/,
+        /auth\.spec\.ts/,
+        /store\.spec\.ts/,
+        /orders\.spec\.ts/
+      ],
       use: { storageState: '.auth/admin.json' },
       dependencies: ['setup']
     }
