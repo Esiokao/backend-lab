@@ -191,9 +191,8 @@ jobs:
           nohup pnpm run dev -- --port 5173 > /tmp/vite.log 2>&1 &
           sh ../scripts/wait_for.sh 30 2 "cat /tmp/vite.log" 'curl --silent --output /dev/null --max-time 3 http://localhost:5173/'
 
-      - name: Seed catalog for e2e
-        # CI 的 DB 是全新的：店面要有在庫商品，store 旅程才找得到 Add to cart。
-        run: docker compose exec -T postgres psql -U admin -d backend_lab_test -f - < e2e/seed.sql
+      # 商品 seed 由 e2e 的 setup project 負責（auth.setup.ts 讀 e2e/seed.sql）：
+      # setup 一定跑在旅程之前，CI 這裡不需要再注入一次。
 
       - name: Install Playwright browser
         working-directory: e2e

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { test as setup, expect } from '@playwright/test'
@@ -16,18 +16,17 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const PSQL = 'docker compose exec -T postgres psql -U admin -d backend_lab'
 
 setup.describe('Setup', () => {
-  // ① 種商品目錄：冪等（WHERE NOT EXISTS），SQL 直接 stdin 餵給 psql。
+  // ① 種商品目錄：內容的唯一來源是 e2e/seed.sql（本地與 CI 都經由這個 setup 跑，
+  //    所以 CI workflow 不再另外注入）。SQL 從 stdin 餵給 psql。
   setup('seed catalog products', async () => {
+    const seedSql = readFileSync(
+      new URL('../seed.sql', import.meta.url),
+      'utf8'
+    )
+
     execSync(PSQL, {
       cwd: ROOT,
-      input: `
-INSERT INTO products (name, description, price, stock, is_active)
-SELECT 'E2E Widget A', 'Seeded product for e2e journeys', 10.00, 50, true
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE name = 'E2E Widget A');
-
-INSERT INTO products (name, description, price, stock, is_active)
-SELECT 'E2E Widget B', 'Seeded product for e2e journeys', 20.00, 0, true
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE name = 'E2E Widget B');`,
+      input: seedSql,
       stdio: ['pipe', 'pipe', 'pipe']
     })
   })

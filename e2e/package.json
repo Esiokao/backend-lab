@@ -7,7 +7,6 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "seed": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < seed.sql",
     "cleanup": "docker compose -f ../compose.yaml exec -T postgres psql -U admin -d backend_lab -f - < cleanup.sql"
   },
   "devDependencies": {
