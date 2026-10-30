@@ -91,6 +91,80 @@ def test_guest_can_search_products_by_name(test_client, test_db):
     assert body[0]["name"] == "Coffee Beans"
 
 
+def test_list_products_sort_by_price(test_client, test_db):
+    # 價格排序：asc/desc 都驗；價格故意與 id 順序相反（id 大 = 便宜），
+    # 才能證明順序來自 price 而不是殘留的 id 排序。
+    test_db.add_all(
+        [
+            Product(name="Coffee Beans", price=Decimal("19.99"), stock=10),
+            Product(name="Tea", price=Decimal("9.99"), stock=5),
+            Product(name="Cocoa", price=Decimal("14.99"), stock=8),
+        ]
+    )
+    test_db.commit()
+
+    asc = test_client.get("/products/", params={"sort": "price_asc"}).json()
+    assert [p["price"] for p in asc] == ["9.99", "14.99", "19.99"]
+
+    desc = test_client.get("/products/", params={"sort": "price_desc"}).json()
+    assert [p["price"] for p in desc] == ["19.99", "14.99", "9.99"]
+
+
+def test_list_products_sort_by_price_uses_id_as_tiebreaker(test_client, test_db):
+    # 同價商品：offset 分頁需要全序。tie-breaker 是 id 遞增——
+    # 沒有它，DB 在同價列之間的順序不保證，跨頁可能重複或漏掉。
+    test_db.add_all(
+        [
+            Product(name="Tea A", price=Decimal("9.99"), stock=5),
+            Product(name="Tea B", price=Decimal("9.99"), stock=5),
+            Product(name="Tea C", price=Decimal("9.99"), stock=5),
+        ]
+    )
+    test_db.commit()
+
+    body = test_client.get("/products/", params={"sort": "price_asc"}).json()
+
+    ids = [p["id"] for p in body]
+    assert ids == sorted(ids)
+
+
+def test_list_products_sort_newest_first(test_client, test_db):
+    test_db.add_all(
+        [
+            Product(name="Older", price=Decimal("1.00"), stock=5),
+            Product(name="Newer", price=Decimal("2.00"), stock=5),
+        ]
+    )
+    test_db.commit()
+
+    body = test_client.get("/products/", params={"sort": "newest"}).json()
+
+    assert [p["name"] for p in body] == ["Newer", "Older"]
+
+
+def test_list_products_rejects_invalid_sort(test_client, test_db):
+    # Literal 型別守門：sort 不在白名單 → 422（與 repo 契約風格一致）。
+    response = test_client.get("/products/", params={"sort": "cheapest"})
+
+    assert response.status_code == 422
+
+
+def test_list_products_without_sort_keeps_id_order(test_client, test_db):
+    # 向後相容：不帶 sort 的請求（無限滾動預取、既有測試）維持 id 遞增。
+    test_db.add_all(
+        [
+            Product(name="Tea", price=Decimal("9.99"), stock=5),
+            Product(name="Coffee Beans", price=Decimal("19.99"), stock=10),
+        ]
+    )
+    test_db.commit()
+
+    body = test_client.get("/products/").json()
+
+    ids = [p["id"] for p in body]
+    assert ids == sorted(ids)
+
+
 def test_admin_can_create_product(
     test_db,
     create_test_user,

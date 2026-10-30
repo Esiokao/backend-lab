@@ -33,3 +33,33 @@ test.describe('Store cart journey', () => {
       await expect(page.getByText('Your cart is empty')).toBeHidden()
     }))
 })
+
+// 旅程 2b：搜尋 + 排序。種子商品 E2E Widget A（$10）/ B（$20，缺貨），
+// 先用搜尋縮到只剩這兩張卡，再選價格降冪——順序斷言才不受 dev DB 其他商品干擾。
+test.describe('Store sorting journey', () => {
+  test('price high to low reorders the product cards', async ({ page }) => {
+    await page.goto('/')
+
+    // 搜尋 "E2E Widget"：@change 在 blur 觸發，fill 後按 Enter（@keydown.enter）更直接。
+    await page.getByLabel('Search products').fill('E2E Widget')
+    await page.getByLabel('Search products').press('Enter')
+
+    // 排序前（id 遞增）：A 先 B 後。
+    await expect(page.locator('.product-name').first()).toHaveText(
+      'E2E Widget A'
+    )
+
+    await page.getByLabel('Sort products').selectOption('price_desc')
+
+    // 切排序 → 重撈 → 第一張卡變成貴的那個（B，$20）。斷言吸收重撈的延遲。
+    await expect(page.locator('.product-name').first()).toHaveText(
+      'E2E Widget B'
+    )
+
+    // 反向再驗一次：升冪第一張回到 A。
+    await page.getByLabel('Sort products').selectOption('price_asc')
+    await expect(page.locator('.product-name').first()).toHaveText(
+      'E2E Widget A'
+    )
+  })
+})

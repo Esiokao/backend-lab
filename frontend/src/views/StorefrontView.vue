@@ -66,6 +66,9 @@ const categories = ref<Category[]>([]);
 const allProducts = ref<Product[]>([]);
 const selectedCategory = ref<number | null>(null);
 
+// 排序：空字串 = 不帶 sort 參數（後端維持 id 遞增的預設）。
+const sortBy = ref<"" | "newest" | "price_asc" | "price_desc">("");
+
 const categoryMap = computed(() => new Map(categories.value.map((c) => [c.id, c])));
 
 function categoryName(id: number | null): string {
@@ -113,11 +116,20 @@ function selectCategory(id: number | null): void {
   void fetchProducts();
 }
 
+// 排序切換與切分類同一套重置：回第 1 頁 + 作廢在途預取（epoch 防護）。
+function selectSort(value: "" | "newest" | "price_asc" | "price_desc"): void {
+  if (sortBy.value === value) return;
+  sortBy.value = value;
+  page.value = 1;
+  invalidatePrefetch();
+  void fetchProducts();
+}
+
 // 後端商品列表無 total 欄位：回滿一頁視為還有下一頁（v1.16 無限滾動）。
 const hasMore = ref(true);
 const loadingMore = ref(false);
 
-// 列表查詢參數（頁碼 + 搜尋 + 分類）：fetch/loadMore/prefetch 共用同一來源。
+// 列表查詢參數（頁碼 + 搜尋 + 分類 + 排序）：fetch/loadMore/prefetch 共用同一來源。
 function listParams(pageNum: number): URLSearchParams {
   const params = new URLSearchParams({
     page: String(pageNum),
@@ -127,6 +139,7 @@ function listParams(pageNum: number): URLSearchParams {
   if (selectedCategory.value !== null) {
     params.set("category_id", String(selectedCategory.value));
   }
+  if (sortBy.value) params.set("sort", sortBy.value);
   return params;
 }
 
@@ -611,6 +624,17 @@ onMounted(() => {
               @change="submitSearch"
             />
           </div>
+          <select
+            class="filter-select"
+            aria-label="Sort products"
+            :value="sortBy"
+            @change="selectSort(($event.target as HTMLSelectElement).value as '' | 'newest' | 'price_asc' | 'price_desc')"
+          >
+            <option value="">Sort: Default</option>
+            <option value="newest">Newest first</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+          </select>
           <span v-if="selectedCategory !== null" class="catalog-filter-note">
             {{ categoryName(selectedCategory) }}
             <button type="button" class="text-button" @click="selectCategory(null)">Clear ×</button>
