@@ -31,7 +31,7 @@ setup.describe('Setup', () => {
     })
   })
 
-  // ② shopper storageState：走 UI 註冊流程（順便當註冊功能的煙霧測試）。
+  // ② shopper storageState：走 UI 註冊流程（順便當註冊功能的smoke）。
   setup('create shopper storage state', async ({ page }) => {
     const email = uniqueEmail('shopper')
     await page.goto('/login')
