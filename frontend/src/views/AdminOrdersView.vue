@@ -11,7 +11,7 @@ import { useToast } from "@/stores/toast";
 // - PATCH /admin/orders/{id}/status?new_status=X（非法轉移 → 409，F8-4）
 // - DELETE /admin/orders/{id} → 204（F8-5）
 
-type OrderStatusValue = "created" | "pending" | "processing" | "completed" | "cancelled";
+type OrderStatusValue = "unpaid" | "paid" | "processing" | "completed" | "cancelled";
 
 type AdminOrder = { id: number; user_id: number; status: OrderStatusValue };
 
@@ -25,8 +25,8 @@ type AdminOrdersResponse = {
 type UserRow = { id: number; name: string; email: string; role: string };
 
 const STATUSES: OrderStatusValue[] = [
-  "created",
-  "pending",
+  "unpaid",
+  "paid",
   "processing",
   "completed",
   "cancelled",
@@ -34,8 +34,8 @@ const STATUSES: OrderStatusValue[] = [
 
 // 鏡像後端 app/core/enums.py 的 ALLOWED_TRANSITIONS：UI 只允許合法的下一狀態。
 const ALLOWED_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
-  created: ["pending", "cancelled"],
-  pending: ["processing", "completed", "cancelled"],
+  unpaid: ["paid", "cancelled"],
+  paid: ["processing", "completed", "cancelled"],
   processing: ["completed", "cancelled"],
   completed: [],
   cancelled: [],

@@ -55,7 +55,7 @@ def advance_once(session: Session, *, now: datetime | None = None) -> int:
     # 1) 已付款且到期 → processing（模擬倉儲撿貨）。
     orders = _claim_batch(
         session,
-        ["pending"],
+        ["paid"],
         now - timedelta(seconds=PROCESSING_DELAY_SECONDS),
     )
     for order in orders:

@@ -52,7 +52,7 @@ def test_recent_unpaid_order_is_untouched(
     expired = expire_once(test_db)
 
     test_db.refresh(order)
-    assert order.status == "created"
+    assert order.status == "unpaid"
     assert product.stock == 9
     assert expired == 0
 
@@ -63,12 +63,12 @@ def test_paid_order_is_never_expired(
     # 只過期 created（未付款）——pending/processing/completed 不受影響。
     user = create_test_user(**test_user_data)
     product = create_test_product(stock=9)
-    order = create_test_order(user.id, product=product, status="pending", quantity=1)
+    order = create_test_order(user.id, product=product, status="paid", quantity=1)
     order.created_at = _created_seconds_ago(2000)
     test_db.commit()
 
     expired = expire_once(test_db)
 
     test_db.refresh(order)
-    assert order.status == "pending"
+    assert order.status == "paid"
     assert expired == 0

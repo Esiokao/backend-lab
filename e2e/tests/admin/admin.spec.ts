@@ -18,7 +18,7 @@ async function filterByUserId(page: Page, userId: number): Promise<void> {
 test.describe('Admin orders journey', () => {
   // page = admin project 的分頁；shopperApi = fixtures 給的全新 shopper client。
   // 不需要 browser——身份不再靠開瀏覽器造。
-  test('admin sees a fresh shopper order and advances created to pending', async ({
+  test('admin sees a fresh shopper order and advances unpaid to paid', async ({
     page,
     shopperApi
   }) => {
@@ -31,13 +31,13 @@ test.describe('Admin orders journey', () => {
 
     const row = page.locator('tr', { has: page.getByText(`#${order.id}`) })
     await expect(row).toBeVisible()
-    await expect(row.locator('.status-badge')).toHaveText('created')
+    await expect(row.locator('.status-badge')).toHaveText('unpaid')
 
-    // ③ 推進狀態機：created → pending（ALLOWED_TRANSITIONS 的合法第一步）
+    // ③ 推進狀態機：unpaid → paid（ALLOWED_TRANSITIONS 的合法第一步）
     const select = page.getByLabel(`Change status for order ${order.id}`)
-    await select.selectOption('pending')
+    await select.selectOption('paid')
 
-    await expect(row.locator('.status-badge')).toHaveText('pending')
-    await expect(select).toHaveValue('pending')
+    await expect(row.locator('.status-badge')).toHaveText('paid')
+    await expect(select).toHaveValue('paid')
   })
 })

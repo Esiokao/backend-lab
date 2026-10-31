@@ -98,7 +98,7 @@ const cancelling = ref(false);
 const cancellable = computed(
   () =>
     order.value !== null &&
-    (order.value.status === "created" || order.value.status === "pending") &&
+    (order.value.status === "unpaid" || order.value.status === "paid") &&
     isOwnOrder.value,
 );
 
@@ -165,7 +165,7 @@ async function loadOrder(orderId: number): Promise<void> {
   // 訂單列表的 Pay 捷徑：?pay=1 → 載入成功後自動彈出付款 Modal（僅限本人 created 訂單）。
   if (
     route.query.pay === "1" &&
-    order.value.status === "created" &&
+    order.value.status === "unpaid" &&
     order.value.user_id === me.value?.id
   ) {
     payModalOpen.value = true;
@@ -295,7 +295,7 @@ watch(
 
     <!-- 付款到期：與取消同樣放在 Line items 下方——title block 只留身份，動作跟著明細走。 -->
     <section
-      v-if="order.status === 'created' && isOwnOrder"
+      v-if="order.status === 'unpaid' && isOwnOrder"
       class="data-panel pay-strip"
       aria-label="Pay order"
     >

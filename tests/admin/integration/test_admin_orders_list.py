@@ -72,7 +72,7 @@ def test_admin_can_filter_orders_by_status(
     owner = create_test_user(**test_user_data)
 
     # 建立兩筆不同狀態的訂單。
-    create_test_order(owner.id, status="pending")
+    create_test_order(owner.id, status="paid")
     create_test_order(owner.id, status="processing")
     test_db.commit()
 
@@ -82,7 +82,7 @@ def test_admin_can_filter_orders_by_status(
     # 只查詢 pending 訂單。
     response = client.get(
         "/admin/orders/",
-        params={"status": "pending"},
+        params={"status": "paid"},
     )
 
     assert response.status_code == 200
@@ -90,7 +90,7 @@ def test_admin_can_filter_orders_by_status(
     data = response.json()
     assert data["total"] == 1
     assert len(data["items"]) == 1
-    assert data["items"][0]["status"] == "pending"
+    assert data["items"][0]["status"] == "paid"
 
 
 def test_admin_can_filter_orders_by_user_id(
@@ -113,8 +113,8 @@ def test_admin_can_filter_orders_by_user_id(
     owner_b = create_test_user(**user_b_data)
 
     # 每位使用者各建立一筆訂單。
-    create_test_order(owner_a.id, status="pending")
-    create_test_order(owner_b.id, status="pending")
+    create_test_order(owner_a.id, status="paid")
+    create_test_order(owner_b.id, status="paid")
     test_db.commit()
 
     # 管理員透過 Session 登入。
@@ -148,7 +148,7 @@ def test_admin_can_paginate_orders(
 
     # 建立五筆訂單。
     for _ in range(5):
-        create_test_order(owner.id, status="pending")
+        create_test_order(owner.id, status="paid")
     test_db.commit()
 
     # 管理員透過 Session 登入。
@@ -208,7 +208,7 @@ def test_admin_gets_empty_items_for_page_beyond_last(
 
     # 建立三筆訂單。
     for _ in range(3):
-        create_test_order(owner.id, status="pending")
+        create_test_order(owner.id, status="paid")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -241,7 +241,7 @@ def test_admin_orders_are_sorted_by_id(
 
     # 建立三筆訂單。
     for _ in range(3):
-        create_test_order(owner.id, status="pending")
+        create_test_order(owner.id, status="paid")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -265,7 +265,7 @@ def test_admin_order_pages_have_no_duplicate_ids(
     owner = create_test_user(**test_user_data)
 
     for _ in range(4):
-        create_test_order(owner.id, status="pending")
+        create_test_order(owner.id, status="paid")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -323,7 +323,7 @@ def test_admin_can_cancel_pending_order(
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
 
-    order = create_test_order(owner.id, status="pending")
+    order = create_test_order(owner.id, status="paid")
 
     client = session_auth_client(test_admin_user_data)
 

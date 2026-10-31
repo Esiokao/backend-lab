@@ -43,7 +43,7 @@ def test_admin_can_update_order_status(
     """Admin 可以將 pending 訂單更新為 processing。"""
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
-    order = create_order(test_db, owner, "pending")
+    order = create_order(test_db, owner, "paid")
     order_id = order.id
 
     client = session_auth_client(test_admin_user_data)
@@ -66,9 +66,9 @@ def test_admin_can_update_order_status(
 @pytest.mark.parametrize(
     ("initial_status", "new_status"),
     [
-        ("pending", "processing"),
-        ("pending", "completed"),  # v1.18 快速完成：與 POST /complete 一致
-        ("pending", "cancelled"),
+        ("paid", "processing"),
+        ("paid", "completed"),  # v1.18 快速完成：與 POST /complete 一致
+        ("paid", "cancelled"),
         ("processing", "completed"),
         ("processing", "cancelled"),
     ],
@@ -106,13 +106,13 @@ def test_admin_can_make_valid_status_transitions(
 @pytest.mark.parametrize(
     ("initial_status", "new_status"),
     [
-        ("pending", "pending"),  # 不允許重複設定相同狀態
-        ("processing", "pending"),
+        ("paid", "paid"),  # 不允許重複設定相同狀態
+        ("processing", "paid"),
         ("processing", "processing"),  # 不允許重複設定相同狀態
-        ("completed", "pending"),
+        ("completed", "paid"),
         ("completed", "processing"),
         ("completed", "cancelled"),
-        ("cancelled", "pending"),
+        ("cancelled", "paid"),
         ("cancelled", "processing"),
         ("cancelled", "completed"),
         ("cancelled", "cancelled"),
@@ -200,7 +200,7 @@ def test_admin_processing_transition_writes_no_outbox_event(
     """processing 不是終態，沒有對應通知，不應產生事件。"""
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
-    order = create_order(test_db, owner, "pending")
+    order = create_order(test_db, owner, "paid")
     order_id = order.id
 
     client = session_auth_client(test_admin_user_data)

@@ -16,7 +16,7 @@ def create_test_order(test_db, create_test_product):
     def _create_order(
         user_id,
         *,
-        status: str = "created",
+        status: str = "unpaid",
         product=None,
         quantity: int = 1,
         stock: int = 10,

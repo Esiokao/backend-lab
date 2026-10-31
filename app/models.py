@@ -98,7 +98,7 @@ class Order(Base):
     # Track the current state of the order.
     status: Mapped[str] = mapped_column(
         String(20),
-        default=OrderStatus.created.value,
+        default=OrderStatus.unpaid.value,
         nullable=False,
     )
 

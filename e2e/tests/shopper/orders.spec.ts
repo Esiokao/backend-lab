@@ -15,6 +15,6 @@ test.describe('Shopper orders journey', () => {
     // ── ③ 驗證：自己造的那筆出現在列表 ──
     const row = page.locator('tr', { has: page.getByText(`#${order.id}`) })
     await expect(row).toBeVisible()
-    await expect(row.getByText(/created/i)).toBeVisible()
+    await expect(row.getByText(/unpaid/i)).toBeVisible()
   })
 })

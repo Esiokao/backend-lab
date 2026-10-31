@@ -1,6 +1,6 @@
 """過期未付款訂單的自動取消 worker。
 
-created 超過 ORDER_EXPIRY_SECONDS 仍未付款 → cancelled + 歸還庫存 + 發取消通知。
+unpaid 超過 ORDER_EXPIRY_SECONDS 仍未付款 → cancelled + 歸還庫存 + 發取消通知。
 堵住「未付款訂單鎖死庫存」的攻擊面：登入者建單不付款即可囤積庫存，
 沒有過期機制時，這個攻擊零成本且永不釋放（真實電商的「15 分鐘未付款自動取消」同款）。
 """
@@ -34,7 +34,7 @@ def _claim_batch(session) -> list[Order]:
     stmt = (
         select(Order)
         .where(
-            Order.status == OrderStatus.created.value,
+            Order.status == OrderStatus.unpaid.value,
             Order.created_at <= func.now() - timedelta(seconds=ORDER_EXPIRY_SECONDS),
         )
         .order_by(Order.id)

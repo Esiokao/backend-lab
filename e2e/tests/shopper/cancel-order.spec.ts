@@ -10,8 +10,8 @@ test.describe('Cancel order journey', () => {
     page
   }) => {
     // ── ① 造資料：走到真實 UI 流程會停留的狀態 ──
-    // 真實結帳 = 建單 + 付款，終點是 pending（已付款待出貨）；
-    // 只 create 不 pay 的 created 是「按了結帳沒按 Pay」的過渡態，
+    // 真實結帳 = 建單 + 付款，終點是 paid（已付款待出貨）；
+    // 只 create 不 pay 的 unpaid 是「按了結帳沒按 Pay」的過渡態，
     // 真實使用者幾乎不會停留——造資料要貼近真實流程的終點，不是中間點。
     const order = await createOrder(page.request)
     await payOrder(page.request, order.id)
@@ -21,7 +21,7 @@ test.describe('Cancel order journey', () => {
 
     const row = page.locator('tr', { has: page.getByText(`#${order.id}`) })
     await expect(row).toBeVisible()
-    await expect(row.locator('.status-badge')).toHaveText('pending')
+    await expect(row.locator('.status-badge')).toHaveText('paid')
 
     // 原生 window.confirm：不是 DOM 元素，locator 系武器全部無效，
     // 只能用 dialog 事件 API。Playwright 預設「dismiss（取消）」——

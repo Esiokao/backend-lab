@@ -86,7 +86,7 @@ def create_order(
     # 訂單 owner 由目前登入的使用者決定。
     new_order = Order(
         user_id=current_user.id,
-        status=OrderStatus.created.value,
+        status=OrderStatus.unpaid.value,
     )
     session.add(new_order)
 
@@ -153,7 +153,7 @@ def cancel_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    allowed = {OrderStatus.created.value, OrderStatus.pending.value}
+    allowed = {OrderStatus.unpaid.value, OrderStatus.paid.value}
     if order.status not in allowed:
         raise HTTPException(
             status_code=400,
@@ -210,7 +210,7 @@ def pay_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.created.value:
+    if order.status != OrderStatus.unpaid.value:
         raise HTTPException(
             status_code=400,
             detail=f"Order cannot be paid in its current status: {order.status}",
@@ -223,7 +223,7 @@ def pay_order(
     )
 
     # 模擬付款成功，更新訂單狀態與付款時間。
-    order.status = OrderStatus.pending.value
+    order.status = OrderStatus.paid.value
     order.paid_at = func.now()
     session.add(event)
     session.commit()
@@ -246,7 +246,7 @@ def complete_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.pending.value:
+    if order.status != OrderStatus.paid.value:
         raise HTTPException(
             status_code=400,
             detail=f"Order cannot be completed in its current status: {order.status}",

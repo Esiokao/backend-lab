@@ -542,8 +542,8 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .result-count { color: var(--ink-faint); font-size: 11px; }
 .result-count strong { color: var(--ink); font-weight: 500; }
 .status-badge { padding: 2px 8px; border: 1.5px solid currentColor; border-radius: 2px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; background: transparent; }
-.status-badge.created { color: var(--ink-soft); background: transparent; }
-.status-badge.pending { color: var(--warning-ink); background: transparent; }
+.status-badge.unpaid { color: var(--ink-soft); background: transparent; }
+.status-badge.paid { color: var(--warning-ink); background: transparent; }
 .status-badge.processing { color: var(--info); background: transparent; }
 .status-badge.completed { color: var(--success-ink); background: transparent; }
 .status-badge.cancelled { color: var(--danger-ink); background: transparent; }

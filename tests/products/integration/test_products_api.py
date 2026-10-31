@@ -303,7 +303,7 @@ def test_restock_creates_outbox_event(
     )
 
     assert event.payload == {"product_id": product.id}
-    assert event.status == "pending"
+    assert event.status == "paid"
 
 
 def test_stock_increase_without_restock_does_not_create_event(
