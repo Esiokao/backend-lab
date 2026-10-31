@@ -32,3 +32,16 @@ export async function createOrder(
   const order = JSON.parse(body)
   return { id: order.id, user_id: order.user_id }
 }
+
+/** 付款：模擬付款（demo 端點），把訂單推進到 pending（已付款待出貨）。
+ *  真實 UI 流程的終點是 pending 而非 created——造資料要貼近真實流程時用這個。 */
+export async function payOrder(
+  shopper: APIRequestContext,
+  orderId: number
+): Promise<void> {
+  const res = await shopper.post(`/api/orders/${orderId}/pay`, {})
+  const body = await res.text()
+  if (res.status() !== 200) {
+    throw new Error(`pay order failed: ${res.status()} ${body}`)
+  }
+}
