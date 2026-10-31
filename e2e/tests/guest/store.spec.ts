@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { signupViaUi, uniqueEmail } from './helpers'
+import { signupViaUi, uniqueEmail } from '../helpers'
 
 // 旅程 2：逛店 → 加購物車 → 購物車頁看得到商品。
 // 點「第一張有 Add to cart 的卡片」是合法的模糊——任何在庫商品都符合目的。

@@ -12,3 +12,7 @@ WHERE NOT EXISTS (SELECT 1 FROM products WHERE name = 'E2E Widget A');
 INSERT INTO products (name, description, price, stock, is_active)
 SELECT 'E2E Widget B', 'Seeded product for e2e journeys', 20.00, 0, true
 WHERE NOT EXISTS (SELECT 1 FROM products WHERE name = 'E2E Widget B');
+
+-- A 的庫存是「可下單」契約的一半：商品不會重建，但歷次測試會持續扣庫存，
+-- 長期跑下來會歸零 → 下單旅程 409。每次 setup 都把它補回 50（B 的 0 是故意不動的）。
+UPDATE products SET stock = 50 WHERE name = 'E2E Widget A';

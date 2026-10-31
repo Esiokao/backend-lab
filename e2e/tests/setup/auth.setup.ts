@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url'
 
 import { test as setup, expect } from '@playwright/test'
 
-import { uniqueEmail, PASSWORD } from './helpers'
+import { uniqueEmail, PASSWORD } from '../helpers'
 
 const ADMIN_EMAIL = 'admin@e2e.example.com'
 
 // repo 根目錄（本檔在 e2e/tests/）：compose.yaml 在這一層。
 // 不用相對 cwd —— 相對路徑會隨「從哪裡呼叫 playwright」而變，Windows 上已經炸過一次。
-const ROOT = fileURLToPath(new URL('../../', import.meta.url))
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 
 // compose.yaml 在根目錄 → 不需要 -f；SQL 一律從 stdin 餵（避免 Windows 引號地獄）。
 const PSQL = 'docker compose exec -T postgres psql -U admin -d backend_lab'
@@ -20,7 +20,7 @@ setup.describe('Setup', () => {
   //    所以 CI workflow 不再另外注入）。SQL 從 stdin 餵給 psql。
   setup('seed catalog products', async () => {
     const seedSql = readFileSync(
-      new URL('../seed.sql', import.meta.url),
+      new URL('../../seed.sql', import.meta.url),
       'utf8'
     )
 

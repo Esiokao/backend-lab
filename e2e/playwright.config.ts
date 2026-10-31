@@ -2,7 +2,17 @@ import { defineConfig } from '@playwright/test'
 
 // e2e 針對「已經跑著的開發 stack」：postgres/redis（compose）+ uvicorn:8000 + vite:5173。
 // 沒有 webServer 自動啟動——先確認 stack 活著再跑，避免測試等一個起不來的服務。
-// CI 接入時：job 先 docker compose up + uvicorn + vite，再 npx playwright test。
+// CI 接入時：job 先 docker compose up + uvicorn + vite，再 pnpm exec playwright test。
+//
+// 「測試用什麼身份」由目錄決定（testMatch 白名單，維護成本 O(1)）：
+//   tests/setup/   → 種資料 + 產生 storageState（每個身份 project 都先依賴它）
+//   tests/guest/   → 未登入旅程
+//   tests/shopper/ → shopper 身份（storageState 自動掛載）
+//   tests/admin/   → admin 身份
+//   tests/all/     → 三個身份都要跑的通用測試（smoke、404）
+// 新增 spec 時放對資料夾即可，config 不用再改。
+// ⚠️ 白名單的失敗模式是「安靜」：放錯/漏放 = 測試默默不執行——
+//    新增旅程時確認該 project 的測試數有增加。
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
@@ -16,38 +26,25 @@ export default defineConfig({
     trace: 'retain-on-failure'
   },
   projects: [
-    // ① setup project：最先跑 — 種商品 + 產生兩份 storageState（testMatch 鎖定自己）
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    // ① setup project：最先跑，身份 project 都 dependencies 它
+    { name: 'setup', testMatch: /[\/]setup[\/]/ },
 
-    // ② 三個身份：dependencies 確保 setup 先完成；
-    //    testIgnore 防止身份 project 重跑 setup 檔；
-    //    storageState = 開新瀏覽器時預先貼上的 cookie（三部手機的概念）
+    // ② 三個身份 + 共通的 all/
     {
       name: 'guest',
-      testIgnore: [/auth\.setup\.ts/, /admin\.spec\.ts/, /orders\.spec\.ts/],
+      testMatch: [/[\/]guest[\/]/, /[\/]all[\/]/],
       use: { storageState: { cookies: [], origins: [] } },
       dependencies: ['setup']
     },
     {
       name: 'shopper',
-      // guest 旅程（UI 登入/註冊）不適用已登入身份：/login 是 guestOnly 會被彈走
-      testIgnore: [
-        /auth\.setup\.ts/,
-        /auth\.spec\.ts/,
-        /store\.spec\.ts/,
-        /admin\.spec\.ts/
-      ],
+      testMatch: [/[\/]shopper[\/]/, /[\/]all[\/]/],
       use: { storageState: '.auth/shopper.json' },
       dependencies: ['setup']
     },
     {
       name: 'admin',
-      testIgnore: [
-        /auth\.setup\.ts/,
-        /auth\.spec\.ts/,
-        /store\.spec\.ts/,
-        /orders\.spec\.ts/
-      ],
+      testMatch: [/[\/]admin[\/]/, /[\/]all[\/]/],
       use: { storageState: '.auth/admin.json' },
       dependencies: ['setup']
     }

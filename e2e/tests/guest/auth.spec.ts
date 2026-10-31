@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { loginViaUi, signoutViaUi, signupViaUi, uniqueEmail } from './helpers'
+import { loginViaUi, signoutViaUi, signupViaUi, uniqueEmail } from '../helpers'
 
 // 旅程 1：註冊 → 自動登入 → 登出 → 登入（含 Keep me signed in）。
 // 這條是所有需要登入的旅程的地基，也鎖住 remember-me 的 UI 行為。
