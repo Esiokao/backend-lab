@@ -20,6 +20,7 @@ const { theme, toggleTheme } = useTheme();
 
 const email = ref("");
 const password = ref("");
+const confirmPassword = ref("");
 const error = ref("");
 const fieldErrors = ref<Record<string, string>>({});
 const submitting = ref(false);
@@ -83,6 +84,7 @@ async function handleSignup(): Promise<void> {
     name: name.value,
     email: email.value,
     password: password.value,
+    confirmPassword: confirmPassword.value,
   });
   if (!parsed.success) {
     fieldErrors.value = Object.fromEntries(
@@ -94,7 +96,11 @@ async function handleSignup(): Promise<void> {
 
   submitting.value = true;
   try {
-    await api.post("/users", parsed.data);
+    await api.post("/users", {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
     // 註冊成功 → 直接登入（同一組帳密）。
     await login(parsed.data.email, parsed.data.password);
 
@@ -214,6 +220,22 @@ function switchMode(next: "signin" | "signup"): void {
             />
             <p v-if="fieldErrors.password" class="m-0 text-[11px] text-danger-ink">
               {{ fieldErrors.password }}
+            </p>
+          </div>
+
+          <!-- Confirm password：僅 Sign up 模式；aria-label 供 getByLabel 精準定位 -->
+          <div v-if="mode === 'signup'" class="flex flex-col gap-1.5">
+            <label for="confirm-password" class="text-[11px] font-semibold text-ink-soft">Confirm password</label>
+            <input
+              id="confirm-password"
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Re-enter your password"
+              class="h-10 rounded-lg border border-line bg-card px-3 text-[13px] text-ink outline-none caret-ink placeholder:text-ink-faint focus:border-brand"
+            />
+            <p v-if="fieldErrors.confirmPassword" class="m-0 text-[11px] text-danger-ink">
+              {{ fieldErrors.confirmPassword }}
             </p>
           </div>
 

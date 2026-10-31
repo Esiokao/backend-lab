@@ -39,6 +39,7 @@ setup.describe('Setup', () => {
     await page.getByLabel('Name', { exact: true }).fill('E2E Shopper')
     await page.getByLabel('Email', { exact: true }).fill(email)
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+    await page.getByLabel('Confirm password', { exact: true }).fill(PASSWORD)
     await page.getByRole('button', { name: 'Create account' }).click()
     await expect(
       page.getByRole('button', { name: 'Account menu' })

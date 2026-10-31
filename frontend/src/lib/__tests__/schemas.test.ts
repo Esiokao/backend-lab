@@ -38,6 +38,7 @@ describe("SignupFormSchema", () => {
       name: "Ada",
       email: "ada@example.com",
       password: "12345678",
+      confirmPassword: "12345678",
     });
     expect(result.success).toBe(true);
   });
@@ -47,13 +48,32 @@ describe("SignupFormSchema", () => {
       name: "Ada",
       email: "ada@example.com",
       password: "1234567",
+      confirmPassword: "1234567",
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects a blank name", () => {
-    const result = SignupFormSchema.safeParse({ name: "  ", email: "a@a.com", password: "12345678" });
+    const result = SignupFormSchema.safeParse({
+      name: "  ",
+      email: "a@a.com",
+      password: "12345678",
+      confirmPassword: "12345678",
+    });
     expect(result.success).toBe(false);
+  });
+
+  it("rejects mismatched confirmation on the confirm path", () => {
+    const result = SignupFormSchema.safeParse({
+      name: "Ada",
+      email: "ada@example.com",
+      password: "12345678",
+      confirmPassword: "87654321",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(["confirmPassword"]);
+    }
   });
 });
 

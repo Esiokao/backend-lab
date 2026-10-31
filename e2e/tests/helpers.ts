@@ -29,6 +29,7 @@ export async function signupViaUi(
   await page.getByLabel('Name', { exact: true }).fill(name)
   await page.getByLabel('Email', { exact: true }).fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByLabel('Confirm password', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Create account' }).click()
 
   // 註冊成功 → 自動登入：header 出現帳號選單。

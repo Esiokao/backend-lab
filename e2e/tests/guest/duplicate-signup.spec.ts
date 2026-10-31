@@ -20,6 +20,9 @@ test.describe('Duplicate signup', () => {
     await page.getByLabel('Name', { exact: true }).fill('E2E Dup')
     await page.getByLabel('Email', { exact: true }).fill(email)
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+    await page
+      .getByRole('textbox', { name: 'Confirm password', exact: true })
+      .fill(PASSWORD)
     await page.getByRole('button', { name: 'Create account' }).click()
 
     // ── ③ 驗證 ──
