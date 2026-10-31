@@ -133,7 +133,7 @@ def checkout(
 ):
     items = _get_items(db, current_user.id)
 
-    # 前端勾選式結帢：只帶選中的商品建立訂單，其餘留在車上。
+    # 前端勾選式：只帶選中的商品建立訂單，其餘留在車上。
     if payload is not None and payload.product_ids is not None:
         wanted = set(payload.product_ids)
         items = [item for item in items if item.product_id in wanted]

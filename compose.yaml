@@ -133,6 +133,31 @@ services:
     healthcheck:
       disable: true
 
+
+  # =========================
+  # Order Expiry Worker（未付款訂單過期自動取消）
+  # =========================
+  order-expiry-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # created 超過 ORDER_EXPIRY_SECONDS 未付款 → cancelled + 歸還庫存；
+    # 堵住「建單不付款鎖死庫存」的攻擊面（真實電商的「15 分鐘未付款自動取消」同款）。
+    command: ["python", "-m", "app.workers.order_expiry"]
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
+
+      ORDER_EXPIRY_SECONDS: ${ORDER_EXPIRY_SECONDS:-1800}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      disable: true
+
   # =========================
   # Frontend（Vite dev server）
   # =========================

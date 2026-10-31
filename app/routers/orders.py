@@ -1,7 +1,7 @@
 import logging
 from typing import Literal
 
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, Request
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
@@ -11,6 +11,7 @@ from app.core.dependencies import (
 )
 from app.core.enums import OrderStatus
 from app.core.events import EventType
+from app.core.rate_limit import rate_limit
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
@@ -22,10 +23,6 @@ router = SizeLimitedAPIRouter(
 logger = logging.getLogger(__name__)
 
 
-@router.post(
-    "/orders",
-    response_model=OrderResponse,
-)
 def create_order(
     payload: OrderCreate,
     current_user: CurrentUser,
@@ -120,6 +117,25 @@ def create_order(
     return new_order
 
 
+# 建單限流：堵「大量建單囤積庫存」的縱深防禦（30 次/分鐘/IP）。
+# 正常購買遠低於此；真正的庫存鎖死由過期 worker（order_expiry）根治，這裡是保險絲。
+# 限流掛在 HTTP 邊界的薄殼上——內部重用（cart.checkout）不受限流。
+# 順序：router.post 在上、rate_limit 在下——route 必須註冊「包過裝的」函式，
+# 反過來的話註冊到的是裸函式，限流永遠不會執行。
+@router.post(
+    "/orders",
+    response_model=OrderResponse,
+)
+@rate_limit(limit=30, window=60)
+def create_order_endpoint(
+    payload: OrderCreate,
+    request: Request,
+    current_user: CurrentUser,
+    session: DbSession,
+) -> OrderResponse:
+    return create_order(payload, current_user=current_user, session=session)
+
+
 @router.post("/orders/{order_id}/cancel", response_model=OrderResponse)
 def cancel_order(
     order_id: int,
@@ -145,6 +161,22 @@ def cancel_order(
         )
 
     order.status = OrderStatus.cancelled.value
+
+    # 歸還庫存：與 create_order 的扣庫存對稱（同交易、同排序，死鎖免疫）。
+    # 沒有這段，任何取消（含過期自動取消）都在永久銷毀庫存——
+    # 庫存鎖死攻擊的收益即來自這個缺口。
+    items = (
+        session.execute(select(OrderItem).where(OrderItem.order_id == order.id))
+        .scalars()
+        .all()
+    )
+    quantities = {item.product_id: item.quantity for item in items}
+    for product_id in sorted(quantities):
+        session.execute(
+            update(Product)
+            .where(Product.id == product_id)
+            .values(stock=Product.stock + quantities[product_id])
+        )
 
     # 與 admin PATCH 一致：取消（終態）同一交易寫 outbox 事件發通知。
     session.add(
