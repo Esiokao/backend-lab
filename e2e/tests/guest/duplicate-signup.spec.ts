@@ -33,5 +33,7 @@ test.describe('Duplicate signup', () => {
     await expect(
       page.getByRole('button', { name: 'Account menu' })
     ).toBeHidden()
+    // 反向：沒有登入成功——導向還在 signup 頁面
+    await expect(page).toHaveURL(/\/login$/)
   })
 })
