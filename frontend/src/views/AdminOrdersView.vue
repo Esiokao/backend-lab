@@ -47,6 +47,7 @@ const orders = ref<AdminOrder[]>([]);
 const total = ref(0);
 const page = ref(1);
 const statusFilter = ref<OrderStatusValue | "all">("all");
+const sortBy = ref<"newest" | "oldest">("newest");
 const userIdFilter = ref("");
 const users = ref<UserRow[]>([]);
 const loading = ref(true);
@@ -77,6 +78,7 @@ async function loadOrders(): Promise<void> {
     });
 
     if (statusFilter.value !== "all") params.set("status", statusFilter.value);
+    params.set("sort", sortBy.value);
 
     const userId = userIdFilter.value.trim();
     if (userId) params.set("user_id", userId);
@@ -102,14 +104,12 @@ async function loadOrders(): Promise<void> {
   }
 }
 
-onMounted(async () => {
-  // 對照表載入失敗不阻擋列表，僅退回 usr_XXXX 顯示。
-  try {
-    users.value = await api.get<UserRow[]>("/users");
-  } catch {
-    users.value = [];
-  }
-  await loadOrders();
+onMounted(() => {
+  // 主要資料（訂單）先跑；對照表背景平行載，載入失敗僅退回 usr_XXXX 顯示。
+  void loadOrders();
+  api.get<UserRow[]>("/users")
+    .then((data) => (users.value = data))
+    .catch(() => (users.value = []));
 });
 
 watch(page, loadOrders);
@@ -120,6 +120,20 @@ function applyFilters(): void {
     toast.show("User ID filter must be a positive integer.");
     return;
   }
+  page.value = 1;
+  loadOrders();
+}
+
+// UX：清空篩選的瞬間就回全部訂單，不用再按 Enter（序號守衛擋掉競態）。
+// 非空輸入不在此觸發——逐字送請求太吵，等 Enter/change（applyFilters）。
+function onFilterInput(): void {
+  if (userIdFilter.value.trim() === "") applyFilters();
+}
+
+// 排序切換：回第 1 頁重撈（序號守衛擋競態）。
+function changeSort(value: "newest" | "oldest"): void {
+  if (sortBy.value === value) return;
+  sortBy.value = value;
   page.value = 1;
   loadOrders();
 }
@@ -200,8 +214,18 @@ function onStatusChange(order: AdminOrder, event: Event): void {
             aria-label="Filter by user ID"
             @keydown.enter="applyFilters"
             @change="applyFilters"
+            @input="onFilterInput"
           />
         </label>
+        <select
+          class="filter-select"
+          aria-label="Sort orders"
+          :value="sortBy"
+          @change="changeSort(($event.target as HTMLSelectElement).value as 'newest' | 'oldest')"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
         <select
           v-model="statusFilter"
           class="filter-select"

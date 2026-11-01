@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -31,6 +33,7 @@ def list_orders(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     order_status: OrderStatus | None = Query(default=None, alias="status"),
+    sort: Literal["newest", "oldest"] = Query(default="newest"),
     user_id: int | None = Query(default=None, ge=1),
 ):
     """列出訂單，支援分頁與狀態、使用者篩選。"""
@@ -42,8 +45,12 @@ def list_orders(
     if user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
 
-    # 固定排序（新到舊）：admin 最關心最新的訂單；id 降冪當 tie-breaker 確保分頁穩定。
-    stmt = stmt.order_by(Order.id.desc())
+    # 排序（預設新到舊）：admin 最關心最新的訂單；id 當 tie-breaker 確保分頁穩定。
+    match sort:
+        case "oldest":
+            stmt = stmt.order_by(Order.id)
+        case _:
+            stmt = stmt.order_by(Order.id.desc())
 
     total_stmt = select(Order.id)
 

@@ -254,6 +254,30 @@ def test_admin_orders_are_sorted_newest_first(
     assert ids == sorted(ids, reverse=True)
 
 
+def test_admin_orders_sort_oldest_first(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+    create_test_order,
+):
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+
+    for _ in range(3):
+        create_test_order(owner.id, status="paid")
+    test_db.commit()
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.get("/admin/orders/", params={"sort": "oldest"})
+
+    assert response.status_code == 200
+
+    ids = [item["id"] for item in response.json()["items"]]
+    assert ids == sorted(ids)
+
+
 def test_admin_order_pages_have_no_duplicate_ids(
     session_auth_client,
     create_test_user,
