@@ -150,6 +150,9 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
 
+      # 付款收據的 HMAC 簽章密鑰——正式環境務必覆寫
+      PAYMENT_SECRET: ${PAYMENT_SECRET:-dev-payment-secret-do-not-use-in-prod}
+
       REDIS_HOST: redis
       REDIS_PORT: 6379
 

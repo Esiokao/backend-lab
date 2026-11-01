@@ -33,13 +33,30 @@ export async function createOrder(
   return { id: order.id, user_id: order.user_id }
 }
 
-/** 付款：模擬付款（demo 端點），把訂單推進到 pending（已付款待出貨）。
- *  真實 UI 流程的終點是 pending 而非 created——造資料要貼近真實流程時用這個。 */
+/** 付款三步流程（與前端 CheckoutView 相同）：
+ *  intent（金額後端簽進 token）→ mock-provider 收款 → 收據付款。
+ *  真實 UI 流程的終點是 paid（已付款待出貨）——造資料要貼近真實流程時用這個。 */
 export async function payOrder(
   shopper: APIRequestContext,
   orderId: number
 ): Promise<void> {
-  const res = await shopper.post(`/api/orders/${orderId}/pay`, {})
+  const intent = await (
+    await shopper.post(`/api/orders/${orderId}/payment-intent`)
+  ).json()
+
+  const providerRes = await shopper.post('/api/mock-provider/pay', {
+    data: { token: intent.token }
+  })
+  if (providerRes.status() !== 200) {
+    throw new Error(
+      `mock-provider failed: ${providerRes.status()} ${await providerRes.text()}`
+    )
+  }
+  const { receipt } = await providerRes.json()
+
+  const res = await shopper.post(`/api/orders/${orderId}/pay`, {
+    data: { receipt }
+  })
   const body = await res.text()
   if (res.status() !== 200) {
     throw new Error(`pay order failed: ${res.status()} ${body}`)

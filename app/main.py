@@ -10,6 +10,7 @@ from app.routers.cart import router as cart_router
 from app.routers.catalogs import router as categories_router
 from app.routers.notifications import router as notifications_router
 from app.routers.orders import router as order_router
+from app.routers.payments import router as payments_router
 from app.routers.products import router as products_router
 from app.routers.stats import router as stats_router
 from app.routers.users import router as users_router
@@ -60,6 +61,7 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(order_router)
+app.include_router(payments_router)
 app.include_router(admin_router)
 app.include_router(admin_users_router)
 app.include_router(notifications_router)

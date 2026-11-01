@@ -15,7 +15,9 @@ from app.core.rate_limit import rate_limit
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
+from app.routers.payments import settle_receipt
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
+from app.schemas.Payment import PayWithReceipt
 
 router = SizeLimitedAPIRouter(
     tags=["Orders"],
@@ -192,10 +194,12 @@ def cancel_order(
     return order
 
 
-# a happy path payment.
+# 付款端點：不再自我宣告收款——只接受 mock-provider 簽發的收據，
+# 驗章 + nonce 單次 + 訂單綁定全部通過才轉 paid（付款邊界由收據構成）。
 @router.post("/orders/{order_id}/pay", response_model=PaymentResponse)
 def pay_order(
     order_id: int,
+    data: PayWithReceipt,
     current_user: CurrentUser,
     session: DbSession,
 ):
@@ -216,13 +220,16 @@ def pay_order(
             detail=f"Order cannot be paid in its current status: {order.status}",
         )
 
-    # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。Session commit 後才會有 order.id，避免事件 payload 內的 order_id 為 None。
+    # 驗收據 + 消耗 intent 的 nonce（重放攻擊在此被 DB 憑據擋下）。
+    settle_receipt(session, order, data.receipt)
+
+    # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。
     event = NotificationOutbox(
         event_type=EventType.order_paid,
         payload={"order_id": order.id},
     )
 
-    # 模擬付款成功，更新訂單狀態與付款時間。
+    # 收款成立，更新訂單狀態與付款時間（與 intent 消耗同一交易）。
     order.status = OrderStatus.paid.value
     order.paid_at = func.now()
     session.add(event)

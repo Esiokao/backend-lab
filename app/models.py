@@ -336,6 +336,35 @@ class NotificationBroadcast(Base):
     )
 
 
+class PaymentIntent(Base):
+    __tablename__ = "payment_intents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    order_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    # 單次使用的隨機值：receipt 重放攻擊的 DB 級憑據（簽章本身無狀態，狀態在這）。
+    nonce: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+
+    # 金額由後端從訂單明細計算並簽進 token——client 沒有任何機會報價。
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # pending：待供應商兌換；completed：供應商已確認收款；consumed：receipt 已用於付款。
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 class Product(Base):
     __tablename__ = "products"
 

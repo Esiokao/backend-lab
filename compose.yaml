@@ -200,6 +200,9 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
 
+      # 付款收據的 HMAC 簽章密鑰——正式環境務必覆寫
+      PAYMENT_SECRET: ${PAYMENT_SECRET:-dev-payment-secret-do-not-use-in-prod}
+
       # 使用 Compose service name 連線 Redis。
       REDIS_HOST: redis
       REDIS_PORT: 6379

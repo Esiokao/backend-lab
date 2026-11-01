@@ -4,14 +4,14 @@ import { createOrder, payOrder } from '../../api/orders'
 
 // 旅程 3：owner 取消自己的訂單 → 狀態變 cancelled（PRD F8）。
 // 身份：shopper（shopper/ 目錄的 storageState）。
-// 資料：createOrder + payOrder 走到真實流程的終點 pending——取消不可逆，絕不碰別的測試的訂單。
+// 資料：createOrder + payOrder 走到真實流程的終點 paid——取消不可逆，絕不碰別的測試的訂單。
 test.describe('Cancel order journey', () => {
   test('owner cancels their own paid order and sees it cancelled', async ({
     page
   }) => {
     // ── ① 造資料：走到真實 UI 流程會停留的狀態 ──
-    // 真實結帳 = 建單 + 付款，終點是 paid（已付款待出貨）；
-    // 只 create 不 pay 的 unpaid 是「按了結帳沒按 Pay」的過渡態，
+    // 真實結帳 = 建單 + 付款（三步流程），終點是 paid（已付款待出貨）；
+    // 只建單不付款的 unpaid 是「按了結帳沒按 Pay」的過渡態，
     // 真實使用者幾乎不會停留——造資料要貼近真實流程的終點，不是中間點。
     const order = await createOrder(page.request)
     await payOrder(page.request, order.id)
@@ -29,12 +29,12 @@ test.describe('Cancel order journey', () => {
     // once：這個頁面只有一次 confirm，掛一次就好。
     page.once('dialog', (dialog) => dialog.accept())
 
-    // Cancel 按鈕有 v-if="status === 'created' || 'pending'"——
+    // Cancel 按鈕有 v-if="status === 'unpaid' || 'paid'"——
     // cancelled 訂單的列不會有這顆按鈕（aria-label 精準鎖這筆訂單的那顆）。
     await page.getByLabel(`Cancel order ${order.id}`).click()
 
     // ── ③ 驗證 ──
-    // cancelOrder 成功後 loadOrders() 重撈：badge 從 pending 變 cancelled。
+    // cancelOrder 成功後 loadOrders() 重撈：badge 從 paid 變 cancelled。
     // 斷言「狀態」而不是 toast 文字——toast 幾秒後消失，狀態是永久的。
     await expect(row.locator('.status-badge')).toHaveText('cancelled')
 

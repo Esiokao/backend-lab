@@ -51,3 +51,24 @@ unpaid ──付款──→ paid ──fulfillment──→ processing ──fu
 保證：事件與業務變更同生共死（at-least-once），消費端以三層冪等防重複。
 `notification_outbox.status`（pending/dispatched/processed）是**佇列自己的**
 狀態機，與訂單狀態無關。
+
+## Payment Intent / Receipt / Nonce（付款憑證三件套）
+
+付款邊界：**paid 狀態只能由「金流供應商簽發的收據」觸發**，不能由任何人自我宣告
+（POST /orders/{id}/pay 不再是開關）。三步流程：
+
+1. `POST /orders/{id}/payment-intent` → 後端計算金額（client 無法報價）、
+   生成 nonce、簽出 intent token（HMAC，5 分鐘時效）
+2. `POST /mock-provider/pay` → 模擬金流供應商：驗 token → 收錢 → 簽發 receipt
+3. `POST /orders/{id}/pay { receipt }` → 驗收據 + 消耗 nonce → 轉 paid
+
+| 詞 | 定義 | 防的攻擊 |
+|---|---|---|
+| Intent | 「我打算付這筆錢」的 server 簽章憑證，金額由後端計算 | client 竄改金額 |
+| Receipt | 供應商確認收款後簽發的收據，綁定單一訂單 | 跨單付款、未授權標記 |
+| Nonce | 單次使用的隨機值，DB（payment_intents.used_at）記錄已用 | 收據重放 |
+
+實作：`app/core/payment.py`（HMAC）+ `app/routers/payments.py`（intent/provider）
++ `orders.py` 的 `settle_receipt`（驗章）。測試：`tests/payments/`（八個情境）。
+接入真實金流時：mock-provider 換成 Stripe 頁面/SDK，pay 端點改驗供應商
+webhook 簽章——三步骨架不變。
