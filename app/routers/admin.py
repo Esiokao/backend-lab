@@ -1,7 +1,7 @@
 from typing import Literal
 
 from fastapi import HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -103,6 +103,12 @@ def update_order_status(
         )
 
     order.status = new_status
+
+    # admin 標記 paid = 「離線收款完成」（現金/轉帳，沒走 receipt 流程）。
+    # fulfillment worker 用 paid_at IS NOT NULL 領取訂單——沒蓋 paid_at 的
+    # paid 訂單會永遠卡住不出貨、完成通知也不會發（#224 實例）。
+    if new_status == OrderStatus.paid and order.paid_at is None:
+        order.paid_at = func.now()
 
     # 終態轉移與 POST /orders/{id}/complete 相同：同一交易寫 outbox 事件發通知，
     # 讓 admin 下拉改狀態和專用端點的行為一致。
