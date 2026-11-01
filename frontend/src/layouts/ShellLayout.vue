@@ -140,7 +140,7 @@ watch(activePopover, (name) => {
     <aside class="sidebar">
       <div>
         <router-link :to="{ name: 'storefront' }" class="brand" aria-label="Back to storefront">
-          <span class="brand-mark"><Icon name="store" :size="16" /></span>
+          <span class="brand-mark"><img class="brand-cat" src="/favicon.png" alt="" /></span>
           <span>Backend Lab</span>
         </router-link>
         <nav class="side-nav" aria-label="Main navigation">
@@ -186,7 +186,7 @@ watch(activePopover, (name) => {
     <main class="main-content">
       <header class="topbar">
         <div class="mobile-brand">
-          <span class="brand-mark"><Icon name="store" :size="15" /></span
+          <span class="brand-mark"><img class="brand-cat" src="/favicon.png" alt="" /></span
           ><strong>Backend Lab</strong>
         </div>
         <div class="breadcrumb">

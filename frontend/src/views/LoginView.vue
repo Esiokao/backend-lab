@@ -144,7 +144,7 @@ function switchMode(next: "signin" | "signup"): void {
     <div class="w-full max-w-[400px]">
       <div class="mb-6 flex items-center gap-3 font-bold tracking-tight text-ink-strong">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand text-on-brand">
-          <Icon name="store" :size="16" />
+          <img class="brand-cat" src="/favicon.png" alt="" />
         </span>
         <span>Backend Lab</span>
       </div>
