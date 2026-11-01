@@ -8,7 +8,7 @@
   <footer class="storefront-footer">
     <div class="footer-inner">
       <router-link class="footer-brand" :to="{ name: 'storefront' }">
-        <span class="brand-mark"><img class="brand-cat" src="/favicon.svg" alt="" /></span>
+        <span class="brand-mark"><img class="brand-cat" src="/brand-cat.png" alt="" /></span>
         Backend Lab
       </router-link>
       <nav class="footer-nav" aria-label="Footer">
