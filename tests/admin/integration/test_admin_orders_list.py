@@ -228,7 +228,7 @@ def test_admin_gets_empty_items_for_page_beyond_last(
     assert data["items"] == []
 
 
-def test_admin_orders_are_sorted_by_id(
+def test_admin_orders_are_sorted_newest_first(
     session_auth_client,
     create_test_user,
     test_admin_user_data,
@@ -250,7 +250,8 @@ def test_admin_orders_are_sorted_by_id(
     assert response.status_code == 200
 
     ids = [item["id"] for item in response.json()["items"]]
-    assert ids == sorted(ids)
+    # 新到舊（id 降冪）：admin 進後台第一眼要看的是最新的訂單。
+    assert ids == sorted(ids, reverse=True)
 
 
 def test_admin_order_pages_have_no_duplicate_ids(

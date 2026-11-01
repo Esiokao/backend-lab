@@ -42,8 +42,8 @@ def list_orders(
     if user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
 
-    # 固定排序，確保分頁結果穩定。
-    stmt = stmt.order_by(Order.id)
+    # 固定排序（新到舊）：admin 最關心最新的訂單；id 降冪當 tie-breaker 確保分頁穩定。
+    stmt = stmt.order_by(Order.id.desc())
 
     total_stmt = select(Order.id)
 
