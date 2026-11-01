@@ -279,17 +279,14 @@ def get_orders(
     current_user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    user_id: int | None = Query(None),
-    sort_by: Literal["id", "user_id"] = "id",
+    sort_by: Literal["id"] = "id",
     order: Literal["asc", "desc"] = "asc",
 ):
     stmt = select(Order).options(selectinload(Order.items))
 
-    # 一般使用者只能看自己的訂單；admin 可看全部，或用 user_id 過濾特定使用者。
-    if current_user.role != "admin":
-        stmt = stmt.where(Order.user_id == current_user.id)
-    elif user_id is not None:
-        stmt = stmt.where(Order.user_id == user_id)
+    # 「我的訂單」永遠只看自己的，不分角色——admin 的全站瀏覽走 /admin/orders
+    # （職責分離：同一頁面隨角色改變資料範圍會違反最小驚訝原則）。
+    stmt = stmt.where(Order.user_id == current_user.id)
 
     stmt = stmt.order_by(getattr(getattr(Order, sort_by), order)())
     stmt = stmt.offset((page - 1) * page_size)
