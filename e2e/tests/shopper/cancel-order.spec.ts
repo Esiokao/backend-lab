@@ -23,8 +23,8 @@ test.describe('Cancel order journey', () => {
     await expect(row).toBeVisible()
     await expect(row.locator('.status-badge')).toHaveText('paid')
     // handler for cancel confirm
-    page.once('dialog', (dialog) => {
-      dialog.accept()
+    page.once('dialog', async (dialog) => {
+      await dialog.accept()
     })
     // click cancel button
     await row.getByLabel(`Cancel order ${order.id}`).click()
