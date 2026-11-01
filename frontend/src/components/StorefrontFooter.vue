@@ -9,7 +9,7 @@ import Icon from "@/components/Icon.vue";
   <footer class="storefront-footer">
     <div class="footer-inner">
       <router-link class="footer-brand" :to="{ name: 'storefront' }">
-        <span class="brand-mark"><Icon name="bolt" :size="13" /></span>
+        <span class="brand-mark"><Icon name="store" :size="13" /></span>
         Backend Lab
       </router-link>
       <nav class="footer-nav" aria-label="Footer">

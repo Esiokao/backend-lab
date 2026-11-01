@@ -165,7 +165,7 @@ onMounted(async () => {
         </div>
         <div class="cart-summary-actions">
           <button type="button" class="primary-button pay-button" :disabled="paying" @click="pay">
-            <Icon name="bolt" :size="15" />
+            <Icon name="store" :size="15" />
             {{ paying ? "Paying..." : `Pay ${formatPrice(totalNumber)}` }}
           </button>
         </div>

@@ -304,7 +304,7 @@ watch(
         <p>Stock is reserved for this order. Pay to confirm it.</p>
       </div>
       <button type="button" class="primary-button" @click="openPayModal">
-        <Icon name="bolt" :size="15" /> Pay now · {{ orderTotal() }}
+        <Icon name="store" :size="15" /> Pay now · {{ orderTotal() }}
       </button>
     </section>
 

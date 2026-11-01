@@ -370,7 +370,7 @@
             @click="goCheckout"
           >
             <Icon
-              name="bolt"
+              name="store"
               :size="15"
             />
             Checkout ({{ selectedCount() }})

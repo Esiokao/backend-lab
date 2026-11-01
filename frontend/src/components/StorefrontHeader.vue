@@ -78,7 +78,7 @@ async function handleLogout(): Promise<void> {
 <template>
   <header class="storefront-header">
     <router-link class="brand" :to="{ name: 'storefront' }" aria-label="Back to storefront">
-      <span class="brand-mark"><Icon name="bolt" :size="16" /></span>
+      <span class="brand-mark"><Icon name="store" :size="16" /></span>
       <span>Backend Lab</span>
     </router-link>
 

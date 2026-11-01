@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import Icon from "@/components/Icon.vue";
+import Icon, { type IconName } from "@/components/Icon.vue";
 import NotificationCenter from "@/components/NotificationCenter.vue";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
@@ -18,20 +18,20 @@ const { count: cartCount, refresh: refreshCart } = useCart();
 const { active: activePopover, openPopover, closePopover } = usePopover();
 const isAdmin = computed(() => user.value?.role === "admin");
 
-type NavItem = { label: string; icon: "bolt" | "grid" | "box" | "activity" | "users" | "cart" | "pencil"; to: { name: string }; dot?: boolean };
+type NavItem = { label: string; icon: IconName; to: { name: string }; dot?: boolean };
 
 // 依角色分區（v1.5）：workspace（系統監控）僅 admin 可見；
 // 一般使用者是會員中心視角（My Orders / Account）。
 const navItems = computed<NavItem[]>(() =>
   isAdmin.value
     ? [
-        { label: "Store", icon: "bolt", to: { name: "storefront" } },
+        { label: "Store", icon: "store", to: { name: "storefront" } },
         { label: "Overview", icon: "grid", to: { name: "dashboard" } },
         { label: "Orders", icon: "box", to: { name: "orders" } },
         { label: "API Health", icon: "activity", to: { name: "api-health" }, dot: true },
       ]
     : [
-        { label: "Store", icon: "bolt", to: { name: "storefront" } },
+        { label: "Store", icon: "store", to: { name: "storefront" } },
         { label: "My Orders", icon: "box", to: { name: "orders" } },
         { label: "Account", icon: "users", to: { name: "account" } },
         { label: "Edit Profile", icon: "pencil", to: { name: "account-edit" } },
@@ -140,7 +140,7 @@ watch(activePopover, (name) => {
     <aside class="sidebar">
       <div>
         <router-link :to="{ name: 'storefront' }" class="brand" aria-label="Back to storefront">
-          <span class="brand-mark"><Icon name="bolt" :size="16" /></span>
+          <span class="brand-mark"><Icon name="store" :size="16" /></span>
           <span>Backend Lab</span>
         </router-link>
         <nav class="side-nav" aria-label="Main navigation">
@@ -186,7 +186,7 @@ watch(activePopover, (name) => {
     <main class="main-content">
       <header class="topbar">
         <div class="mobile-brand">
-          <span class="brand-mark"><Icon name="bolt" :size="15" /></span
+          <span class="brand-mark"><Icon name="store" :size="15" /></span
           ><strong>Backend Lab</strong>
         </div>
         <div class="breadcrumb">
