@@ -311,9 +311,6 @@
                     <button
                       type="button"
                       :aria-label="`Increase ${item.product_name}`"
-                      :disabled="
-                        item.quantity >= 100 || item.quantity >= item.stock
-                      "
                       @click="
                         step(item.product_id, item.quantity, 1, item.stock)
                       "
