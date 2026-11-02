@@ -12,8 +12,15 @@ const ADMIN_EMAIL = 'admin@e2e.example.com'
 // 不用相對 cwd —— 相對路徑會隨「從哪裡呼叫 playwright」而變，Windows 上已經炸過一次。
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 
+// 資料庫名稱：從 DATABASE_URL 解析（本地 dev = backend_lab；CI = backend_lab_test）。
+// seed 與 admin 升級必須打在「API 實際使用的 DB」——CI 上那是測試 DB，
+// 寫死 dev DB 名稱的話，CI 的店面會是空的（0 商品、admin 沒被升級）。
+const DATABASE_URL =
+  process.env.DATABASE_URL ?? 'postgresql://admin@localhost/backend_lab'
+const DB_NAME = new URL(DATABASE_URL).pathname.replace(/^\//, '')
+
 // compose.yaml 在根目錄 → 不需要 -f；SQL 一律從 stdin 餵（避免 Windows 引號地獄）。
-const PSQL = 'docker compose exec -T postgres psql -U admin -d backend_lab'
+const PSQL = `docker compose exec -T postgres psql -U admin -d ${DB_NAME}`
 
 setup.describe('Setup', () => {
   // ① 種商品目錄：內容的唯一來源是 e2e/seed.sql（本地與 CI 都經由這個 setup 跑，
