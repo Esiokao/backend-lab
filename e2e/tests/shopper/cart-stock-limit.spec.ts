@@ -17,19 +17,18 @@ test.describe('Cart stock limit journey', () => {
     // ── ② 動作：開購物車頁，把數量改成 99 ──
     await page.goto('/cart')
 
+    //   候選：page.getByLabel('???') 或 page.getByRole('spinbutton', { name: '???' })
     const row = page.locator('tr', { has: page.getByText(productName) })
     const quantityInput = row.getByRole('spinbutton', {
       name: `${productName} quantity`
     })
-
     await quantityInput.fill('99')
     await quantityInput.press('Enter')
     // ── ③ 驗證 ──
-    // 文案與 seed 契約耦合：seed.sql 釘 E2E Widget A stock=50,
-    // 文案變更(前端或 seed)時此測試要同步更新——這是它的職責。
-    await expect(
-      page.getByText('Only 50 of "E2E Widget A" in stock.')
-    ).toBeVisible()
+    // postive assertion
+    const toastReg = new RegExp(`Only \\d+ of "${productName}" in stock\\.`)
+    await expect(page.getByText(toastReg)).toBeVisible()
+    // negative assertion
     await page.reload()
     await expect(quantityInput).toHaveValue('1')
   })

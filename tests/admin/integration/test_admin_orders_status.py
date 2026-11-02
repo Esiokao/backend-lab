@@ -289,3 +289,38 @@ def test_admin_cannot_submit_invalid_status_value(
     )
 
     assert response.status_code == 422
+
+
+def test_admin_marking_order_paid_sets_paid_at(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+):
+    """防回歸釘子：admin 手動標 paid 必須蓋 paid_at。
+
+    為什麼：fulfillment worker 用 paid_at IS NOT NULL 領取訂單——
+    沒蓋 paid_at 的 paid 訂單永遠卡在 paid、不出貨、完成通知不發
+    """
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(
+        test_db, owner, "unpaid"
+    )  # ← 新名字：未付款（等 admin 標 paid）
+    order_id = order.id
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": "paid"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "paid"
+
+    test_db.expire_all()  # ← 既有測試的同款慣例：丟掉快照重讀
+    updated_order = test_db.get(Order, order_id)
+    assert updated_order is not None
+    assert updated_order.status == "paid"
+    assert updated_order.paid_at is not None  # ← 釘子本體
