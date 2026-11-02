@@ -152,6 +152,9 @@ jobs:
           printf '%s\n' "$TLS_PRIVATE_KEY" > certs/server.key
           chmod 600 certs/server.key
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Start PostgreSQL and Redis
         run: docker compose up -d postgres redis
 
@@ -202,7 +205,7 @@ jobs:
 
       - name: Run e2e journeys
         working-directory: e2e
-        run: npx playwright test
+        run: pnpm exec playwright test
 
       - name: Upload Playwright artifacts
         if: failure()
