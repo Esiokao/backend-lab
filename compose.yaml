@@ -142,7 +142,7 @@ services:
       context: .
       dockerfile: Dockerfile
 
-    # created 超過 ORDER_EXPIRY_SECONDS 未付款 → cancelled + 歸還庫存；
+    # unpaid 超過 ORDER_EXPIRY_SECONDS 未付款 → cancelled + 歸還庫存；
     # 堵住「建單不付款鎖死庫存」的攻擊面（真實電商的「15 分鐘未付款自動取消」同款）。
     command: ["python", "-m", "app.workers.order_expiry"]
 
