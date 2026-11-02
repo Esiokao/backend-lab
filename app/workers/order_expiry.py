@@ -10,12 +10,13 @@ import os
 import time
 from datetime import timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
 from app.core.enums import OrderStatus
 from app.core.events import EventType
 from app.database import SessionLocal
-from app.models import NotificationOutbox, Order, OrderItem, Product
+from app.models import NotificationOutbox, Order
+from app.services.inventory import restore_order_stock
 
 logger = logging.getLogger(__name__)
 
@@ -50,19 +51,8 @@ def expire_once(session) -> int:
     expired = 0
 
     for order in orders:
-        # 歸還庫存：與 create_order 的扣庫存、cancel 的歸還對稱（同排序，死鎖免疫）。
-        items = (
-            session.execute(select(OrderItem).where(OrderItem.order_id == order.id))
-            .scalars()
-            .all()
-        )
-        quantities = {item.product_id: item.quantity for item in items}
-        for product_id in sorted(quantities):
-            session.execute(
-                update(Product)
-                .where(Product.id == product_id)
-                .values(stock=Product.stock + quantities[product_id])
-            )
+        # 歸還庫存：單一真相來源（services/inventory）。
+        restore_order_stock(session, order.id)
 
         order.status = OrderStatus.cancelled.value
         session.add(

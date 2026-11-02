@@ -1,6 +1,6 @@
 import { expect, test, Page } from '@playwright/test'
 
-import { createOrder } from '../../api/orders'
+import { createOrder } from '../../../api/orders'
 
 test.describe('Notification bell journey', () => {
   test("bell lights up when admin touches shopper's order", async ({

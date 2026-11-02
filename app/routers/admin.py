@@ -13,6 +13,7 @@ from app.database import DbSession
 from app.models import NotificationOutbox, Order, User
 from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
+from app.services.inventory import restore_order_stock
 
 router = SizeLimitedAPIRouter(
     prefix="/admin/orders",
@@ -101,6 +102,13 @@ def update_order_status(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot change order status from {order.status} to {new_status}",
         )
+
+    # 取消 = 釋放建單時佔用的庫存。所有取消路徑（owner cancel、過期 worker、
+    # admin）都必須歸還——不一致會讓庫存取決於「誰按的按鈕」。
+    # 判斷要在賦值前：轉移進 cancelled 才歸還（cancelled 是終態，無法重複觸發）。
+    was_cancelled = order.status == OrderStatus.cancelled.value
+    if new_status == OrderStatus.cancelled and not was_cancelled:
+        restore_order_stock(db, order.id)
 
     order.status = new_status
 

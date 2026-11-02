@@ -324,3 +324,38 @@ def test_admin_marking_order_paid_sets_paid_at(
     assert updated_order is not None
     assert updated_order.status == "paid"
     assert updated_order.paid_at is not None  # ← 釘子本體
+
+
+def test_admin_cancelling_order_restores_stock(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+):
+    """防回歸釘子：admin 取消訂單也必須歸還庫存。
+
+    為什麼：同一個「取消」業務事件，owner cancel 與過期 worker 都會歸還庫存，
+    admin 路徑不歸還的話，庫存就取決於「誰按的按鈕」（資料不一致）。
+    """
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(test_db, owner, "paid")
+    order_id = order.id
+
+    # 模擬「建單時已扣 1 件」：把庫存設成 10 - 1
+    product = test_db.query(Product).filter_by(name=f"Product for {owner.email}").one()
+    product.stock = 9
+    test_db.commit()
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": "cancelled"},
+    )
+
+    assert response.status_code == 200
+
+    test_db.expire_all()
+    updated_product = test_db.get(Product, product.id)
+    assert updated_product.stock == 10  # 歸還 1

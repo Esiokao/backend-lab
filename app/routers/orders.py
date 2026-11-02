@@ -18,6 +18,7 @@ from app.models import NotificationOutbox, Order, OrderItem, Product, User
 from app.routers.payments import settle_receipt
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
 from app.schemas.Payment import PayWithReceipt
+from app.services.inventory import restore_order_stock
 
 router = SizeLimitedAPIRouter(
     tags=["Orders"],
@@ -162,23 +163,10 @@ def cancel_order(
             detail=f"Order cannot be cancelled in its current status: {order.status}",
         )
 
-    order.status = OrderStatus.cancelled.value
+    # 歸還庫存：單一真相來源（services/inventory）。
+    restore_order_stock(session, order.id)
 
-    # 歸還庫存：與 create_order 的扣庫存對稱（同交易、同排序，死鎖免疫）。
-    # 沒有這段，任何取消（含過期自動取消）都在永久銷毀庫存——
-    # 庫存鎖死攻擊的收益即來自這個缺口。
-    items = (
-        session.execute(select(OrderItem).where(OrderItem.order_id == order.id))
-        .scalars()
-        .all()
-    )
-    quantities = {item.product_id: item.quantity for item in items}
-    for product_id in sorted(quantities):
-        session.execute(
-            update(Product)
-            .where(Product.id == product_id)
-            .values(stock=Product.stock + quantities[product_id])
-        )
+    order.status = OrderStatus.cancelled.value
 
     # 與 admin PATCH 一致：取消（終態）同一交易寫 outbox 事件發通知。
     session.add(

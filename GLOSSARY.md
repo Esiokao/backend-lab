@@ -19,7 +19,7 @@ unpaid ──付款──→ paid ──fulfillment──→ processing ──fu
 | `paid` | **已付款**，待出貨。真實 UI 結帳流程的**終點**（結帳頁的 Pay 按下去就算完成） | `POST /orders/{id}/pay`（demo 模擬付款） | admin 改狀態（→ `processing`/`completed`/`cancelled`）、owner 取消（→ `cancelled`）、fulfillment worker（5 分鐘後 → `processing`） |
 | `processing` | 揀貨/出貨處理中。**不可再取消的臨界點已過** | admin 改狀態、fulfillment worker | admin 改狀態、fulfillment worker（→ `completed`） |
 | `completed` | 已送達（終態） | fulfillment worker、admin、`POST /orders/{id}/complete` | — |
-| `cancelled` | 已取消（終態）。**會歸還庫存**（create 時扣的） | owner 取消、過期 worker、admin | — |
+| `cancelled` | 已取消（終態）。**所有取消路徑皆歸還庫存**（owner cancel、過期 worker、admin——單一真相來源 `app/services/inventory.py`） | 同左 | — |
 
 ### 歷史備註（2026-11-01 改名）
 
