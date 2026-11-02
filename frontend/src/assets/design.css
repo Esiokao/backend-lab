@@ -408,7 +408,12 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .result-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .product-cart-row { display: flex; gap: 8px; padding: 0 16px 14px; }
 .product-cart-row .product-add-button { flex: 1; width: auto; }
-.qty-stepper { display: flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--card); }
+/* 併排 stepper（商品卡 / 詳情頁）：只 scope 到真實使用的兩個上下文。
+   裸 .qty-stepper 會把 /cart 表格裡的 stepper 蓋成 block-level flex，
+   撐滿整個 td、右側多出一截空白。 */
+.product-cart-row .qty-stepper, .pd-actions .qty-stepper {
+  display: flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--card);
+}
 .qty-step { width: 30px; border: 0; color: var(--ink-soft); background: transparent; font-size: 15px; font-weight: 700; cursor: pointer; transition: .15s ease; }
 .qty-step:hover:not(:disabled) { color: var(--ink-strong); background: var(--cream); }
 .qty-step:disabled { opacity: .35; cursor: not-allowed; }
