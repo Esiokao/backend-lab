@@ -286,7 +286,7 @@
                     <button
                       type="button"
                       :aria-label="`Decrease ${item.product_name}`"
-                      :disabled="busy || item.quantity <= 1"
+                      :disabled="item.quantity <= 1"
                       @click="
                         step(item.product_id, item.quantity, -1, item.stock)
                       "
@@ -312,9 +312,7 @@
                       type="button"
                       :aria-label="`Increase ${item.product_name}`"
                       :disabled="
-                        busy ||
-                        item.quantity >= 100 ||
-                        item.quantity >= item.stock
+                        item.quantity >= 100 || item.quantity >= item.stock
                       "
                       @click="
                         step(item.product_id, item.quantity, 1, item.stock)

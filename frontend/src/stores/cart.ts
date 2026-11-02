@@ -6,6 +6,8 @@ import { CartSchema, type Cart, type CartItem } from "@/lib/schemas";
 // 購物車 store（v1.7）：對接後端 /cart 系列（持久化於 cart_items 表）。
 // v1.8：勾選式結帳 —— selected 記錄勾選的商品（session 內狀態，重整後預設全選）；
 // checkout(product_ids) 只結帳選中品，其餘留車（後端支援）。
+// v1.19（optimistic qty）：qty 後續更新本地先行、PATCH 摹後同步；
+// busy 不再 gate qty（否則每按一次要等一回應，連按被 disabled 吃掉）。PATCH 幕後同步；
 
 const items = ref<CartItem[]>([]);
 const total = ref<string | number>("0");
@@ -79,12 +81,48 @@ async function add(productId: number, quantity: number): Promise<void> {
   }
 }
 
+// Qty 更新用版本號：回應亂序時（A 慢於 B 到達），舊回應不得覆蓋新本地狀態。
+const qtyVersion = new Map<number, number>();
+
+// Optimistic 的本地重算：subtotal / total 由 unit_price 自推，
+// PATCH 回應（全台車）隨後覆蓋為 server 真相。
+function recomputeLocal(): void {
+  for (const item of items.value) {
+    item.subtotal = Number(item.unit_price) * item.quantity;
+  }
+  total.value = items.value.reduce((sum, item) => sum + item.subtotal, 0);
+}
+
 async function updateQty(productId: number, quantity: number): Promise<void> {
-  busy.value = true;
+  const item = items.value.find((i) => i.product_id === productId);
+  if (!item || item.quantity === quantity) return;
+
+  // Optimistic：本地先改（數字 0ms 上畫面），PATCH 背景同步——
+  // 失敗再回滾這行 + 重抓 server 真相，由呼叫方負責 toast。
+  const previousQty = item.quantity;
+  const version = (qtyVersion.get(productId) ?? 0) + 1;
+  qtyVersion.set(productId, version);
+  item.quantity = quantity;
+  recomputeLocal();
+
   try {
-    apply(await api.patch(`/cart/items/${productId}`, { quantity }, CartSchema));
+    const cart = await api.patch(`/cart/items/${productId}`, { quantity }, CartSchema);
+    // 若已被更新的點擊蓋過，丟棄這份過期回應（新點擊自己的回應會校正）。
+    if (qtyVersion.get(productId) === version) apply(cart);
+    return;
+  } catch (err) {
+    if (qtyVersion.get(productId) === version) {
+      // 回滾：恢復本地數量，重抓一次拿 server 端的權威狀態（stock 等可能已變）。
+      const current = items.value.find((i) => i.product_id === productId);
+      if (current) {
+        current.quantity = previousQty;
+        recomputeLocal();
+      }
+      await refresh();
+    }
+    throw err;
   } finally {
-    busy.value = false;
+    if (qtyVersion.get(productId) === version) qtyVersion.delete(productId);
   }
 }
 
