@@ -362,6 +362,28 @@ function goProduct(product: Product): void {
 }
 
 // 加入購物車（v1.7）：訪客 → 登入頁帶 redirect（同 follow 行為）。
+// 每張卡的數量（預設 1）：stepper 按鈕 ±1、直接輸入也行，即時夾在 [1, stock]。
+const cardQty = ref<Record<number, number>>({});
+const qtyOf = (id: number): number => cardQty.value[id] ?? 1;
+
+function setQty(product: Product, raw: number): void {
+  if (!Number.isFinite(raw) || raw < 1) {
+    cardQty.value[product.id] = 1;
+    return;
+  }
+  // 即時庫存檢查：超出庫存就夾到上限並提示（後端 422 仍是最後防線）。
+  if (raw > product.stock) {
+    showToast(`Only ${product.stock} in stock for "${product.name}".`);
+    cardQty.value[product.id] = product.stock;
+    return;
+  }
+  cardQty.value[product.id] = Math.floor(raw);
+}
+
+function stepQty(product: Product, delta: number): void {
+  setQty(product, qtyOf(product.id) + delta);
+}
+
 async function handleAddToCart(product: Product): Promise<void> {
   if (!user.value) {
     await router.push({ name: "login", query: { redirect: route.fullPath } });
@@ -371,9 +393,11 @@ async function handleAddToCart(product: Product): Promise<void> {
     showToast(`"${product.name}" is out of stock.`);
     return;
   }
+  // 送出前再夾一次：卡片上的庫存數字可能在停留期間被別的 session 買走。
+  const quantity = Math.min(qtyOf(product.id), product.stock);
   try {
-    await addToCart(product.id, 1);
-    showToast(`Added "${product.name}" to cart.`);
+    await addToCart(product.id, quantity);
+    showToast(`Added "${product.name}" × ${quantity} to cart.`);
   } catch (err) {
     showToast(err instanceof ApiError ? `Add to cart failed: ${err.message}` : "Add to cart failed.");
   }
@@ -677,6 +701,9 @@ onMounted(() => {
               <div class="skeleton-block skeleton-line" style="width: 72px" />
               <div class="skeleton-block skeleton-line" style="width: 44px" />
             </div>
+            <div class="product-meta">
+              <div class="skeleton-block skeleton-line" style="width: 108px; height: 16px; margin-left: auto" />
+            </div>
             <div class="product-cart-row">
               <div class="skeleton-block skeleton-line" style="width: 100%; height: 34px" />
             </div>
@@ -734,21 +761,52 @@ onMounted(() => {
                 <span v-if="product.description" class="product-desc" :title="product.description">
                   {{ product.description }}
                 </span>
-                <div class="product-meta">
-                  <span class="product-price-row">
-                    <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
-                      {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
-                    </span>
-                    <span class="product-price">{{ formatPrice(product.price) }}</span>
-                  </span>
-                </div>
               </div>
               <!-- 分類 + NEW IN 標籤（NEW IN 由 created_at 真實推導） -->
               <div class="product-tags">
                 <span class="tag-stamp cat">{{ categoryName(product.category_id) }}</span>
                 <span v-if="isNew(product)" class="tag-stamp new">New in</span>
               </div>
+              <!-- 價格緊貼購買列：描述 → 分類 → 價格 → 按鈕，掃視是同一條決策路徑 -->
+              <div class="product-meta">
+                <span class="product-price-row">
+                  <span :class="['stock-badge', product.stock > 0 ? 'in' : 'out']">
+                    {{ product.stock > 0 ? `In stock · ${product.stock}` : "Out of stock" }}
+                  </span>
+                  <span class="product-price">{{ formatPrice(product.price) }}</span>
+                </span>
+              </div>
               <div class="product-cart-row">
+                <div v-if="product.stock > 0" class="qty-stepper" role="group" :aria-label="`Quantity for ${product.name}`">
+                  <button
+                    type="button"
+                    class="qty-step"
+                    :disabled="qtyOf(product.id) <= 1"
+                    :aria-label="`Decrease quantity for ${product.name}`"
+                    @click="stepQty(product, -1)"
+                  >
+                    −
+                  </button>
+                  <input
+                    class="qty-input"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    :max="product.stock"
+                    :value="qtyOf(product.id)"
+                    :aria-label="`Quantity for ${product.name}`"
+                    @change="setQty(product, ($event.target as HTMLInputElement).valueAsNumber)"
+                  />
+                  <button
+                    type="button"
+                    class="qty-step"
+                    :disabled="qtyOf(product.id) >= product.stock"
+                    :aria-label="`Increase quantity for ${product.name}`"
+                    @click="stepQty(product, 1)"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   v-if="product.stock > 0"
                   type="button"
@@ -803,6 +861,9 @@ onMounted(() => {
               </div>
               <div class="product-tags">
                 <div class="skeleton-block skeleton-line" style="width: 72px" />
+              </div>
+              <div class="product-meta">
+                <div class="skeleton-block skeleton-line" style="width: 108px; height: 16px; margin-left: auto" />
               </div>
             </div>
           </section>
