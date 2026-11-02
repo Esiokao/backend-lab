@@ -15,6 +15,12 @@ export default defineConfig({
     },
   },
   server: {
+    // 進場綁定：Windows 本機開發預設 localhost；Compose 容器設 VITE_DEV_host=0.0.0.0，
+    // 讓 docker port 轉得進來。CLI 傳 --host 經 pnpm run 前後 "--" 處理很容易掉，不值得賭。
+    host: process.env.VITE_DEV_HOST,
+    // Bind mount 環境（Docker Desktop / WSL）inotify 不傳主機事件，無 polling 則
+    // HMR 收不到主機側檔案變更、transform cache 停留舊版。repo 小，polling 成本可忽略。
+    watch: { usePolling: true, ignored: ["**/.pnpm-store/**"] },
     proxy: {
       "/api": {
         target: process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8000",

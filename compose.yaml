@@ -166,15 +166,26 @@ services:
 
     working_dir: /app
 
-    # 原始碼用 bind mount，Vite HMR 即時反映主機上的編輯。
+    # 原始碼用 bind mount，影像即時反映主機上的編輯；node_modules 用 named volume
+    # 隔離——Windows（主機端開發）與 Alpine（容器端 Vite）的相依平台不同，
+    # 共用一個 node_modules 會互相踩壞二進位。
     volumes:
       - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_pnpm_store:/root/.local/share/pnpm/store
 
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "corepack enable pnpm && corepack pnpm install --frozen-lockfile && corepack pnpm run dev"
 
     environment:
       # 容器內 Vite proxy 目標：走 Compose 網路連 API（同源 /api，零 CORS）。
       VITE_API_PROXY_TARGET: http://api:8000
+      # Vite 進場綁 0.0.0.0（host 本機未設此值 → 預設 localhost）。
+      VITE_DEV_HOST: 0.0.0.0
+      # pnpm store 指向 named volume；否則 pnpm 會把 .pnpm-store 寫回 bind mount
+      # （進 git、被 watcher polling 白看、污染主機目錄）。
+      npm_config_store_dir: /root/.local/share/pnpm/store
+      # 容器內無 TTY：pnpm 需要重建 modules dir（換 store 之後的正常一步）時自動確認。
+      CI: "true"
 
     ports:
       - "5173:5173"
@@ -254,3 +265,6 @@ services:
 volumes:
   # 持久化 PostgreSQL 資料，容器重建時保留資料。
   postgres_data:
+  # 容器端（Alpine）專用的 node_modules 與 pnpm store：named volume 重建容器也存活。
+  frontend_node_modules:
+  frontend_pnpm_store:
