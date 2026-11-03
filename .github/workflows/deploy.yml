@@ -55,6 +55,17 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/backend_lab_deploy
           chmod 600 ~/.ssh/backend_lab_deploy
 
+      # 主機金鑰 pinning：連線前把 staging 的 host key 寫進 known_hosts，
+      # 讓 SSH 核對伺服器身分（取代 StrictHostKeyChecking=no 的放棄驗證）。
+      # 金鑰來源：ssh-keyscan 100.117.73.86（staging 重裝 SSH 時需更新此 Secret）。
+      - name: Pin deployment server host key
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
       # 確認 SSH 可以登入 WSL。
       - name: Check SSH connection
         timeout-minutes: 1
