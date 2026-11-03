@@ -10,15 +10,14 @@ pub/sub 不保證送達，漏掉的由前端 10 秒輪詢兜底。
 import asyncio
 import os
 
-from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from redis import asyncio as aioredis
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import CurrentUser
 from app.core.events import BROADCAST_CHANNEL, user_channel
-from app.models import User
+from app.core.request_size import SizeLimitedAPIRouter
 
-router = APIRouter(prefix="/notifications")
+router = SizeLimitedAPIRouter(prefix="/notifications")
 
 # 心跳週期：SSE 註解行（": ping"）讓中間層知道連線活著，
 # 也讓 async generator 有機會被喚醒、察覺客戶端已斷開。
@@ -69,7 +68,7 @@ async def _event_stream(user_id: int):
 
 
 @router.get("/stream")
-async def stream(user: User = Depends(get_current_user)):
+async def stream(user: CurrentUser):
     """即時通知推送：EventSource 同源自動帶 session cookie，沿用現有認證。"""
     return StreamingResponse(
         _event_stream(user.id),

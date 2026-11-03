@@ -11,7 +11,7 @@ import { useToast } from "@/stores/toast";
 // - PATCH /admin/orders/{id}/status?new_status=X（非法轉移 → 409，F8-4）
 // - DELETE /admin/orders/{id} → 204（F8-5）
 
-type OrderStatusValue = "created" | "pending" | "processing" | "completed" | "cancelled";
+type OrderStatusValue = "unpaid" | "paid" | "processing" | "completed" | "cancelled";
 
 type AdminOrder = { id: number; user_id: number; status: OrderStatusValue };
 
@@ -25,8 +25,8 @@ type AdminOrdersResponse = {
 type UserRow = { id: number; name: string; email: string; role: string };
 
 const STATUSES: OrderStatusValue[] = [
-  "created",
-  "pending",
+  "unpaid",
+  "paid",
   "processing",
   "completed",
   "cancelled",
@@ -34,8 +34,8 @@ const STATUSES: OrderStatusValue[] = [
 
 // 鏡像後端 app/core/enums.py 的 ALLOWED_TRANSITIONS：UI 只允許合法的下一狀態。
 const ALLOWED_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
-  created: ["pending", "cancelled"],
-  pending: ["processing", "completed", "cancelled"],
+  unpaid: ["paid", "cancelled"],
+  paid: ["processing", "completed", "cancelled"],
   processing: ["completed", "cancelled"],
   completed: [],
   cancelled: [],
@@ -47,6 +47,7 @@ const orders = ref<AdminOrder[]>([]);
 const total = ref(0);
 const page = ref(1);
 const statusFilter = ref<OrderStatusValue | "all">("all");
+const sortBy = ref<"newest" | "oldest">("newest");
 const userIdFilter = ref("");
 const users = ref<UserRow[]>([]);
 const loading = ref(true);
@@ -60,7 +61,13 @@ const userMap = computed(() => new Map(users.value.map((user) => [user.id, user]
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 const hasNext = computed(() => page.value < totalPages.value);
 
+// 世代序號：loadOrders 可能並發（onMounted 的初始載入 vs 快速的篩選/翻頁），
+// 回應抵達順序不保證——舊回應後到會蓋掉新結果（畫面顯示過期資料）。
+// 每次呼叫領號碼，回來時不是最新的一號就整包丟棄（同 StorefrontView 的 epoch 防護）。
+let loadSeq = 0;
+
 async function loadOrders(): Promise<void> {
+  const seq = ++loadSeq;
   loading.value = true;
   loadError.value = "";
 
@@ -71,11 +78,15 @@ async function loadOrders(): Promise<void> {
     });
 
     if (statusFilter.value !== "all") params.set("status", statusFilter.value);
+    params.set("sort", sortBy.value);
 
     const userId = userIdFilter.value.trim();
     if (userId) params.set("user_id", userId);
 
     const data = await api.get<AdminOrdersResponse>(`/admin/orders?${params.toString()}`);
+
+    if (seq !== loadSeq) return; // 過期回應：已有更新的查詢，丟棄
+
     orders.value = data.items;
     total.value = data.total;
 
@@ -85,21 +96,20 @@ async function loadOrders(): Promise<void> {
       await loadOrders();
     }
   } catch (err) {
+    if (seq !== loadSeq) return; // 過期回應的錯誤也一樣不覆蓋
     loadError.value =
       err instanceof ApiError ? `Failed to load orders: ${err.message}` : "Failed to load orders.";
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
-onMounted(async () => {
-  // 對照表載入失敗不阻擋列表，僅退回 usr_XXXX 顯示。
-  try {
-    users.value = await api.get<UserRow[]>("/users");
-  } catch {
-    users.value = [];
-  }
-  await loadOrders();
+onMounted(() => {
+  // 主要資料（訂單）先跑；對照表背景平行載，載入失敗僅退回 usr_XXXX 顯示。
+  void loadOrders();
+  api.get<UserRow[]>("/users")
+    .then((data) => (users.value = data))
+    .catch(() => (users.value = []));
 });
 
 watch(page, loadOrders);
@@ -110,6 +120,20 @@ function applyFilters(): void {
     toast.show("User ID filter must be a positive integer.");
     return;
   }
+  page.value = 1;
+  loadOrders();
+}
+
+// UX：清空篩選的瞬間就回全部訂單，不用再按 Enter（序號守衛擋掉競態）。
+// 非空輸入不在此觸發——逐字送請求太吵，等 Enter/change（applyFilters）。
+function onFilterInput(): void {
+  if (userIdFilter.value.trim() === "") applyFilters();
+}
+
+// 排序切換：回第 1 頁重撈（序號守衛擋競態）。
+function changeSort(value: "newest" | "oldest"): void {
+  if (sortBy.value === value) return;
+  sortBy.value = value;
   page.value = 1;
   loadOrders();
 }
@@ -190,8 +214,18 @@ function onStatusChange(order: AdminOrder, event: Event): void {
             aria-label="Filter by user ID"
             @keydown.enter="applyFilters"
             @change="applyFilters"
+            @input="onFilterInput"
           />
         </label>
+        <select
+          class="filter-select"
+          aria-label="Sort orders"
+          :value="sortBy"
+          @change="changeSort(($event.target as HTMLSelectElement).value as 'newest' | 'oldest')"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
         <select
           v-model="statusFilter"
           class="filter-select"

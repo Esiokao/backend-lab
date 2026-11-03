@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import AdminUser
 from app.core.events import EventType
-from app.database import get_db
-from app.models import Category, NotificationOutbox, Product, User
+from app.core.request_size import SizeLimitedAPIRouter
+from app.database import DbSession
+from app.models import Category, NotificationOutbox, Product
 from app.schemas.Product import ProductPatch, ProductResponse
 
-router = APIRouter(prefix="/products")
+router = SizeLimitedAPIRouter(prefix="/products")
 
 
 @router.patch(
@@ -17,8 +17,8 @@ router = APIRouter(prefix="/products")
 def update_product(
     product_id: int,
     payload: ProductPatch,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     product = db.get(Product, product_id)
 

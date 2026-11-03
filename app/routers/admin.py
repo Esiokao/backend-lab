@@ -1,17 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from typing import Literal
 
-from app.core.dependencies import require_admin
+from fastapi import HTTPException, Query, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
+
+from app.core.dependencies import AdminUser
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.core.events import EventType
-from app.database import get_db
+from app.core.request_size import SizeLimitedAPIRouter
+from app.database import DbSession
 from app.models import NotificationOutbox, Order, User
 from app.schemas.Order import OrderResponse
 from app.schemas.User import AdminUserPatch, UserResponse
+from app.services.inventory import restore_order_stock
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     prefix="/admin/orders",
     tags=["Admin Orders"],
 )
@@ -25,12 +29,13 @@ _OUTBOX_EVENT_BY_STATUS = {
 
 @router.get("")
 def list_orders(
+    db: DbSession,
+    _: AdminUser,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     order_status: OrderStatus | None = Query(default=None, alias="status"),
+    sort: Literal["newest", "oldest"] = Query(default="newest"),
     user_id: int | None = Query(default=None, ge=1),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
 ):
     """列出訂單，支援分頁與狀態、使用者篩選。"""
     stmt = select(Order)
@@ -41,8 +46,12 @@ def list_orders(
     if user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
 
-    # 固定排序，確保分頁結果穩定。
-    stmt = stmt.order_by(Order.id)
+    # 排序（預設新到舊）：admin 最關心最新的訂單；id 當 tie-breaker 確保分頁穩定。
+    match sort:
+        case "oldest":
+            stmt = stmt.order_by(Order.id)
+        case _:
+            stmt = stmt.order_by(Order.id.desc())
 
     total_stmt = select(Order.id)
 
@@ -76,8 +85,8 @@ def list_orders(
 def update_order_status(
     order_id: int,
     new_status: OrderStatus,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """更新訂單狀態，並拒絕不合法的狀態轉換。"""
     order = db.get(Order, order_id)
@@ -94,7 +103,20 @@ def update_order_status(
             detail=f"Cannot change order status from {order.status} to {new_status}",
         )
 
+    # 取消 = 釋放建單時佔用的庫存。所有取消路徑（owner cancel、過期 worker、
+    # admin）都必須歸還——不一致會讓庫存取決於「誰按的按鈕」。
+    # 判斷要在賦值前：轉移進 cancelled 才歸還（cancelled 是終態，無法重複觸發）。
+    was_cancelled = order.status == OrderStatus.cancelled.value
+    if new_status == OrderStatus.cancelled and not was_cancelled:
+        restore_order_stock(db, order.id)
+
     order.status = new_status
+
+    # admin 標記 paid = 「離線收款完成」（現金/轉帳，沒走 receipt 流程）。
+    # fulfillment worker 用 paid_at IS NOT NULL 領取訂單——沒蓋 paid_at 的
+    # paid 訂單會永遠卡住不出貨、完成通知也不會發（#224 實例）。
+    if new_status == OrderStatus.paid and order.paid_at is None:
+        order.paid_at = func.now()
 
     # 終態轉移與 POST /orders/{id}/complete 相同：同一交易寫 outbox 事件發通知，
     # 讓 admin 下拉改狀態和專用端點的行為一致。
@@ -120,8 +142,8 @@ def update_order_status(
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_order(
     order_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """刪除指定訂單。"""
     order = db.get(Order, order_id)
@@ -138,7 +160,7 @@ def delete_order(
 
 # ── Admin 使用者管理 ────────────────────────────────────────────────
 
-users_router = APIRouter(
+users_router = SizeLimitedAPIRouter(
     prefix="/admin/users",
     tags=["Admin Users"],
 )
@@ -148,8 +170,8 @@ users_router = APIRouter(
 def update_user_as_admin(
     user_id: int,
     payload: AdminUserPatch,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    db: DbSession,
+    current_admin: AdminUser,
 ):
     """admin 更新使用者資料（name/email/role）。"""
     # 防呆：admin 不能改變自己的 role，避免把自己鎖在門外。
@@ -188,8 +210,8 @@ def update_user_as_admin(
 @users_router.get("/{user_id}")
 def get_user_detail(
     user_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     """admin 檢視使用者詳情：基本資料 + 該使用者的全部訂單（含明細）。"""
     user = db.get(User, user_id)

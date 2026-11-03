@@ -1,19 +1,19 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
-from app.core.dependencies import require_admin
+from app.core.dependencies import AdminUser
 from app.core.events import BROADCAST_CHANNEL, EventType
 from app.core.redis import redis_client
-from app.database import get_db
+from app.core.request_size import SizeLimitedAPIRouter
+from app.database import DbSession
 from app.models import NotificationBroadcast, NotificationOutbox, User
 from app.schemas.AdminNotification import AdminNotificationCreate
 from app.schemas.Notification import NotificationBroadcastCreate
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     prefix="/admin/notifications",
     tags=["Admin Notifications"],
 )
@@ -23,8 +23,8 @@ router = APIRouter(
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 def create_admin_notification(
     payload: AdminNotificationCreate,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     user = db.get(User, payload.user_id)
 
@@ -58,8 +58,8 @@ def create_admin_notification(
 @router.post("/broadcasts", status_code=status.HTTP_201_CREATED)
 def create_notification_broadcast(
     payload: NotificationBroadcastCreate,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     broadcast = NotificationBroadcast(
         type=payload.type,
@@ -87,8 +87,8 @@ def create_notification_broadcast(
 @router.delete("/broadcasts/{broadcast_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_notification_broadcast(
     broadcast_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    db: DbSession,
+    _: AdminUser,
 ):
     broadcast = db.get(NotificationBroadcast, broadcast_id)
 

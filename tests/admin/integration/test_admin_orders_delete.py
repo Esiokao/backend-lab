@@ -18,7 +18,7 @@ def test_admin_can_delete_order(
     owner = create_test_user(**test_user_data)
 
     # 建立待刪除的訂單。
-    order = create_test_order(owner.id, status="pending")
+    order = create_test_order(owner.id, status="paid")
     order_id = order.id
 
     # 使用管理員身分刪除訂單。
@@ -58,7 +58,7 @@ def test_session_user_cannot_delete_order(
     owner = create_test_user(**test_user_data)
 
     # 建立訂單並保留主鍵。
-    order = create_test_order(owner.id, status="pending")
+    order = create_test_order(owner.id, status="paid")
     order_id = order.id
 
     # 一般使用者嘗試刪除訂單。
@@ -81,7 +81,7 @@ def test_unauthenticated_user_cannot_delete_order(
     owner = create_test_user(**test_user_data)
 
     # 建立訂單。
-    order = create_test_order(owner.id, status="pending")
+    order = create_test_order(owner.id, status="paid")
     order_id = order.id
 
     # 未登入的請求應被拒絕。

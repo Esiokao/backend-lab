@@ -124,11 +124,19 @@ export const LoginFormSchema = z.object({
   password: z.string().min(1, "Password is required."),
 });
 
-export const SignupFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters.").max(128),
-});
+export const SignupFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required."),
+    email: z.email("Enter a valid email address."),
+    password: z.string().min(8, "Password must be at least 8 characters.").max(128),
+    confirmPassword: z.string().min(1, "Confirm your password."),
+  })
+  // 跨欄位驗證：z.object 的單欄 validator 看不到隔壁欄，要用 .refine
+  // 錯誤掛在 confirmPassword 欄位（path），顯示在它的下方而非全域 banner
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
 export const ProfileFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required."),

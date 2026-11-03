@@ -5,7 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "@/components/Icon.vue";
 import { useAuth } from "@/stores/auth";
 import { useTheme } from "@/stores/theme";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { LoginFormSchema, SignupFormSchema } from "@/lib/schemas";
 
 // 登入頁 —— Tailwind utilities 的遷移範本（tokens 經 @theme 引 var()，
@@ -20,6 +20,7 @@ const { theme, toggleTheme } = useTheme();
 
 const email = ref("");
 const password = ref("");
+const confirmPassword = ref("");
 const error = ref("");
 const fieldErrors = ref<Record<string, string>>({});
 const submitting = ref(false);
@@ -64,10 +65,15 @@ async function handleSubmit(): Promise<void> {
         : "/";
     await router.push(target);
   } catch (err) {
-    error.value =
-      err instanceof Error && err.message.includes("Invalid")
-        ? "Invalid email or password"
-        : "Login failed. Please try again.";
+    if (err instanceof ApiError && err.status === 429) {
+      // 限流（5 次/60 秒）：把後端訊息顯示出來，不然使用者只會看到通用的失敗。
+      error.value = "Too many attempts — wait a minute and try again.";
+    } else {
+      error.value =
+        err instanceof Error && err.message.includes("Invalid")
+          ? "Invalid email or password"
+          : "Login failed. Please try again.";
+    }
   } finally {
     submitting.value = false;
   }
@@ -78,6 +84,7 @@ async function handleSignup(): Promise<void> {
     name: name.value,
     email: email.value,
     password: password.value,
+    confirmPassword: confirmPassword.value,
   });
   if (!parsed.success) {
     fieldErrors.value = Object.fromEntries(
@@ -89,17 +96,28 @@ async function handleSignup(): Promise<void> {
 
   submitting.value = true;
   try {
-    await api.post("/users", parsed.data);
+    await api.post("/users", {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
     // 註冊成功 → 直接登入（同一組帳密）。
     await login(parsed.data.email, parsed.data.password);
 
     const target = typeof route.query.redirect === "string" ? route.query.redirect : "/";
     await router.push(target.startsWith("/") ? target : "/");
   } catch (err) {
-    error.value =
-      err instanceof Error && err.message.includes("already")
-        ? "That email is already registered — try signing in."
-        : "Sign up failed. Please try again.";
+    if (err instanceof ApiError && err.status === 429) {
+      // 限流：註冊本身不限流，但註冊成功後的自動登入會打 /login（5 次/60 秒）。
+      // 不提示的話使用者只會看到「Sign up failed」，以為帳號沒建成功而重複嘗試——
+      // 越試越撞牆。
+      error.value = "Too many attempts — wait a minute and try again.";
+    } else {
+      error.value =
+        err instanceof Error && err.message.includes("already")
+          ? "That email is already registered — try signing in."
+          : "Sign up failed. Please try again.";
+    }
   } finally {
     submitting.value = false;
   }
@@ -126,7 +144,7 @@ function switchMode(next: "signin" | "signup"): void {
     <div class="w-full max-w-[400px]">
       <div class="mb-6 flex items-center gap-3 font-bold tracking-tight text-ink-strong">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand text-on-brand">
-          <Icon name="bolt" :size="16" />
+          <img class="brand-cat" src="/brand-cat.png" alt="" />
         </span>
         <span>Backend Lab</span>
       </div>
@@ -202,6 +220,22 @@ function switchMode(next: "signin" | "signup"): void {
             />
             <p v-if="fieldErrors.password" class="m-0 text-[11px] text-danger-ink">
               {{ fieldErrors.password }}
+            </p>
+          </div>
+
+          <!-- Confirm password：僅 Sign up 模式；aria-label 供 getByLabel 精準定位 -->
+          <div v-if="mode === 'signup'" class="flex flex-col gap-1.5">
+            <label for="confirm-password" class="text-[11px] font-semibold text-ink-soft">Confirm password</label>
+            <input
+              id="confirm-password"
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Re-enter your password"
+              class="h-10 rounded-lg border border-line bg-card px-3 text-[13px] text-ink outline-none caret-ink placeholder:text-ink-faint focus:border-brand"
+            />
+            <p v-if="fieldErrors.confirmPassword" class="m-0 text-[11px] text-danger-ink">
+              {{ fieldErrors.confirmPassword }}
             </p>
           </div>
 

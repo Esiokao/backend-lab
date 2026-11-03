@@ -15,7 +15,7 @@ def test_owner_can_cancel_created_order(
     test_user_data,
 ):
     user = create_test_user(**test_user_data)
-    order = create_test_order(user_id=user.id, status="created")
+    order = create_test_order(user_id=user.id, status="unpaid")
     client = session_auth_client(test_user_data)
 
     response = client.post(f"/orders/{order.id}/cancel")
@@ -32,7 +32,7 @@ def test_cancel_writes_order_cancelled_outbox_event(
     test_db,
 ):
     user = create_test_user(**test_user_data)
-    order = create_test_order(user_id=user.id, status="pending")
+    order = create_test_order(user_id=user.id, status="paid")
     client = session_auth_client(test_user_data)
 
     response = client.post(f"/orders/{order.id}/cancel")
@@ -55,7 +55,7 @@ def test_owner_can_cancel_pending_order(
     test_user_data,
 ):
     user = create_test_user(**test_user_data)
-    order = create_test_order(user_id=user.id, status="pending")
+    order = create_test_order(user_id=user.id, status="paid")
     client = session_auth_client(test_user_data)
 
     response = client.post(f"/orders/{order.id}/cancel")

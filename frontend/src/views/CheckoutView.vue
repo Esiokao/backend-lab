@@ -40,9 +40,13 @@ async function pay(): Promise<void> {
     // 1) 選中品結帳成訂單（其餘留車）
     const order = await checkout(items.value.map((item) => item.product_id));
 
-    // 2) 付款（模擬）→ 成功到結果頁
+    // 2) 付款三步流程：intent（金額後端簽進 token）→ mock-provider 收款 → 收據付款
     try {
-      await api.post(`/orders/${order.id}/pay`);
+      const intent = await api.post<{ token: string }>(`/orders/${order.id}/payment-intent`);
+      const provider = await api.post<{ receipt: string }>("/mock-provider/pay", {
+        token: intent.token,
+      });
+      await api.post(`/orders/${order.id}/pay`, { receipt: provider.receipt });
       await router.push({
         name: "checkout-result",
         query: { order: String(order.id), status: "paid", total: paidTotal },
@@ -161,7 +165,7 @@ onMounted(async () => {
         </div>
         <div class="cart-summary-actions">
           <button type="button" class="primary-button pay-button" :disabled="paying" @click="pay">
-            <Icon name="bolt" :size="15" />
+            <Icon name="store" :size="15" />
             {{ paying ? "Paying..." : `Pay ${formatPrice(totalNumber)}` }}
           </button>
         </div>

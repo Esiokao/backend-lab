@@ -19,3 +19,8 @@ docs/PRD.md
 
 # GUI 測試截圖（僅本地測試產物）
 gui-test-screenshots/
+
+# Playwright e2e（e2e/ 目錄）
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/

@@ -75,6 +75,27 @@ async function toggleFollow(): Promise<void> {
   }
 }
 
+// 數量（預設 1）：stepper 按鈕 ±1、直接輸入也行，即時夾在 [1, stock]。
+const qty = ref(1);
+
+function setQty(raw: number): void {
+  if (product.value === null) return;
+  if (!Number.isFinite(raw) || raw < 1) {
+    qty.value = 1;
+    return;
+  }
+  if (raw > product.value.stock) {
+    showToast(`Only ${product.value.stock} in stock for "${product.value.name}".`);
+    qty.value = product.value.stock;
+    return;
+  }
+  qty.value = Math.floor(raw);
+}
+
+function stepQty(delta: number): void {
+  setQty(qty.value + delta);
+}
+
 async function handleAddToCart(): Promise<void> {
   if (product.value === null) return;
   if (!user.value) {
@@ -85,9 +106,11 @@ async function handleAddToCart(): Promise<void> {
     showToast(`"${product.value.name}" is out of stock.`);
     return;
   }
+  // 送出前再夾一次：停留期間庫存可能被別的 session 買走。
+  const quantity = Math.min(qty.value, product.value.stock);
   try {
-    await addToCart(product.value.id, 1);
-    showToast(`Added "${product.value.name}" to cart.`);
+    await addToCart(product.value.id, quantity);
+    showToast(`Added "${product.value.name}" × ${quantity} to cart.`);
   } catch (err) {
     showToast(
       err instanceof ApiError ? `Add to cart failed: ${err.message}` : "Add to cart failed.",
@@ -185,6 +208,36 @@ onMounted(async () => {
         <p class="pd-desc">{{ product.description ?? "No description provided for this item." }}</p>
 
         <div class="pd-actions">
+          <div v-if="product.stock > 0" class="qty-stepper" role="group" aria-label="Quantity">
+            <button
+              type="button"
+              class="qty-step"
+              :disabled="qty <= 1"
+              aria-label="Decrease quantity"
+              @click="stepQty(-1)"
+            >
+              −
+            </button>
+            <input
+              class="qty-input"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              :max="product.stock"
+              :value="qty"
+              aria-label="Quantity"
+              @change="setQty(($event.target as HTMLInputElement).valueAsNumber)"
+            />
+            <button
+              type="button"
+              class="qty-step"
+              :disabled="qty >= product.stock"
+              aria-label="Increase quantity"
+              @click="stepQty(1)"
+            >
+              +
+            </button>
+          </div>
           <button
             v-if="product.stock > 0"
             type="button"

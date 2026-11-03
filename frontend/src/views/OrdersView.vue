@@ -5,7 +5,6 @@ import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useToast } from "@/stores/toast";
 import { ProductListSchema } from "@/lib/schemas";
-import { useAuth } from "@/stores/auth";
 
 // 訂單型別（後端 GET /orders 回 id、user_id、status、created_at、items）。
 type OrderItem = { product_id: number; quantity: number; unit_price: string | number };
@@ -30,30 +29,14 @@ const search = ref("");
 const loading = ref(true);
 const loadError = ref("");
 
-const { user: me } = useAuth();
+// 「我的訂單」永遠只看自己的（後端 GET /orders 一律按 session 過濾，
+// 不分角色）——admin 的全站瀏覽在 /admin/orders，這頁不需要 USER 欄與 user 篩選。
 
-// 一般使用者只看得到自己的訂單（每列都是自己，名字取自 session）；
-// admin 會看到全部訂單，另外抓 /users 對照 user_id → 姓名。
-const isAdmin = computed(() => me.value?.role === "admin");
-
-const users = ref<{ id: number; name: string }[]>([]);
-const userMap = computed(() => new Map(users.value.map((u) => [u.id, u])));
-
-function displayName(userId: number): string {
-  return (
-    userMap.value.get(userId)?.name ??
-    (userId === me.value?.id ? me.value?.name : undefined) ??
-    userCode(userId)
-  );
-}
-
-// 當前頁的客戶端搜尋（比對 id / user_id 字串）。
+// 當前頁的客戶端搜尋（比對訂單 id 字串）。
 const filteredOrders = computed(() => {
   const q = search.value.trim();
   if (!q) return orders.value;
-  return orders.value.filter(
-    (o) => String(o.id).includes(q) || String(o.user_id).includes(q),
-  );
+  return orders.value.filter((o) => String(o.id).includes(q));
 });
 
 // 回傳筆數少於 page_size 代表沒有下一頁（後端不回傳總數）。
@@ -136,23 +119,9 @@ function nextPage(): void {
   if (hasNext.value) page.value += 1;
 }
 
-// user_id 顯示成 usr_0024 風格的代碼。
-function userCode(userId: number): string {
-  return `usr_${String(userId).padStart(4, "0")}`;
-}
-
-async function loadUsers(): Promise<void> {
-  try {
-    users.value = await api.get<{ id: number; name: string }[]>("/users");
-  } catch {
-    // 對照表失敗就退回 usr_XXXX 代碼顯示。
-  }
-}
-
 onMounted(() => {
   void loadOrders();
   void loadProducts();
-  if (isAdmin.value) void loadUsers();
 });
 watch([page, sortOrder], loadOrders);
 </script>
@@ -177,7 +146,7 @@ watch([page, sortOrder], loadOrders);
     <div class="table-tools">
       <label class="search-field">
         <Icon name="search" :size="15" />
-        <input v-model="search" type="search" placeholder="Filter by id or user..." />
+        <input v-model="search" type="search" placeholder="Filter by order id..." />
       </label>
       <button class="sort-button" @click="toggleSort">
         id: {{ sortOrder === "desc" ? "newest" : "oldest" }}
@@ -190,7 +159,6 @@ watch([page, sortOrder], loadOrders);
         <thead>
           <tr>
             <th>Order ID</th>
-            <th>User</th>
             <th>Items</th>
             <th>Total</th>
             <th>Status</th>
@@ -209,20 +177,6 @@ watch([page, sortOrder], loadOrders);
               </router-link>
             </td>
             <td>
-              <!-- user info 詳情頁僅 admin 可用；一般使用者的訂單全是自己，顯示名字即可。 -->
-              <router-link
-                v-if="isAdmin"
-                :to="{ name: 'admin-user-detail', params: { id: order.user_id } }"
-                class="order-link user-link"
-                :title="userCode(order.user_id)"
-              >
-                {{ displayName(order.user_id) }}
-              </router-link>
-              <span v-else class="order-user" :title="userCode(order.user_id)">
-                {{ displayName(order.user_id) }}
-              </span>
-            </td>
-            <td>
               <span v-for="item in order.items" :key="item.product_id" class="order-item">
                 {{ productName(item.product_id) }} × {{ item.quantity }}
               </span>
@@ -239,7 +193,7 @@ watch([page, sortOrder], loadOrders);
             <td>
               <div class="order-actions">
                 <router-link
-                  v-if="order.status === 'created' && order.user_id === me?.id"
+                  v-if="order.status === 'unpaid'"
                   :to="{ name: 'order-detail', params: { id: order.id }, query: { pay: '1' } }"
                   class="primary-button pay-row-button"
                   :aria-label="`Pay order ${order.id}`"
@@ -247,7 +201,7 @@ watch([page, sortOrder], loadOrders);
                   Pay
                 </router-link>
                 <button
-                  v-if="order.status === 'created' || order.status === 'pending'"
+                  v-if="order.status === 'unpaid' || order.status === 'paid'"
                   type="button"
                   class="sort-button cancel-button"
                   :aria-label="`Cancel order ${order.id}`"

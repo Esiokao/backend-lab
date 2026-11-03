@@ -140,6 +140,7 @@ html { scrollbar-width: thin; scrollbar-color: #c9bca8 transparent; }
 }
 .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-strong); text-decoration: none; white-space: nowrap; }
 .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; color: var(--paper); background: var(--brand); box-shadow: var(--shadow-card); }
+.brand-cat { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; image-rendering: pixelated; }
 .side-nav { margin-top: 42px; }
 .nav-label { margin: 0 12px 11px; color: var(--ink-faint); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
 .nav-item {
@@ -405,14 +406,28 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .result-hero h1 { margin: 0; color: var(--ink-strong); font-size: 24px; }
 .result-hero p { margin: 0; max-width: 42ch; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .result-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.product-cart-row { padding: 0 16px 14px; }
+.product-cart-row { display: flex; gap: 8px; padding: 0 16px 14px; }
+.product-cart-row .product-add-button { flex: 1; width: auto; }
+/* 併排 stepper（商品卡 / 詳情頁）：只 scope 到真實使用的兩個上下文。
+   裸 .qty-stepper 會把 /cart 表格裡的 stepper 蓋成 block-level flex，
+   撐滿整個 td、右側多出一截空白。 */
+.product-cart-row .qty-stepper, .pd-actions .qty-stepper {
+  display: flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--card);
+}
+.qty-step { width: 30px; border: 0; color: var(--ink-soft); background: transparent; font-size: 15px; font-weight: 700; cursor: pointer; transition: .15s ease; }
+.qty-step:hover:not(:disabled) { color: var(--ink-strong); background: var(--cream); }
+.qty-step:disabled { opacity: .35; cursor: not-allowed; }
+.qty-input { width: 44px; height: 34px; padding: 0 2px; text-align: center; border: 0; border-radius: 0; color: var(--ink); background: transparent; font: inherit; font-size: 12px; font-weight: 700; }
+.qty-input:focus { outline: none; background: var(--cream); }
+.qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .product-add-button { width: 100%; justify-content: center; }
 .product-add-button.notify { color: var(--warning-ink); border-color: var(--warning-ink); }
 .product-add-button.notify:hover { color: var(--ink-strong); border-color: var(--brand); }
 .product-add-button.following { color: var(--honey); border-color: transparent; cursor: default; opacity: .85; }
 .product-add-button.following svg { fill: currentColor; }
 /* 商品卡標籤：分類 + NEW IN（蓋章式） */
-.product-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 14px; }
+.product-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
 .tag-stamp { padding: 2px 7px; border: 1.5px solid currentColor; border-radius: 2px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 .tag-stamp.cat { color: var(--ink-soft); }
 .tag-stamp.new { color: var(--success-ink); }
@@ -452,16 +467,18 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .skeleton-line { height: 10px; border-radius: 5px; }
 .skeleton-line.short { width: 60%; }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-/* 縱向堆疊：名稱 → 描述（吃滿整行）→ 價格列靠右。
+/* 縱向堆疊：名稱 → 描述（吃滿整行），價格列獨立一段緊貼購買列。
    先前名稱與描述左右並排，-webkit-box（line-clamp）在 flex 裡尺寸
    計算不可靠會實際重疊；改為堆疊後兩者不再搶位，描述零截斷。 */
-.product-foot { padding: 14px 16px 16px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.product-foot { padding: 14px 16px 12px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
 /* 商品名 14px + 兩行 clamp（v1.18 修：12.5px 單行截斷 ≈13 字是死路感的來源之一）；
    名稱同時是詳情頁連結。 */
 .product-name { min-width: 0; overflow: hidden; color: var(--ink-strong); font-size: var(--text-base); font-weight: 600; line-height: 1.35; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .product-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .product-media { cursor: pointer; }
-.product-meta { min-width: 0; display: flex; justify-content: flex-end; }
+/* 價格列（描述段之後、購買列之前）：右對齊讓金額與按鈕的視覺落點同一側。
+   meta 離開 product-foot 之後自帶 side padding + 段落節奏 12px。 */
+.product-meta { min-width: 0; display: flex; justify-content: flex-end; padding: 0 16px 12px; }
 .product-desc { max-width: 100%; overflow: hidden; color: var(--ink-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .product-price-row { display: flex; align-items: center; gap: 8px; }
 .product-price { color: var(--ink-strong); font: 600 15px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
@@ -542,8 +559,8 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .result-count { color: var(--ink-faint); font-size: 11px; }
 .result-count strong { color: var(--ink); font-weight: 500; }
 .status-badge { padding: 2px 8px; border: 1.5px solid currentColor; border-radius: 2px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; background: transparent; }
-.status-badge.created { color: var(--ink-soft); background: transparent; }
-.status-badge.pending { color: var(--warning-ink); background: transparent; }
+.status-badge.unpaid { color: var(--ink-soft); background: transparent; }
+.status-badge.paid { color: var(--warning-ink); background: transparent; }
 .status-badge.processing { color: var(--info); background: transparent; }
 .status-badge.completed { color: var(--success-ink); background: transparent; }
 .status-badge.cancelled { color: var(--danger-ink); background: transparent; }
@@ -686,6 +703,9 @@ textarea.notify-body { min-height: 76px; padding: 8px 9px; resize: vertical; fon
 .pd-price { color: var(--ink-strong); font: 600 22px "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
 .pd-desc { margin: 0; color: var(--ink-soft); font-size: var(--text-base); line-height: 1.65; }
 .pd-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+.pd-actions .qty-stepper { height: 40px; }
+.pd-actions .qty-step { width: 38px; font-size: 17px; }
+.pd-actions .qty-input { width: 52px; height: 40px; font-size: 13px; }
 .pd-actions .product-add-button { width: auto; min-width: 200px; height: 40px; padding: 0 18px; font-size: 13px; }
 .pd-panel { margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 10px; }
 .pd-meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 13px; }

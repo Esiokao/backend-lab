@@ -10,11 +10,17 @@ from app.routers.cart import router as cart_router
 from app.routers.catalogs import router as categories_router
 from app.routers.notifications import router as notifications_router
 from app.routers.orders import router as order_router
+from app.routers.payments import router as payments_router
 from app.routers.products import router as products_router
 from app.routers.stats import router as stats_router
 from app.routers.users import router as users_router
 
 app = FastAPI()
+
+# 全域 request body 上限改由 SizeLimitedAPIRouter 承擔：FastAPI >= 0.118
+# 的 include_router 是惰性掛載，app.router.route_class 蓋不到 include
+# 進來的路由，所以每個 router 必須自帶 route_class（見
+# app/core/request_size.py 的 SizeLimitedAPIRouter）。
 
 
 @app.middleware("http")
@@ -55,6 +61,7 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(order_router)
+app.include_router(payments_router)
 app.include_router(admin_router)
 app.include_router(admin_users_router)
 app.include_router(notifications_router)

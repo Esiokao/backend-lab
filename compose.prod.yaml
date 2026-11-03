@@ -103,8 +103,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
 
       # 履約節奏（秒）：付款後進 processing 的延遲 / 自付款起算完成的總延遲。
-      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-5}
-      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-65}
+      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-300}
+      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-1800}
 
     depends_on:
       postgres:
@@ -150,6 +150,9 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
 
+      # 付款收據的 HMAC 簽章密鑰——正式環境務必覆寫
+      PAYMENT_SECRET: ${PAYMENT_SECRET:-dev-payment-secret-do-not-use-in-prod}
+
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
@@ -162,6 +165,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+  # =========================
+  # Order Expiry Worker（未付款訂單過期自動取消）
+  # =========================
+  order-expiry-worker:
+    image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
+    restart: unless-stopped
+
+    # unpaid 超過 ORDER_EXPIRY_SECONDS 未付款 → cancelled + 歸還庫存。
+    command: ["python", "-m", "app.workers.order_expiry"]
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+
+      ORDER_EXPIRY_SECONDS: ${ORDER_EXPIRY_SECONDS:-1800}
+
+    depends_on:
       migration:
         condition: service_completed_successfully
 

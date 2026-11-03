@@ -18,7 +18,7 @@ def test_admin_can_complete_pending_order(
 ):
     create_test_user(**test_admin_user_data)
     buyer = create_test_user(**test_user_data)
-    order = create_test_order(user_id=buyer.id, status="pending")
+    order = create_test_order(user_id=buyer.id, status="paid")
     test_db.commit()
 
     client = session_auth_client(test_admin_user_data)
@@ -47,7 +47,7 @@ def test_cannot_complete_created_order(
     # 未付款（created）不能直接完成——狀態機要求先付款。
     create_test_user(**test_admin_user_data)
     buyer = create_test_user(**test_user_data)
-    order = create_test_order(user_id=buyer.id, status="created")
+    order = create_test_order(user_id=buyer.id, status="unpaid")
 
     client = session_auth_client(test_admin_user_data)
     response = client.post(f"/orders/{order.id}/complete")
@@ -80,7 +80,7 @@ def test_non_admin_cannot_complete_order(
     test_user_data,
 ):
     buyer = create_test_user(**test_user_data)
-    order = create_test_order(user_id=buyer.id, status="pending")
+    order = create_test_order(user_id=buyer.id, status="paid")
 
     client = session_auth_client(test_user_data)
     response = client.post(f"/orders/{order.id}/complete")

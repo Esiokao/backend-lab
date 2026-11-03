@@ -19,7 +19,7 @@ def test_paid_order_advances_to_processing(
     test_db, create_test_user, test_user_data, create_test_order
 ):
     user = create_test_user(**test_user_data)
-    order = create_test_order(user_id=user.id, status="pending")
+    order = create_test_order(user_id=user.id, status="paid")
     order.paid_at = _paid_seconds_ago(10)  # 超過預設 5 秒 processing 延遲
     test_db.commit()
 
@@ -58,14 +58,14 @@ def test_recent_paid_order_is_untouched(
     test_db, create_test_user, test_user_data, create_test_order
 ):
     user = create_test_user(**test_user_data)
-    order = create_test_order(user_id=user.id, status="pending")
+    order = create_test_order(user_id=user.id, status="paid")
     order.paid_at = _paid_seconds_ago(1)  # 還沒到 5 秒
     test_db.commit()
 
     advance_once(test_db)
 
     test_db.refresh(order)
-    assert order.status == "pending"
+    assert order.status == "paid"
 
 
 def test_unpaid_and_terminal_orders_are_untouched(
@@ -74,7 +74,7 @@ def test_unpaid_and_terminal_orders_are_untouched(
     user = create_test_user(**test_user_data)
     created_at_old = _paid_seconds_ago(1000)
 
-    unpaid = create_test_order(user_id=user.id, status="created")
+    unpaid = create_test_order(user_id=user.id, status="unpaid")
     cancelled = create_test_order(user_id=user.id, status="cancelled")
     # 未付款訂單不該被 paid_at 以外的時間欄位誤撈：paid_at 維持 None。
     test_db.commit()
@@ -83,5 +83,5 @@ def test_unpaid_and_terminal_orders_are_untouched(
 
     test_db.refresh(unpaid)
     test_db.refresh(cancelled)
-    assert unpaid.status == "created"
+    assert unpaid.status == "unpaid"
     assert cancelled.status == "cancelled"

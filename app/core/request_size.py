@@ -4,11 +4,25 @@ import os
 from collections.abc import Callable
 
 from dotenv import load_dotenv
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
 load_dotenv()
+
+
+class SizeLimitedAPIRouter(APIRouter):
+    """預設掛上 RequestSizeRoute 的 APIRouter。
+
+    FastAPI >= 0.118 的 include_router 是惰性掛載（_IncludedRouter），
+    route 實例在「子 router 定義當下」就用子 router 自己的 route_class
+    建好——app.router.route_class 蓋不到 include 進來的路由，
+    所以全域 body 上限必須由每個 router 自帶。所有 router 一律用這個類。
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        kwargs.setdefault("route_class", RequestSizeRoute)
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
 
 
 # 沒有特別設定時，每個 request 預設最多 1 MB。

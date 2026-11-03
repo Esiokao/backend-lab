@@ -43,7 +43,7 @@ def test_admin_can_update_order_status(
     """Admin 可以將 pending 訂單更新為 processing。"""
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
-    order = create_order(test_db, owner, "pending")
+    order = create_order(test_db, owner, "paid")
     order_id = order.id
 
     client = session_auth_client(test_admin_user_data)
@@ -66,9 +66,9 @@ def test_admin_can_update_order_status(
 @pytest.mark.parametrize(
     ("initial_status", "new_status"),
     [
-        ("pending", "processing"),
-        ("pending", "completed"),  # v1.18 快速完成：與 POST /complete 一致
-        ("pending", "cancelled"),
+        ("paid", "processing"),
+        ("paid", "completed"),  # v1.18 快速完成：與 POST /complete 一致
+        ("paid", "cancelled"),
         ("processing", "completed"),
         ("processing", "cancelled"),
     ],
@@ -106,13 +106,13 @@ def test_admin_can_make_valid_status_transitions(
 @pytest.mark.parametrize(
     ("initial_status", "new_status"),
     [
-        ("pending", "pending"),  # 不允許重複設定相同狀態
-        ("processing", "pending"),
+        ("paid", "paid"),  # 不允許重複設定相同狀態
+        ("processing", "paid"),
         ("processing", "processing"),  # 不允許重複設定相同狀態
-        ("completed", "pending"),
+        ("completed", "paid"),
         ("completed", "processing"),
         ("completed", "cancelled"),
-        ("cancelled", "pending"),
+        ("cancelled", "paid"),
         ("cancelled", "processing"),
         ("cancelled", "completed"),
         ("cancelled", "cancelled"),
@@ -200,7 +200,7 @@ def test_admin_processing_transition_writes_no_outbox_event(
     """processing 不是終態，沒有對應通知，不應產生事件。"""
     create_test_user(**test_admin_user_data)
     owner = create_test_user(**test_user_data)
-    order = create_order(test_db, owner, "pending")
+    order = create_order(test_db, owner, "paid")
     order_id = order.id
 
     client = session_auth_client(test_admin_user_data)
@@ -289,3 +289,73 @@ def test_admin_cannot_submit_invalid_status_value(
     )
 
     assert response.status_code == 422
+
+
+def test_admin_marking_order_paid_sets_paid_at(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+):
+    """防回歸釘子：admin 手動標 paid 必須蓋 paid_at。
+
+    為什麼：fulfillment worker 用 paid_at IS NOT NULL 領取訂單——
+    沒蓋 paid_at 的 paid 訂單永遠卡在 paid、不出貨、完成通知不發
+    """
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(
+        test_db, owner, "unpaid"
+    )  # ← 新名字：未付款（等 admin 標 paid）
+    order_id = order.id
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": "paid"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "paid"
+
+    test_db.expire_all()  # ← 既有測試的同款慣例：丟掉快照重讀
+    updated_order = test_db.get(Order, order_id)
+    assert updated_order is not None
+    assert updated_order.status == "paid"
+    assert updated_order.paid_at is not None  # ← 釘子本體
+
+
+def test_admin_cancelling_order_restores_stock(
+    session_auth_client,
+    create_test_user,
+    test_admin_user_data,
+    test_user_data,
+    test_db,
+):
+    """防回歸釘子：admin 取消訂單也必須歸還庫存。
+
+    為什麼：同一個「取消」業務事件，owner cancel 與過期 worker 都會歸還庫存，
+    admin 路徑不歸還的話，庫存就取決於「誰按的按鈕」（資料不一致）。
+    """
+    create_test_user(**test_admin_user_data)
+    owner = create_test_user(**test_user_data)
+    order = create_order(test_db, owner, "paid")
+    order_id = order.id
+
+    # 模擬「建單時已扣 1 件」：把庫存設成 10 - 1
+    product = test_db.query(Product).filter_by(name=f"Product for {owner.email}").one()
+    product.stock = 9
+    test_db.commit()
+
+    client = session_auth_client(test_admin_user_data)
+    response = client.patch(
+        f"/admin/orders/{order_id}/status",
+        params={"new_status": "cancelled"},
+    )
+
+    assert response.status_code == 200
+
+    test_db.expire_all()
+    updated_product = test_db.get(Product, product.id)
+    assert updated_product.stock == 10  # 歸還 1

@@ -1,8 +1,10 @@
 import os
+from typing import Annotated
 
 from dotenv import load_dotenv
+from fastapi import Depends
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 load_dotenv()
 
@@ -43,6 +45,11 @@ def get_db():
         # yield 會暫停這個 function，
         # endpoint 使用完之後，dependency 可以繼續執行 cleanup。
         yield session
+
+
+# FastAPI 官方建議的 Annotated 寫法：工單放便條裡，型別標註保持乾淨。
+# endpoint 直接寫 `db: DbSession`，不必重複 `Session = Depends(get_db)`。
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 def check_database_connection() -> None:

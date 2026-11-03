@@ -41,6 +41,7 @@
 
   async function setQty(
     productId: number,
+    name: string,
     quantity: number,
     stock?: number
   ): Promise<void> {
@@ -50,7 +51,11 @@
       return
     }
     if (stock !== undefined && quantity > stock) {
-      toast.show(`Only ${stock} in stock.`)
+      toast.show(
+        stock === 0
+          ? `"${name}" is out of stock.`
+          : `Only ${stock} of "${name}" in stock.`
+      )
       return
     }
     try {
@@ -64,17 +69,22 @@
     }
   }
 
-  async function step(
-    productId: number,
-    current: number,
-    delta: number,
-    stock?: number
-  ): Promise<void> {
-    await setQty(productId, current + delta, stock)
+  // 內部自行讀 store 現值：模板傳來的 item.quantity 是渲染快照，
+  // 連按快過 re-render 會讀到重複的舊值（浪費遞增）。
+  async function step(productId: number, delta: number): Promise<void> {
+    const item = items.value.find((i) => i.product_id === productId)
+    if (!item) return
+    await setQty(
+      productId,
+      item.product_name,
+      item.quantity + delta,
+      item.stock
+    )
   }
 
   async function onQtyInput(
     productId: number,
+    name: string,
     current: number,
     stock: number,
     event: Event
@@ -86,7 +96,7 @@
       value <= 100 &&
       value !== current
     ) {
-      await setQty(productId, value, stock)
+      await setQty(productId, name, value, stock)
     }
     // 還原輸入框（re-render 由 store 狀態驅動）。
     ;(event.target as HTMLInputElement).value = String(current)
@@ -286,10 +296,8 @@
                     <button
                       type="button"
                       :aria-label="`Decrease ${item.product_name}`"
-                      :disabled="busy || item.quantity <= 1"
-                      @click="
-                        step(item.product_id, item.quantity, -1, item.stock)
-                      "
+                      :disabled="item.quantity <= 1"
+                      @click="step(item.product_id, -1)"
                     >
                       −
                     </button>
@@ -302,6 +310,7 @@
                       @change="
                         onQtyInput(
                           item.product_id,
+                          item.product_name,
                           item.quantity,
                           item.stock,
                           $event
@@ -311,14 +320,7 @@
                     <button
                       type="button"
                       :aria-label="`Increase ${item.product_name}`"
-                      :disabled="
-                        busy ||
-                        item.quantity >= 100 ||
-                        item.quantity >= item.stock
-                      "
-                      @click="
-                        step(item.product_id, item.quantity, 1, item.stock)
-                      "
+                      @click="step(item.product_id, 1)"
                     >
                       +
                     </button>
@@ -370,7 +372,7 @@
             @click="goCheckout"
           >
             <Icon
-              name="bolt"
+              name="store"
               :size="15"
             />
             Checkout ({{ selectedCount() }})

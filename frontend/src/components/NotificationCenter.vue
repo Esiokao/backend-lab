@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter, type RouteLocationRaw } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
-import { useAuth } from "@/stores/auth";
 import { useNotifications, type NotificationItem } from "@/stores/notifications";
 import { usePopover } from "@/stores/popover";
 
@@ -13,7 +12,6 @@ import { usePopover } from "@/stores/popover";
 
 const route = useRoute();
 const router = useRouter();
-const { user } = useAuth();
 const { active: activePopover, openPopover, closePopover } = usePopover();
 const {
   unreadCount,
@@ -21,8 +19,7 @@ const {
   items: notifications,
   broadcasts,
   panelOpen,
-  startPolling,
-  stopPolling,
+
   togglePanel,
   markRead,
   markAllRead,
@@ -66,19 +63,13 @@ watch(panelOpen, (open) => {
 
 // 跨頁導航會卸載本元件：收起面板，避免下個頁面的鈴鐺帶著開啟狀態。
 onUnmounted(() => {
-  stopPolling();
+  // 輪詢生命週期已升級到 App.vue（跟著登入狀態、不跟著頁面）——這裡只收 UI 狀態。
   if (panelOpen.value) panelOpen.value = false;
   document.removeEventListener("keydown", onKeydown);
 });
 
 onMounted(() => {
-  if (user.value) startPolling();
   document.addEventListener("keydown", onKeydown);
-});
-
-watch(user, (value) => {
-  if (value) startPolling();
-  else stopPolling();
 });
 
 // workspace 內換頁時本元件不卸載：跟著路由收面板。

@@ -91,7 +91,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
             Cancel
           </button>
           <button type="button" class="primary-button pay-button" :disabled="paying" @click="pay">
-            <Icon name="bolt" :size="15" />
+            <Icon name="store" :size="15" />
             {{ paying ? "Paying..." : `Pay ${total}` }}
           </button>
         </div>

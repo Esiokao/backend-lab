@@ -288,7 +288,7 @@ def notify_order_created(
             event,
             notification_type=NotificationType.order_created,
             title="訂單已建立",
-            body="訂單編號 #{order_id} 已成功建立。",
+            body="您的訂單編號 #{order_id} 已成功建立。",
         )
         return [order_user_id]
 
@@ -316,7 +316,7 @@ def notify_order_paid(
             event,
             notification_type=NotificationType.order_paid,
             title="訂單已付款",
-            body="訂單 #{order_id} 已成功付款。點擊查看訂單詳情。",
+            body="您的訂單編號 #{order_id} 已成功付款。點擊查看訂單詳情。",
         )
         return [order_user_id]
 

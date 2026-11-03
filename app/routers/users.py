@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from fastapi import Cookie, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import AdminUser, CurrentUser
 from app.core.jwt import create_access_token
 from app.core.rate_limit import rate_limit
-from app.core.request_size import RequestSizeRoute, request_size_limit
+from app.core.request_size import SizeLimitedAPIRouter, request_size_limit
 from app.core.security import hash_password, verify_password
 from app.core.session import (
     COOKIE_NAME,
@@ -17,15 +16,13 @@ from app.core.session import (
     delete_session,
     revoke_all_user_sessions,
 )
-from app.database import get_db
+from app.database import DbSession
 from app.models import User
 from app.schemas.Auth import UserLogin
 from app.schemas.User import UserCreate, UserPatch, UserResponse, UserUpdate
 
-router = APIRouter(
-    route_class=RequestSizeRoute,
-    tags=["Users"],
-)
+# body 上限由 app.main 的全域 route_class（RequestSizeRoute）統一套用。
+router = SizeLimitedAPIRouter(tags=["Users"])
 
 
 def _ensure_self_or_admin(current_user: User, user_id: int) -> None:
@@ -39,8 +36,8 @@ def _ensure_self_or_admin(current_user: User, user_id: int) -> None:
 
 @router.get("/users", response_model=list[UserResponse])
 def get_users(
-    session: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    session: DbSession,
+    _: AdminUser,
 ):
     # 只有 admin 可以列出全部使用者；固定依 id 排序（不然 Postgres 回堆積順序）。
     result = session.execute(select(User).order_by(User.id))
@@ -49,7 +46,7 @@ def get_users(
 
 @router.get("/users/me", response_model=UserResponse)
 def get_current_user_info(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser,
 ):
     # get_current_user 已經完成 JWT 驗證並找到 User
     return current_user
@@ -58,8 +55,8 @@ def get_current_user_info(
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    session: DbSession,
+    current_user: CurrentUser,
 ):
     # 僅本人或 admin 可以查看使用者詳情。
     _ensure_self_or_admin(current_user, user_id)
@@ -79,7 +76,7 @@ def get_user(
 @router.post("/users", response_model=UserResponse)
 def create_user(
     user: UserCreate,
-    session: Session = Depends(get_db),
+    session: DbSession,
 ):
     new_user = User(
         name=user.name,
@@ -106,8 +103,8 @@ def create_user(
 def update_user(
     user_id: int,
     user: UserUpdate,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    session: DbSession,
+    current_user: CurrentUser,
 ):
     # 僅本人或 admin 可以更新。
     _ensure_self_or_admin(current_user, user_id)
@@ -143,8 +140,8 @@ def update_user(
 def patch_user(
     user_id: int,
     user: UserPatch,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    session: DbSession,
+    current_user: CurrentUser,
 ):
     # 僅本人或 admin 可以修改（含改密碼）。
     _ensure_self_or_admin(current_user, user_id)
@@ -196,8 +193,8 @@ def patch_user(
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: int,
-    session: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    session: DbSession,
+    _: AdminUser,
 ):
     # 只有 admin 可以刪除使用者。
     result = session.execute(select(User).where(User.id == user_id))
@@ -234,7 +231,7 @@ def login(
     request: Request,
     response: Response,
     user: UserLogin,
-    session: Session = Depends(get_db),
+    session: DbSession,
 ):
     # 查詢登入使用者。
     result = session.execute(select(User).where(User.email == user.email))

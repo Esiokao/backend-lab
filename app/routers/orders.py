@@ -1,31 +1,35 @@
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import HTTPException, Query, Request
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import (
+    AdminUser,
+    CurrentUser,
+)
 from app.core.enums import OrderStatus
 from app.core.events import EventType
-from app.database import get_db
+from app.core.rate_limit import rate_limit
+from app.core.request_size import SizeLimitedAPIRouter
+from app.database import DbSession
 from app.models import NotificationOutbox, Order, OrderItem, Product, User
+from app.routers.payments import settle_receipt
 from app.schemas.Order import OrderCreate, OrderResponse, PaymentResponse
+from app.schemas.Payment import PayWithReceipt
+from app.services.inventory import restore_order_stock
 
-router = APIRouter(
+router = SizeLimitedAPIRouter(
     tags=["Orders"],
 )
 logger = logging.getLogger(__name__)
 
 
-@router.post(
-    "/orders",
-    response_model=OrderResponse,
-)
 def create_order(
     payload: OrderCreate,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 同一商品在請求中重複出現 → 拒絕（前端合併後再送）。
     product_ids = [item.product_id for item in payload.items]
@@ -85,7 +89,7 @@ def create_order(
     # 訂單 owner 由目前登入的使用者決定。
     new_order = Order(
         user_id=current_user.id,
-        status=OrderStatus.created.value,
+        status=OrderStatus.unpaid.value,
     )
     session.add(new_order)
 
@@ -116,11 +120,30 @@ def create_order(
     return new_order
 
 
+# 建單限流：堵「大量建單囤積庫存」的縱深防禦（30 次/分鐘/IP）。
+# 正常購買遠低於此；真正的庫存鎖死由過期 worker（order_expiry）根治，這裡是保險絲。
+# 限流掛在 HTTP 邊界的薄殼上——內部重用（cart.checkout）不受限流。
+# 順序：router.post 在上、rate_limit 在下——route 必須註冊「包過裝的」函式，
+# 反過來的話註冊到的是裸函式，限流永遠不會執行。
+@router.post(
+    "/orders",
+    response_model=OrderResponse,
+)
+@rate_limit(limit=30, window=60)
+def create_order_endpoint(
+    payload: OrderCreate,
+    request: Request,
+    current_user: CurrentUser,
+    session: DbSession,
+) -> OrderResponse:
+    return create_order(payload, current_user=current_user, session=session)
+
+
 @router.post("/orders/{order_id}/cancel", response_model=OrderResponse)
 def cancel_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 擁有者取消自己的訂單；狀態機僅允許 created / pending → cancelled。
     stmt = select(Order).where(
@@ -133,12 +156,15 @@ def cancel_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    allowed = {OrderStatus.created.value, OrderStatus.pending.value}
+    allowed = {OrderStatus.unpaid.value, OrderStatus.paid.value}
     if order.status not in allowed:
         raise HTTPException(
             status_code=400,
             detail=f"Order cannot be cancelled in its current status: {order.status}",
         )
+
+    # 歸還庫存：單一真相來源（services/inventory）。
+    restore_order_stock(session, order.id)
 
     order.status = OrderStatus.cancelled.value
 
@@ -156,12 +182,14 @@ def cancel_order(
     return order
 
 
-# a happy path payment.
+# 付款端點：不再自我宣告收款——只接受 mock-provider 簽發的收據，
+# 驗章 + nonce 單次 + 訂單綁定全部通過才轉 paid（付款邊界由收據構成）。
 @router.post("/orders/{order_id}/pay", response_model=PaymentResponse)
 def pay_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    data: PayWithReceipt,
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 只允許付款自己的訂單。
     stmt = select(Order).where(
@@ -174,20 +202,23 @@ def pay_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.created.value:
+    if order.status != OrderStatus.unpaid.value:
         raise HTTPException(
             status_code=400,
             detail=f"Order cannot be paid in its current status: {order.status}",
         )
 
-    # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。Session commit 後才會有 order.id，避免事件 payload 內的 order_id 為 None。
+    # 驗收據 + 消耗 intent 的 nonce（重放攻擊在此被 DB 憑據擋下）。
+    settle_receipt(session, order, data.receipt)
+
+    # 建立付款成功的 Outbox 事件，交給 Worker 發送通知。
     event = NotificationOutbox(
         event_type=EventType.order_paid,
         payload={"order_id": order.id},
     )
 
-    # 模擬付款成功，更新訂單狀態與付款時間。
-    order.status = OrderStatus.pending.value
+    # 收款成立，更新訂單狀態與付款時間（與 intent 消耗同一交易）。
+    order.status = OrderStatus.paid.value
     order.paid_at = func.now()
     session.add(event)
     session.commit()
@@ -199,8 +230,8 @@ def pay_order(
 @router.post("/orders/{order_id}/complete", response_model=OrderResponse)
 def complete_order(
     order_id: int,
-    current_user: User = Depends(require_admin),
-    session: Session = Depends(get_db),
+    current_user: AdminUser,
+    session: DbSession,
 ):
     # 只有 admin 可以將訂單標記為完成。
     stmt = select(Order).where(Order.id == order_id)
@@ -210,7 +241,7 @@ def complete_order(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.pending.value:
+    if order.status != OrderStatus.paid.value:
         raise HTTPException(
             status_code=400,
             detail=f"Order cannot be completed in its current status: {order.status}",
@@ -232,21 +263,18 @@ def complete_order(
 
 @router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
+    session: DbSession,
+    current_user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    user_id: int | None = Query(None),
-    sort_by: Literal["id", "user_id"] = "id",
+    sort_by: Literal["id"] = "id",
     order: Literal["asc", "desc"] = "asc",
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     stmt = select(Order).options(selectinload(Order.items))
 
-    # 一般使用者只能看自己的訂單；admin 可看全部，或用 user_id 過濾特定使用者。
-    if current_user.role != "admin":
-        stmt = stmt.where(Order.user_id == current_user.id)
-    elif user_id is not None:
-        stmt = stmt.where(Order.user_id == user_id)
+    # 「我的訂單」永遠只看自己的，不分角色——admin 的全站瀏覽走 /admin/orders
+    # （職責分離：同一頁面隨角色改變資料範圍會違反最小驚訝原則）。
+    stmt = stmt.where(Order.user_id == current_user.id)
 
     stmt = stmt.order_by(getattr(getattr(Order, sort_by), order)())
     stmt = stmt.offset((page - 1) * page_size)
@@ -262,8 +290,8 @@ def get_orders(
 )
 def get_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 允許訂單擁有者或 admin 取得；admin 從管理頁 / 儀表板點進詳情需要跨使用者讀取。
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
@@ -286,8 +314,8 @@ def get_order(
 )
 def get_user_orders(
     user_id: int,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_db),
+    current_user: CurrentUser,
+    session: DbSession,
 ):
     # 只能查詢自己的訂單。
     if user_id != current_user.id:
@@ -303,8 +331,8 @@ def get_user_orders(
 
 @router.get("/users-with-orders")
 def get_users_with_orders(
-    current_user: User = Depends(require_admin),
-    session: Session = Depends(get_db),
+    current_user: AdminUser,
+    session: DbSession,
 ):
     # 只有 admin 可以查看所有使用者的訂單。
     users = (

@@ -123,8 +123,33 @@ services:
       DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
 
       # 履約節奏（秒）：付款後進 processing 的延遲 / 自付款起算完成的總延遲。
-      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-5}
-      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-65}
+      FULFILLMENT_PROCESSING_DELAY_SECONDS: ${FULFILLMENT_PROCESSING_DELAY_SECONDS:-300}
+      FULFILLMENT_COMPLETION_DELAY_SECONDS: ${FULFILLMENT_COMPLETION_DELAY_SECONDS:-1800}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      disable: true
+
+
+  # =========================
+  # Order Expiry Worker（未付款訂單過期自動取消）
+  # =========================
+  order-expiry-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # unpaid 超過 ORDER_EXPIRY_SECONDS 未付款 → cancelled + 歸還庫存；
+    # 堵住「建單不付款鎖死庫存」的攻擊面（真實電商的「15 分鐘未付款自動取消」同款）。
+    command: ["python", "-m", "app.workers.order_expiry"]
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
+
+      ORDER_EXPIRY_SECONDS: ${ORDER_EXPIRY_SECONDS:-1800}
 
     depends_on:
       postgres:
@@ -141,15 +166,26 @@ services:
 
     working_dir: /app
 
-    # 原始碼用 bind mount，Vite HMR 即時反映主機上的編輯。
+    # 原始碼用 bind mount，影像即時反映主機上的編輯；node_modules 用 named volume
+    # 隔離——Windows（主機端開發）與 Alpine（容器端 Vite）的相依平台不同，
+    # 共用一個 node_modules 會互相踩壞二進位。
     volumes:
       - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_pnpm_store:/root/.local/share/pnpm/store
 
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "corepack enable pnpm && corepack pnpm install --frozen-lockfile && corepack pnpm run dev"
 
     environment:
       # 容器內 Vite proxy 目標：走 Compose 網路連 API（同源 /api，零 CORS）。
       VITE_API_PROXY_TARGET: http://api:8000
+      # Vite 進場綁 0.0.0.0（host 本機未設此值 → 預設 localhost）。
+      VITE_DEV_HOST: 0.0.0.0
+      # pnpm store 指向 named volume；否則 pnpm 會把 .pnpm-store 寫回 bind mount
+      # （進 git、被 watcher polling 白看、污染主機目錄）。
+      npm_config_store_dir: /root/.local/share/pnpm/store
+      # 容器內無 TTY：pnpm 需要重建 modules dir（換 store 之後的正常一步）時自動確認。
+      CI: "true"
 
     ports:
       - "5173:5173"
@@ -174,6 +210,9 @@ services:
       DATABASE_URL: postgresql+psycopg://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${API_DB_NAME}
 
       JWT_SECRET: ${JWT_SECRET}
+
+      # 付款收據的 HMAC 簽章密鑰——正式環境務必覆寫
+      PAYMENT_SECRET: ${PAYMENT_SECRET:-dev-payment-secret-do-not-use-in-prod}
 
       # 使用 Compose service name 連線 Redis。
       REDIS_HOST: redis
@@ -226,3 +265,6 @@ services:
 volumes:
   # 持久化 PostgreSQL 資料，容器重建時保留資料。
   postgres_data:
+  # 容器端（Alpine）專用的 node_modules 與 pnpm store：named volume 重建容器也存活。
+  frontend_node_modules:
+  frontend_pnpm_store:
