@@ -6,6 +6,8 @@ import redis
 redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
     port=int(os.getenv("REDIS_PORT", "6379")),
+    # REDIS_PASSWORD 未設 = 無密碼（本地/CI）；prod compose 必須設。
+    password=os.getenv("REDIS_PASSWORD") or None,
     decode_responses=True,
 )
 

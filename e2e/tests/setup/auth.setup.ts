@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { test as setup, expect } from '@playwright/test'
 
-import { uniqueEmail, PASSWORD } from '../helpers'
+import { clearRateLimit, uniqueEmail, PASSWORD } from '../helpers'
 
 const ADMIN_EMAIL = 'admin@e2e.example.com'
 
@@ -40,6 +40,7 @@ setup.describe('Setup', () => {
 
   // ② shopper storageState：走 UI 註冊流程（順便當註冊功能的smoke）。
   setup('create shopper storage state', async ({ page }) => {
+    clearRateLimit() // UI 註冊的自動登入也吃 /login 配額
     const email = uniqueEmail('shopper')
     await page.goto('/login')
     await page.getByRole('button', { name: 'Sign up' }).click()
@@ -70,6 +71,7 @@ setup.describe('Setup', () => {
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
+    clearRateLimit() // admin 的 UI 登入同樣吃配額
     await page.goto('/login')
     await page.getByLabel('Email', { exact: true }).fill(ADMIN_EMAIL)
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD)

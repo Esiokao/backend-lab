@@ -27,6 +27,11 @@ services:
     image: redis:7
     restart: unless-stopped
 
+    # 內網也要密碼：session 全在這裡，容器網路被滲透 = 全部 session 讀寫。
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -75,6 +80,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
     depends_on:
       postgres:
@@ -129,6 +135,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
     depends_on:
       postgres:
@@ -150,11 +157,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
 
-      # 付款收據的 HMAC 簽章密鑰——正式環境務必覆寫
-      PAYMENT_SECRET: ${PAYMENT_SECRET:-dev-payment-secret-do-not-use-in-prod}
+      # 付款收據的 HMAC 簽章密鑰——預設值公開在 repo 裡，prod 必須由 Secrets 覆寫
+      PAYMENT_SECRET: ${PAYMENT_SECRET:?PAYMENT_SECRET must be set in .env.prod}
 
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env.prod}
 
       DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT}
       DEFAULT_RATE_LIMIT_WINDOW: ${DEFAULT_RATE_LIMIT_WINDOW}

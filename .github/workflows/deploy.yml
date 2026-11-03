@@ -27,7 +27,7 @@ jobs:
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
 
       # 所有 ssh / scp 共用的連線選項；使用時不加引號，讓它拆成多個參數。
-      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o StrictHostKeyChecking=no -o KexAlgorithms=curve25519-sha256"
+      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o KexAlgorithms=curve25519-sha256"
 
     steps:
       # Checkout 本次 CI 對應的 commit。
@@ -127,6 +127,8 @@ jobs:
           MIGRATION_DB_PASSWORD: ${{ secrets.MIGRATION_DB_PASSWORD }}
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PAYMENT_SECRET: ${{ secrets.PAYMENT_SECRET }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
         run: |
           set -eu
           umask 077
@@ -144,6 +146,8 @@ jobs:
             "MIGRATION_DATABASE_URL=postgresql+psycopg://migration_user:$MIGRATION_DB_PASSWORD@postgres:5432/backend_lab" \
             "TEST_DATABASE_URL=$TEST_DATABASE_URL" \
             "JWT_SECRET=$JWT_SECRET" \
+            "PAYMENT_SECRET=$PAYMENT_SECRET" \
+            "REDIS_PASSWORD=$REDIS_PASSWORD" \
             "IMAGE_TAG=$IMAGE_TAG" \
             "DEFAULT_RATE_LIMIT=5" \
             "DEFAULT_RATE_LIMIT_WINDOW=60" \
@@ -206,6 +210,12 @@ jobs:
              echo \"Expected image: \$EXPECTED_IMAGE\" && \
              echo \"Actual image:   \$ACTUAL_IMAGE\" && \
              test \"\$ACTUAL_IMAGE\" = \"\$EXPECTED_IMAGE\""
+
+      # Frontend image 與 backend 同 sha——部署機上也要對稱驗證，
+      # 不然 frontend 推錯版時現有檢查仍會通過。
+      - name: Verify deployed frontend image
+        run: |
+          ssh $SSH_OPTS             "$DEPLOY_USER@$DEPLOY_HOST"             "cd '$DEPLOY_DIR' &&              EXPECTED_IMAGE='ghcr.io/esiokao/backend-lab-frontend:$IMAGE_TAG' &&              CONTAINER_ID=\$(docker compose                --env-file .env.prod                -f compose.prod.yaml                ps -q frontend) &&              test -n \"\$CONTAINER_ID\" &&              ACTUAL_IMAGE=\$(docker inspect                \"\$CONTAINER_ID\"                --format='{{.Config.Image}}') &&              echo \"Expected image: \$EXPECTED_IMAGE\" &&              echo \"Actual image:   \$ACTUAL_IMAGE\" &&              test \"\$ACTUAL_IMAGE\" = \"\$EXPECTED_IMAGE\""
 
       # 在 deployment server 上安裝 uv 與 dependencies。
       - name: Install uv

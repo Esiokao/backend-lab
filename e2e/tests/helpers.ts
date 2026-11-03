@@ -78,6 +78,7 @@ export function clearRateLimit(): void {
 
 // 註冊 + 登入一個全新 shopper；任何一步非 200 立刻炸——
 export async function provisionShopper(api: APIRequestContext): Promise<void> {
+  clearRateLimit() // 並行測試共用 IP——不清的話 login 配額（5/min）被前面測試吃光
   const email = uniqueEmail('fresh-shopper')
   const signup = await api.post('/api/users', {
     data: { name: 'E2E Shopper', email, password: PASSWORD }
