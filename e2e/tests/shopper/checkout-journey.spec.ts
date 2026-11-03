@@ -40,7 +40,11 @@ test.describe('Checkout journey', () => {
     await expect(
       freshShopperPage.getByRole('heading', { name: 'Payment complete' })
     ).toBeVisible()
-    await expect(freshShopperPage.getByRole('status')).toContainText(prodPrice)
+    // getByRole('status') 會撞到還沒消失的 toast（它也是 role=status）——
+    // scope 到結果頁自己的容器
+    await expect(freshShopperPage.locator('.result-hero')).toContainText(
+      prodPrice
+    )
 
     const orderId = new URL(freshShopperPage.url()).searchParams.get('order')
     // ── ⑤ 購物車清空 ──

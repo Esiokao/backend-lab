@@ -163,6 +163,11 @@ jobs:
       - name: Start PostgreSQL and Redis
         run: docker compose up -d postgres redis
 
+      # 通知管線：outbox → dispatcher → worker → SSE。
+      # bell 旅程需要它——沒有 dispatcher/worker，通知永遠不會被建立。
+      - name: Start notification pipeline
+        run: docker compose up -d dispatcher notifications-worker
+
       - name: Setup test database
         run: uv run python scripts/setup_test_db.py
 
