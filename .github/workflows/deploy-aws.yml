@@ -1,0 +1,225 @@
+name: Deploy to AWS
+
+# AWS EC2（t3.micro）部署：與 staging（deploy.yml）同構的流水線，
+# 但兩個關鍵差異：
+# 1. 手動觸發（workflow_dispatch）——正式環境保留人的保險。
+#    image_tag 可填舊的 commit sha 回滾（GHCR 保留每個 sha 的 image）。
+# 2. TLS 憑證不上傳——EC2 用 tailscale cert 自管（Let's Encrypt，90 天），
+#    機器上的 systemd timer（ts-cert-renew.timer）每週續簽並重啟 nginx。
+#    本 workflow 只負責確保 certs/ 目錄在 DEPLOY_DIR 下就位。
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "GHCR image tag（留空 = 本 workflow 所在 commit 的 sha；填舊 sha 可回滾）"
+        required: false
+        default: ""
+
+jobs:
+  deploy-aws:
+    runs-on: ubuntu-latest
+
+    env:
+      # 手動觸發時 github.sha = 觸發時選的 ref（通常 main）的 head commit。
+      IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+
+      # AWS 端點設定（GitHub Actions Variables，與 staging 的 vars 分開）。
+      # ⚠️ DEPLOY_HOST_AWS 必須是 MagicDNS 全名（ip-172-31-27-239.tail7626a9.ts.net），
+      #    不能用 100.64.164.31——TLS 憑證的 CN 綁 ts.net 名，用 IP 會驗證失敗。
+      #    MagicDNS 名對 SSH 一樣可連，全部統一用它。
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST_AWS }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER_AWS }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR_AWS }}
+
+      # 所有 ssh / scp 共用的連線選項；使用時不加引號，讓它拆成多個參數。
+      SSH_OPTS: "-i ~/.ssh/backend_lab_deploy_aws -o BatchMode=yes -o ConnectTimeout=10 -o ConnectionAttempts=1 -o KexAlgorithms=curve25519-sha256"
+
+    steps:
+      # Checkout 本次部署對應的 commit。
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      # 連接 GitHub-hosted runner 到 Tailscale network（與 staging 同一把 key）。
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      # 確認 EC2 可以連線（走 Tailscale IP）。
+      - name: Check deployment server
+        run: ping -c 3 "$DEPLOY_HOST"
+
+      # 建立 SSH private key（EC2 keypair 的 .pem，存成 DEPLOY_SSH_KEY_AWS）。
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY_AWS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/backend_lab_deploy_aws
+          chmod 600 ~/.ssh/backend_lab_deploy_aws
+
+      # 主機金鑰 pinning：連線前把 EC2 的 host key 寫進 known_hosts。
+      # 金鑰來源：ssh-keyscan ip-172-31-27-239.tail7626a9.ts.net（EC2 換機時需更新此 Secret）。
+      - name: Pin deployment server host key
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS_AWS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # 確認 SSH 可以登入 EC2。
+      - name: Check SSH connection
+        timeout-minutes: 1
+        run: |
+          timeout 60s ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "echo SSH_OK"
+
+      # 建立 deployment workspace。
+      # certs/ 由 tailscale cert + ts-cert-renew.timer 管理，這裡只確保存在。
+      - name: Prepare deployment directory
+        run: |
+          ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p \
+             '$DEPLOY_DIR/nginx' \
+             '$DEPLOY_DIR/certs' && \
+             test -s '$DEPLOY_DIR/certs/server.crt' && \
+             test -s '$DEPLOY_DIR/certs/server.key' && \
+             echo 'TLS certs present (tailscale-managed)'"
+
+      # 傳送 production Compose 設定。
+      - name: Upload compose file
+        run: |
+          scp $SSH_OPTS \
+            compose.prod.yaml \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/compose.prod.yaml"
+
+      # 傳送 Nginx 設定（prod 版：前後端路由）。
+      - name: Upload nginx config
+        run: |
+          scp $SSH_OPTS \
+            nginx/nginx.prod.conf \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/nginx/nginx.conf"
+
+      # 在 GitHub-hosted runner 上產生 production environment file。
+      # secrets 與 staging 共用同一組（值相同：compose 內部網路的主機名
+      # postgres/redis 在哪台機器上都一樣）。
+      - name: Generate production environment file
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MIGRATION_DB_PASSWORD: ${{ secrets.MIGRATION_DB_PASSWORD }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PAYMENT_SECRET: ${{ secrets.PAYMENT_SECRET }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        run: |
+          set -eu
+          umask 077
+
+          # 本版本假設 POSTGRES_PASSWORD 與 MIGRATION_DB_PASSWORD
+          # 使用 URL 安全字元，避免連線 URL 解析錯誤。
+          printf '%s\n' \
+            "POSTGRES_USER=admin" \
+            "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
+            "POSTGRES_DB=backend_lab" \
+            "APP_DB_PASSWORD=$APP_DB_PASSWORD" \
+            "DATABASE_URL=$DATABASE_URL" \
+            "MIGRATION_DB_PASSWORD=$MIGRATION_DB_PASSWORD" \
+            "MIGRATION_ADMIN_DATABASE_URL=postgresql://admin:$POSTGRES_PASSWORD@postgres:5432/backend_lab" \
+            "MIGRATION_DATABASE_URL=postgresql+psycopg://migration_user:$MIGRATION_DB_PASSWORD@postgres:5432/backend_lab" \
+            "TEST_DATABASE_URL=$TEST_DATABASE_URL" \
+            "JWT_SECRET=$JWT_SECRET" \
+            "PAYMENT_SECRET=$PAYMENT_SECRET" \
+            "REDIS_PASSWORD=$REDIS_PASSWORD" \
+            "IMAGE_TAG=$IMAGE_TAG" \
+            "DEFAULT_RATE_LIMIT=5" \
+            "DEFAULT_RATE_LIMIT_WINDOW=60" \
+            "DEFAULT_MAX_REQUEST_SIZE=1048576" \
+            > .env.prod
+
+          # 將產生的 .env.prod 傳到 deployment server。
+          scp $SSH_OPTS \
+            .env.prod \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/.env.prod"
+
+          # 限制 production environment file 權限。
+          ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 600 '$DEPLOY_DIR/.env.prod'"
+
+          # Runner 上的暫存檔不再需要。
+          rm -f .env.prod
+
+      # 使用 .env.prod 中的 IMAGE_TAG 部署 immutable image。
+      # t3.micro 拉新 image 較慢，timeout 放寬到 6m。
+      - name: Deploy application
+        timeout-minutes: 7
+        run: |
+          timeout 6m ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && \
+             timeout 3m docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml pull && \
+             timeout 3m docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml up -d"
+
+      # 確認 production containers 狀態。
+      - name: Verify deployment
+        timeout-minutes: 1
+        run: |
+          timeout 45s ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && \
+             timeout 20s docker compose \
+             --env-file .env.prod \
+             -f compose.prod.yaml ps"
+
+      # 確認 Production 實際使用這次部署的 image。
+      - name: Verify deployed image
+        run: |
+          ssh $SSH_OPTS \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && \
+             EXPECTED_IMAGE='ghcr.io/esiokao/backend-lab:$IMAGE_TAG' && \
+             CONTAINER_ID=\$(docker compose \
+               --env-file .env.prod \
+               -f compose.prod.yaml \
+               ps -q api) && \
+             test -n \"\$CONTAINER_ID\" && \
+             ACTUAL_IMAGE=\$(docker inspect \
+               \"\$CONTAINER_ID\" \
+               --format='{{.Config.Image}}') && \
+             echo \"Expected image: \$EXPECTED_IMAGE\" && \
+             echo \"Actual image:   \$ACTUAL_IMAGE\" && \
+             test \"\$ACTUAL_IMAGE\" = \"\$EXPECTED_IMAGE\""
+
+      # Frontend image 與 backend 同 sha——部署機上也要對稱驗證。
+      - name: Verify deployed frontend image
+        run: |
+          ssh $SSH_OPTS             "$DEPLOY_USER@$DEPLOY_HOST"             "cd '$DEPLOY_DIR' &&              EXPECTED_IMAGE='ghcr.io/esiokao/backend-lab-frontend:$IMAGE_TAG' &&              CONTAINER_ID=\$(docker compose                --env-file .env.prod                -f compose.prod.yaml                ps -q frontend) &&              test -n \"\$CONTAINER_ID\" &&              ACTUAL_IMAGE=\$(docker inspect                \"\$CONTAINER_ID\"                --format='{{.Config.Image}}') &&              echo \"Expected image: \$EXPECTED_IMAGE\" &&              echo \"Actual image:   \$ACTUAL_IMAGE\" &&              test \"\$ACTUAL_IMAGE\" = \"\$EXPECTED_IMAGE\""
+
+      # 在 deployment server 上安裝 uv 與 dependencies。
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # 安裝 dependencies。
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      # 執行 deployment smoke tests（runner 連 Tailscale，可直接打 EC2 的 ts.net 網址）。
+      - name: Post-deploy smoke test
+        env:
+          DEPLOY_BASE_URL: https://${{ vars.DEPLOY_HOST_AWS }}
+        run: |
+          uv run pytest tests/deployment -m deployment --confcutdir=tests/deployment
