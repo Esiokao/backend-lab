@@ -10,7 +10,7 @@ import {
   type Page
 } from '@playwright/test'
 
-import { PASSWORD, uniqueEmail } from '../tests/helpers'
+import { PASSWORD, uniqueEmail, provisionShopper } from '../tests/helpers'
 
 export const test = base.extend<{
   shopperApi: APIRequestContext
@@ -24,11 +24,7 @@ export const test = base.extend<{
     })
 
     // 開戶 + 登入：Set-Cookie 自動進這個 client 的 jar，之後的請求都是登入態
-    const email = uniqueEmail('shopper')
-    await client.post('/api/users', {
-      data: { name: 'E2E Shopper', email, password: PASSWORD }
-    })
-    await client.post('/api/login', { data: { email, password: PASSWORD } })
+    await provisionShopper(client)
 
     await use(client)
 
@@ -42,13 +38,7 @@ export const test = base.extend<{
       baseURL: baseURL ?? 'http://localhost:5173'
     })
 
-    const email = uniqueEmail('fresh-shopper')
-    await ctx.request.post('/api/users', {
-      data: { name: 'Fresh Shopper', email, password: PASSWORD }
-    })
-    await ctx.request.post('/api/login', {
-      data: { email, password: PASSWORD }
-    })
+    await provisionShopper(ctx.request)
 
     await use(await ctx.newPage())
 

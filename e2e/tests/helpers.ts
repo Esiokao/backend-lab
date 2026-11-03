@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { expect, type Page } from '@playwright/test'
+import { APIRequestContext, expect, type Page } from '@playwright/test'
 
 // repo 根目錄（本檔在 e2e/tests/）：compose.yaml 在這一層。
 // 相對 cwd 會隨「從哪裡呼叫 playwright」而變——從 repo 根跑時 cwd:'..' 指向
@@ -56,8 +56,6 @@ export async function signoutViaUi(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Account menu' })).toBeHidden()
 }
 
-export { PASSWORD }
-
 // 登入限流是 5 次/60 秒（per IP）— E2E 從同一個 localhost 連發，一定撞牆。
 // 每次走 UI 登入前清掉 rate_limit keys（跟 pytest conftest 的做法同概念）。
 export function clearRateLimit(): void {
@@ -77,3 +75,22 @@ export function clearRateLimit(): void {
     })
   }
 }
+
+// 註冊 + 登入一個全新 shopper；任何一步非 200 立刻炸——
+export async function provisionShopper(api: APIRequestContext): Promise<void> {
+  const email = uniqueEmail('fresh-shopper')
+  const signup = await api.post('/api/users', {
+    data: { name: 'E2E Shopper', email, password: PASSWORD }
+  })
+  if (signup.status() !== 200) {
+    throw new Error(`signup failed: ${signup.status()} ${await signup.text()}`)
+  }
+  const login = await api.post('/api/login', {
+    data: { email, password: PASSWORD }
+  })
+  if (login.status() !== 200) {
+    throw new Error(`login failed: ${login.status()} ${await login.text()}`)
+  }
+}
+
+export { PASSWORD }
