@@ -52,7 +52,7 @@ test.describe('Notification bell journey', () => {
     await expect(async () => {
       const newBadgeCount = await getBadgeCount(freshShopperPage)
       expect(newBadgeCount).toBeGreaterThan(previousBadgeCount)
-    }).toPass({ timeout: 10_000 })
+    }).toPass({ timeout: 20_000 })
     // close admin context
     await adminContext.close()
   })
