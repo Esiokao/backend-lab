@@ -25,7 +25,7 @@ jobs:
       IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
 
       # AWS 端點設定（GitHub Actions Variables，與 staging 的 vars 分開）。
-      # ⚠️ DEPLOY_HOST_AWS 必須是 MagicDNS 全名（ip-172-31-27-239.tail7626a9.ts.net），
+      # ⚠️ DEPLOY_HOST_AWS 必須是 MagicDNS 全名（backend-lab.tail7626a9.ts.net），
       #    不能用 100.64.164.31——TLS 憑證的 CN 綁 ts.net 名，用 IP 會驗證失敗。
       #    MagicDNS 名對 SSH 一樣可連，全部統一用它。
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST_AWS }}
@@ -62,7 +62,7 @@ jobs:
           chmod 600 ~/.ssh/backend_lab_deploy_aws
 
       # 主機金鑰 pinning：連線前把 EC2 的 host key 寫進 known_hosts。
-      # 金鑰來源：ssh-keyscan ip-172-31-27-239.tail7626a9.ts.net（EC2 換機時需更新此 Secret）。
+      # 金鑰來源：ssh-keyscan backend-lab.tail7626a9.ts.net（EC2 換機時需更新此 Secret）。
       - name: Pin deployment server host key
         env:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS_AWS }}
