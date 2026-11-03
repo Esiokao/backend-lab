@@ -48,6 +48,7 @@ export async function loginViaUi(page: Page, email: string): Promise<void> {
 export async function signoutViaUi(page: Page): Promise<void> {
   // handleLogout 有 window.confirm —— Playwright 預設 dismiss（= 取消登出），
   // 必須先掛 accept，否則登出永遠靜默失敗。
+  await page.goto('/')
   page.once('dialog', (dialog) => dialog.accept())
 
   await page.getByRole('button', { name: 'Account menu' }).click()

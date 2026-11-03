@@ -8,7 +8,8 @@ export type CreatedOrder = { id: number; user_id: number }
 /** 用已登入的 client 下單。商品用種子名稱查詢（名字是契約，id 不是）。 */
 export async function createOrder(
   shopper: APIRequestContext,
-  productName = 'E2E Widget A'
+  productName = 'E2E Widget A',
+  quantity = 1
 ): Promise<CreatedOrder> {
   const products = await (
     await shopper.get(`/api/products?q=${productName}`)
@@ -21,7 +22,7 @@ export async function createOrder(
   }
 
   const res = await shopper.post('/api/orders', {
-    data: { items: [{ product_id: products[0].id, quantity: 1 }] }
+    data: { items: [{ product_id: products[0].id, quantity: quantity }] }
   })
 
   const body = await res.text()
