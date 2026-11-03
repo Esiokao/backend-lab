@@ -195,6 +195,11 @@ services:
       migration:
         condition: service_completed_successfully
 
+    # Worker 沒有 HTTP health endpoint；不 disable 會繼承 image 的
+    # HEALTHCHECK（打 127.0.0.1:8000/health）而永遠 unhealthy。
+    healthcheck:
+      disable: true
+
   # =========================
   # Frontend（靜態站，由 edge nginx 反代）
   # =========================
