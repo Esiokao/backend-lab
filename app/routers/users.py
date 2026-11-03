@@ -226,7 +226,9 @@ def delete_user(
         429: {"description": "Too Many Requests"},
     },
 )
-@rate_limit(limit=5, window=60)
+# 用 DEFAULT_RATE_LIMIT（prod 5/min；e2e job 的 env 設 50）——
+# 寫死 5 會讓 e2e 的連續登入擠進配額樂透（fixture 沒檢查 429 → 下游 401 連環）。
+@rate_limit(window=60)
 def login(
     request: Request,
     response: Response,
