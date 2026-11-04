@@ -93,7 +93,8 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
-// 取消（v1.11）：自己的 created/pending 訂單 → POST /orders/{id}/cancel → cancelled。
+// 取消（v1.11）：自己的 unpaid/paid 訂單 → POST /orders/{id}/cancel → cancelled。
+// 付款後仍可取消（未進 processing）；已付款的退款不在本版範圍（見 PR backlog）。
 const cancelling = ref(false);
 const cancellable = computed(
   () =>
@@ -312,7 +313,7 @@ watch(
     <section v-if="cancellable" class="data-panel cancel-strip" aria-label="Cancel order">
       <div>
         <strong>Cancel this order</strong>
-        <p>Unpaid orders only. Cancelling cannot be undone.</p>
+        <p>Unpaid or paid orders can be cancelled before processing. Cancelling cannot be undone.</p>
       </div>
       <button type="button" class="ghost-button cancel-button" :disabled="cancelling" @click="cancelOrder">
         <Icon name="close" :size="14" /> {{ cancelling ? "Cancelling..." : "Cancel order" }}

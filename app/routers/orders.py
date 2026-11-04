@@ -145,7 +145,8 @@ def cancel_order(
     current_user: CurrentUser,
     session: DbSession,
 ):
-    # 擁有者取消自己的訂單；狀態機僅允許 created / pending → cancelled。
+    # 擁有者取消自己的訂單；狀態機允許 unpaid / paid → cancelled（進 processing 後不可）。
+    # 已付款取消不含退款——退款流程未實作（mock provider 無 refund）。
     stmt = select(Order).where(
         Order.id == order_id,
         Order.user_id == current_user.id,

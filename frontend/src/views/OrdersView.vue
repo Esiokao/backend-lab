@@ -43,7 +43,7 @@ const filteredOrders = computed(() => {
 const hasNext = computed(() => orders.value.length >= PAGE_SIZE);
 const toast = useToast();
 
-// 取消自己的訂單（created/pending → cancelled；後端狀態機把關）。
+// 取消自己的訂單（unpaid/paid → cancelled；後端狀態機把關）。
 async function cancelOrder(order: Order): Promise<void> {
   if (!window.confirm(`Cancel order #${order.id}? This cannot be undone.`)) return;
 

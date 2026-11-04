@@ -1,5 +1,5 @@
 # tests/orders/integration/test_order_cancel.py
-# POST /orders/{id}/cancel：擁有者取消；狀態機僅 created/pending 可取消。
+# POST /orders/{id}/cancel：擁有者取消；狀態機允許 unpaid/paid 可取消（進 processing 後不可）。
 # 取消（終態）與 admin PATCH 一致：同一交易寫 order_cancelled outbox 事件。
 
 from sqlalchemy import select
@@ -8,7 +8,7 @@ from app.core.events import EventType
 from app.models import NotificationOutbox
 
 
-def test_owner_can_cancel_created_order(
+def test_owner_can_cancel_unpaid_order(
     session_auth_client,
     create_test_user,
     create_test_order,
@@ -48,7 +48,7 @@ def test_cancel_writes_order_cancelled_outbox_event(
     assert event is not None
 
 
-def test_owner_can_cancel_pending_order(
+def test_owner_can_cancel_paid_order(
     session_auth_client,
     create_test_user,
     create_test_order,
