@@ -227,3 +227,13 @@ jobs:
           DEPLOY_BASE_URL: https://${{ vars.DEPLOY_HOST_AWS }}
         run: |
           uv run pytest tests/deployment -m deployment --confcutdir=tests/deployment
+
+      # 公共入口驗證：demo 域名（Cloudflare 橘雲代理）必須回 200，
+      # 這是訪客與作品集實際走的入口——ts.net 只服務 tailnet 內部。
+      - name: Verify public domain
+        timeout-minutes: 1
+        run: |
+          timeout 45s curl --silent --show-error \
+            --output /dev/null --write-out \
+            'public https://esiokao.shop -> HTTP %{http_code}\n' \
+            https://esiokao.shop | grep -q "HTTP 200"
