@@ -12,7 +12,6 @@ const backend = [
   ["Cache / Rate limit", "Redis 7"],
   ["Background jobs", "RQ（outbox → notifications worker）"],
   ["Validation", "Pydantic"],
-  ["Tests", "pytest（220+ cases）"],
 ];
 
 const frontend = [
@@ -27,9 +26,24 @@ const frontend = [
 ];
 
 const infra = [
-  ["Containers", "Docker Compose（api / postgres / redis / workers / nginx）"],
-  ["Edge", "nginx（TLS 終結、HSTS）"],
-  ["CI/CD", "GitHub Actions：test → build → GHCR → SSH deploy → smoke test"],
+  ["Cloud", "AWS EC2（docker compose 全套服務）"],
+  ["Edge / DNS", "nginx（TLS 終結、HSTS）· Cloudflare（DNS + 代理）"],
+  ["CI/CD", "GitHub Actions：test → build → GHCR → deploy"],
+  ["Deploy flow", "staging 自動（CI 全綠）→ production 手動審批 → smoke test"],
+  ["Rollback", "GHCR 保留每個 commit sha 的 immutable image，重跑即回滾"],
+];
+
+const testing = [
+  ["Backend", "pytest 整合測試（220+ cases）"],
+  ["E2E", "Playwright 使用者旅程 + admin 旅程（fixture 體系）"],
+  ["Load", "k6 壓測（in progress）"],
+  ["Post-deploy", "smoke tests 打正式環境，驗證公共入口"],
+];
+
+const agent = [
+  ["Frontend", "大部分功能由 AI agent 產出"],
+  ["Human role", "寫 spec · code review · e2e 驗收"],
+  ["This page's demo", "影片由 Playwright 腳本自動錄製，重錄即最新畫面"],
 ];
 
 const auth = [
@@ -75,11 +89,12 @@ const design = [
 
     <section class="mb-7 rounded-xl border border-line bg-card px-[23px] py-5">
       <p class="m-0 max-w-[75ch] text-[13px] leading-relaxed text-ink">
-        <strong class="text-ink-strong">Backend Lab</strong> is a fullstack engineering demo:
-        a public storefront with cart &amp; checkout, a member center, and an admin workspace —
-        wired end-to-end to a FastAPI backend with session auth, RBAC, an order state machine,
-        and RQ-driven notifications. Every number on screen comes from the real API; nothing is
-        decorative.
+        <strong class="text-ink-strong">Backend Lab</strong> is a fullstack engineering demo built
+        as a practice ground: a public storefront with cart &amp; checkout, a member center, and an
+        admin workspace — wired end-to-end to a FastAPI backend with session auth, RBAC, an order
+        state machine, and RQ-driven notifications. The point is the engineering around the app:
+        automated testing, a full CI/CD pipeline, and AI-agent collaboration. Every number on
+        screen comes from the real API; nothing is decorative.
       </p>
     </section>
 
@@ -89,7 +104,9 @@ const design = [
           { title: 'Backend', rows: backend },
           { title: 'Frontend', rows: frontend },
           { title: 'Auth & security', rows: auth },
-          { title: 'Infrastructure', rows: infra },
+          { title: 'Testing', rows: testing },
+          { title: 'Infrastructure & CI/CD', rows: infra },
+          { title: 'AI agent collaboration', rows: agent },
           { title: 'Design system', rows: design },
         ]"
         :key="section.title"
