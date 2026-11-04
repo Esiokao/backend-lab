@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
+import ComboboxSelect from "@/components/ComboboxSelect.vue";
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
 import { useToast } from "@/stores/toast";
@@ -41,6 +42,11 @@ const broadcastsLoading = ref(true);
 const busy = ref(false);
 
 const targetForm = ref({ userId: "", title: "", body: "" });
+
+// 收件人選項：name — email 當顯示文字（ComboboxSelect 內建過濾）。
+const recipientOptions = computed(() =>
+  users.value.map((u) => ({ value: String(u.id), label: `${u.name} — ${u.email}` })),
+);
 const broadcastForm = ref({ title: "", body: "" });
 
 // ── 通知範本（localStorage；首訪種一個「系統維護更新」範例，可刪） ──
@@ -281,12 +287,13 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="notify-form">
-        <select v-model="targetForm.userId" class="filter-select" aria-label="Recipient">
-          <option value="" disabled>Select recipient…</option>
-          <option v-for="user in users" :key="user.id" :value="String(user.id)">
-            {{ user.name }} — {{ user.email }}
-          </option>
-        </select>
+        <!-- 帳號一多（e2e 測試帳號尤其）原生下拉沒搜尋很難定位：可搜尋 combobox。 -->
+        <ComboboxSelect
+          v-model="targetForm.userId"
+          :options="recipientOptions"
+          placeholder="Select recipient…"
+          aria-label="Recipient"
+        />
         <input
           v-model="targetForm.title"
           class="row-edit-field"
