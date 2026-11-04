@@ -52,7 +52,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 
 <template>
   <Teleport to="body">
-    <div class="modal-overlay" @click.self="emit('close')">
+    <div class="modal-overlay">
       <div class="modal pay-modal" role="dialog" aria-modal="true" :aria-label="`Pay order #${orderId}`">
         <div class="modal-header">
           <h3>Pay order #{{ orderId }}</h3>

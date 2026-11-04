@@ -258,12 +258,12 @@ onMounted(() => {
 
   <!-- Modal：create / edit -->
   <Teleport to="body">
-    <div v-if="modalOpen" class="modal-overlay" @click.self="closeModal">
-      <div class="modal" role="dialog" aria-modal="true" :aria-label="modalMode === 'create' ? 'New category' : 'Edit category'">
+    <div v-if="modalOpen" class="modal-overlay">
+      <div class="modal category-modal" role="dialog" aria-modal="true" :aria-label="modalMode === 'create' ? 'New category' : 'Edit category'">
         <div class="modal-header">
           <h3>{{ modalMode === "create" ? "New category" : `Edit "${editingCategory?.name}"` }}</h3>
-          <button type="button" class="row-action" aria-label="Close dialog" @click="closeModal">
-            <Icon name="close" :size="15" />
+          <button type="button" class="modal-close" aria-label="Close dialog" @click="closeModal">
+            <Icon name="close" :size="18" />
           </button>
         </div>
         <div class="modal-body">
@@ -277,11 +277,11 @@ onMounted(() => {
             aria-label="Category name"
           />
           <label class="account-label" for="category-description">Description</label>
-          <input
+          <textarea
             id="category-description"
             v-model="form.description"
-            class="row-edit-field"
-            type="text"
+            class="row-edit-field category-modal-desc"
+            rows="5"
             placeholder="Description (optional)"
             aria-label="Category description"
           />

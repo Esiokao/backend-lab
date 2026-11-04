@@ -125,6 +125,12 @@ const router = createRouter({
       meta: { title: "User Management" },
         },
         {
+          path: "products",
+          name: "admin-products",
+          component: () => import("@/views/AdminProductsView.vue"),
+          meta: { title: "Product Management" },
+        },
+        {
           // 分類管理（v1.6：/categories CRUD）。
           path: "categories",
           name: "admin-categories",

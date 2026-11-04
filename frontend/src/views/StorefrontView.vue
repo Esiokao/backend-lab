@@ -263,9 +263,6 @@ const productModalOpen = ref(false);
 const productModalMode = ref<"create" | "edit">("create");
 const editingProduct = ref<Product | null>(null);
 
-const showArchived = ref(false);
-const archived = ref<Product[]>([]);
-const archivedLoading = ref(false);
 
 const productForm = ref(emptyForm());
 
@@ -409,6 +406,10 @@ function openCreateModal(): void {
   productModalMode.value = "create";
   editingProduct.value = null;
   productForm.value = emptyForm();
+  // 在分類頁按 New product 時帶入目前分類，避免再從 Uncategorized 選一次。
+  if (selectedCategory.value !== null) {
+    productForm.value.category_id = String(selectedCategory.value);
+  }
   productErrors.value = {};
   productModalOpen.value = true;
 }
@@ -468,7 +469,6 @@ async function deleteProduct(product: Product): Promise<void> {
     await api.delete(`/products/${product.id}`);
     showToast(`Product "${product.name}" deleted.`);
     await refreshCatalog();
-    if (showArchived.value) await loadArchived();
   } catch (err) {
     // 被訂單引用的商品後端回 409，toast 顯示原因（F12-4：RESTRICT）。
     showToast(err instanceof ApiError ? `Delete failed: ${err.message}` : "Delete failed.");
@@ -485,40 +485,6 @@ async function archiveProduct(product: Product): Promise<void> {
     await refreshCatalog();
   } catch (err) {
     showToast(err instanceof ApiError ? `Archive failed: ${err.message}` : "Archive failed.");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function loadArchived(): Promise<void> {
-  archivedLoading.value = true;
-  try {
-    archived.value = await api.get<Product[]>("/products/archived");
-  } catch (err) {
-    showToast(
-      err instanceof ApiError
-        ? `Failed to load archived products: ${err.message}`
-        : "Failed to load archived products.",
-    );
-  } finally {
-    archivedLoading.value = false;
-  }
-}
-
-async function toggleArchived(): Promise<void> {
-  showArchived.value = !showArchived.value;
-  if (showArchived.value) await loadArchived();
-}
-
-async function restoreProduct(product: Product): Promise<void> {
-  busy.value = true;
-  try {
-    await api.patch(`/products/${product.id}/restore`, {});
-    showToast(`Product "${product.name}" restored.`);
-    await loadArchived();
-    await refreshCatalog();
-  } catch (err) {
-    showToast(err instanceof ApiError ? `Restore failed: ${err.message}` : "Restore failed.");
   } finally {
     busy.value = false;
   }
@@ -596,9 +562,9 @@ onMounted(() => {
         <p>{{ headingSub }}</p>
       </div>
       <div v-if="isAdmin" class="storefront-admin-actions">
-        <button type="button" class="ghost-button" @click="toggleArchived">
-          {{ showArchived ? "Hide archived" : "Archived" }}
-        </button>
+        <router-link :to="{ name: 'admin-products' }" class="ghost-button">
+          Manage products
+        </router-link>
         <button type="button" class="primary-button" @click="openCreateModal">
           <Icon name="plus" :size="15" /> New product
         </button>
@@ -881,7 +847,7 @@ onMounted(() => {
 
     <!-- 商品 Modal（create / edit 共用） -->
     <Teleport to="body">
-      <div v-if="isAdmin && productModalOpen" class="modal-overlay" @click.self="closeProductModal">
+      <div v-if="isAdmin && productModalOpen" class="modal-overlay">
         <div
           class="modal product-modal"
           role="dialog"
@@ -939,44 +905,6 @@ onMounted(() => {
         </div>
       </div>
     </Teleport>
-
-    <section v-if="isAdmin && showArchived" class="data-panel archived-panel" aria-label="Archived products">
-      <div class="panel-header">
-        <div>
-          <h2>Archived products</h2>
-          <p>Restore to put products back on the shelf.</p>
-        </div>
-      </div>
-      <p v-if="archivedLoading" class="empty-state">Loading archived products…</p>
-      <p v-else-if="archived.length === 0" class="empty-state">No archived products.</p>
-      <table v-else>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Price</th>
-            <th>Stock</th>
-            <th><span class="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="product in archived" :key="product.id">
-            <td><strong>{{ product.name }}</strong></td>
-            <td>{{ formatPrice(product.price) }}</td>
-            <td>{{ product.stock }}</td>
-            <td>
-              <button
-                type="button"
-                class="sort-button"
-                :disabled="busy"
-                @click="restoreProduct(product)"
-              >
-                Restore
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
   </main>
 
   <StorefrontFooter />

@@ -41,6 +41,7 @@ const navItems = computed<NavItem[]>(() =>
 // Administration 分區：僅 admin 可見（F10-1）。
 const adminNavItems = [
   { label: "Order Management", icon: "box", to: { name: "admin-orders" } },
+  { label: "Product Management", icon: "store", to: { name: "admin-products" } },
   { label: "User Management", icon: "users", to: { name: "admin-users" } },
   { label: "Category Management", icon: "grid", to: { name: "admin-categories" } },
   { label: "Notifications", icon: "bell", to: { name: "admin-notifications" } },
@@ -283,6 +284,14 @@ watch(activePopover, (name) => {
                   @click="menuOpen = false"
                 >
                   <Icon name="box" :size="14" /> Order Management
+                </router-link>
+                <router-link
+                  class="user-menu-item"
+                  role="menuitem"
+                  :to="{ name: 'admin-products' }"
+                  @click="menuOpen = false"
+                >
+                  <Icon name="store" :size="14" /> Product Management
                 </router-link>
                 <router-link
                   class="user-menu-item"

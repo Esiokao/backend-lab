@@ -183,7 +183,7 @@ async function saveEdit(): Promise<void> {
 
   <!-- 編輯 Modal：與商品 modal 同語彙（Teleport + Esc/外點/X 關閉 + zod inline 錯誤） -->
   <Teleport to="body">
-    <div v-if="editingUser" class="modal-overlay" @click.self="closeEditModal">
+    <div v-if="editingUser" class="modal-overlay">
       <div
         class="modal"
         role="dialog"

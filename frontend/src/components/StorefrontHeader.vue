@@ -171,6 +171,14 @@ async function handleLogout(): Promise<void> {
             <router-link
               class="user-menu-item"
               role="menuitem"
+              :to="{ name: 'admin-products' }"
+              @click="menuOpen = false"
+            >
+              <Icon name="store" :size="14" /> Product Management
+            </router-link>
+            <router-link
+              class="user-menu-item"
+              role="menuitem"
               :to="{ name: 'admin-users' }"
               @click="menuOpen = false"
             >

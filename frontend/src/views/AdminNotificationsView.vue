@@ -441,7 +441,7 @@ onUnmounted(() => {
 
   <!-- 範本命名 Modal：把當前表單內容存成範本 -->
   <Teleport to="body">
-    <div v-if="templateModalOpen" class="modal-overlay" @click.self="closeTemplateModal">
+    <div v-if="templateModalOpen" class="modal-overlay">
       <div class="modal" role="dialog" aria-modal="true" aria-label="Save template">
         <div class="modal-header">
           <h3>Save as template</h3>
