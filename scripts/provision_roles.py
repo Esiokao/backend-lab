@@ -84,6 +84,9 @@ def provision_roles() -> None:
         # Existing objects may have been created by admin before the
         # dedicated migration role existed. Transfer ownership so future
         # Alembic revisions can alter them.
+        # 表附屬序列不能單獨 ALTER OWNER——PostgreSQL 禁止，但它們隨所屬
+        # 表自動轉移，故排除。附屬依賴（pg_depend）：serial 是 deptype='a'、
+        # IDENTITY / SQLAlchemy Sequence() 綁欄位是 deptype='i'——兩種都要擋。
         cursor.execute(
             """
                 SELECT c.relkind, c.relname
@@ -91,6 +94,14 @@ def provision_roles() -> None:
                 JOIN pg_namespace AS n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public'
                   AND c.relkind IN ('r', 'p', 'S')
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM pg_depend AS d
+                    WHERE d.classid = 'pg_class'::regclass
+                      AND d.objid = c.oid
+                      AND d.refclassid = 'pg_class'::regclass
+                      AND d.deptype IN ('a', 'i')
+                  )
                 """
         )
         for relkind, relation_name in cursor.fetchall():
