@@ -18,6 +18,10 @@ on:
 
 jobs:
   deploy-aws:
+    # 實務級關卡：job 進入前停在 GitHub Environments 的 Required reviewers，
+    # 指定的人在 Actions 頁按「Review deployments → Approve and deploy」才會開跑。
+    # （environment 要先在 repo Settings → Environments 建立並設 reviewer）
+    environment: aws-production
     runs-on: ubuntu-latest
 
     env:
