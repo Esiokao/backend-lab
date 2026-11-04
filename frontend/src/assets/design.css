@@ -562,7 +562,8 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 }
 
 /* Admin 管理頁共用 */
-.filter-select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: var(--card); font-size: 12px; }
+/* background-color 而非 background 簡寫——簡寫會清掉 tailwind.css 全域 select 規則的箭頭 background-image。 */
+.filter-select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background-color: var(--card); font-size: 12px; }
 .filter-select:focus { outline: 0; border-color: var(--brand); }
 .table-tools-group { display: flex; align-items: center; gap: 10px; }
 .result-count { color: var(--ink-faint); font-size: 11px; }

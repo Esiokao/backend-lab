@@ -122,3 +122,62 @@ def test_list_categories_pagination_and_search(test_db, test_client):
     response = test_client.get("/categories?page=2&page_size=2")
     body = response.json()
     assert len(body["items"]) == 1
+
+
+def test_admin_can_reorder_categories(
+    test_db, test_client, create_test_user, test_user_data, session_auth_client
+):
+    # 拖曳排序：PUT /categories/reorder 全量 id 清單 → list 依 sort_order 回傳。
+    cats = [Category(name=n) for n in ["A", "B", "C"]]
+    test_db.add_all(cats)
+    test_db.commit()
+    for c in cats:
+        test_db.refresh(c)
+    ids = [c.id for c in cats]
+
+    admin_data = {**test_user_data, "role": "admin"}
+    create_test_user(**admin_data)
+    client = session_auth_client(admin_data)
+
+    response = client.put("/categories/reorder", json={"category_ids": ids[::-1]})
+    assert response.status_code == 200
+
+    body = test_client.get("/categories").json()
+    assert [item["id"] for item in body["items"]] == ids[::-1]
+
+
+def test_reorder_rejects_duplicate_and_unknown_ids(
+    test_db, create_test_user, test_user_data, session_auth_client
+):
+    cats = [Category(name=n) for n in ["A", "B"]]
+    test_db.add_all(cats)
+    test_db.commit()
+    for c in cats:
+        test_db.refresh(c)
+    ids = [c.id for c in cats]
+
+    admin_data = {**test_user_data, "role": "admin"}
+    create_test_user(**admin_data)
+    client = session_auth_client(admin_data)
+
+    # 重複 id。
+    response = client.put(
+        "/categories/reorder", json={"category_ids": [ids[0], ids[0]]}
+    )
+    assert response.status_code == 400
+
+    # 缺少 id（非全量清單）。
+    response = client.put("/categories/reorder", json={"category_ids": [ids[0]]})
+    assert response.status_code == 400
+
+    # 不存在的 id。
+    response = client.put("/categories/reorder", json={"category_ids": ids + [99999]})
+    assert response.status_code == 400
+
+
+def test_reorder_requires_admin(create_test_user, test_user_data, session_auth_client):
+    create_test_user(**test_user_data)
+    client = session_auth_client(test_user_data)
+
+    response = client.put("/categories/reorder", json={"category_ids": [1]})
+    assert response.status_code == 403

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import draggable from "vuedraggable";
 
 import Icon from "@/components/Icon.vue";
 import { ApiError, api } from "@/lib/api";
@@ -10,6 +11,8 @@ import { useToast } from "@/stores/toast";
 // - New category 按鈕在面板 header（標題塊保持純標題）
 // - 搜尋（q）+ 分頁（server-side page/page_size/total）
 // - Edit 以 Modal 進行（不再行內編輯）
+// - 拖曳排序（v1.14）：僅單頁 + 無搜尋時可拖——跨頁/篩選中的重排語意混亂，
+//   端點只接受「全量」id 清單，故此限制同時是後端契約。
 
 type Product = {
   id: number;
@@ -17,7 +20,9 @@ type Product = {
   category_id: number | null;
 };
 
-const PAGE_SIZE = 10;
+// 分類是人手管理的目錄，量級天花板幾十個——page_size 直接吃 API 上限 100，
+// 讓「可拖曳」的單頁前提永遠成立（真破百再談跨頁排序方案）。
+const PAGE_SIZE = 100;
 
 const toast = useToast();
 
@@ -41,6 +46,26 @@ function productCount(categoryId: number): number {
 
 const uncategorizedCount = () =>
   products.value.filter((p) => p.category_id === null).length;
+
+// 拖曳排序：僅「單頁且無搜尋」開放——endpoint 契約是全量 id 清單。
+const reorderable = computed(
+  () => !loading.value && !appliedQuery.value && totalPages.value === 1,
+);
+
+// vuedraggable 的 v-model 已樂觀更新本地順序；這裡只負責持久化，失敗就 reload 回滾。
+async function persistOrder(): Promise<void> {
+  try {
+    await api.put("/categories/reorder", {
+      category_ids: categories.value.map((c) => c.id),
+    });
+    toast.show("Category order updated.");
+  } catch (err) {
+    toast.show(
+      err instanceof ApiError ? `Reorder failed: ${err.message}` : "Reorder failed.",
+    );
+    await load();
+  }
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -207,44 +232,67 @@ onMounted(() => {
       <table>
         <thead>
           <tr>
+            <th><span class="sr-only">Order</span></th>
             <th>Name</th>
             <th>Description</th>
             <th>Products</th>
             <th><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-if="!loading && categories.length === 0">
-            <td colspan="4"><p class="empty-state">No categories found.</p></td>
-          </tr>
-          <tr v-for="category in categories" :key="category.id">
-            <td><strong>{{ category.name }}</strong></td>
-            <td><span class="order-date">{{ category.description ?? "—" }}</span></td>
-            <td><span class="order-total">{{ productCount(category.id) }}</span></td>
-            <td>
-              <div class="order-actions">
-                <button type="button" class="sort-button" @click="openEdit(category)">
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="row-action row-delete"
-                  :aria-label="`Delete ${category.name}`"
-                  :disabled="busy"
-                  @click="deleteCategory(category)"
-                >
-                  <Icon name="close" :size="14" />
-                </button>
-              </div>
-            </td>
+        <tbody v-if="categories.length === 0">
+          <tr>
+            <td colspan="5"><p class="empty-state">No categories found.</p></td>
           </tr>
         </tbody>
+        <draggable
+          v-else
+          v-model="categories"
+          tag="tbody"
+          item-key="id"
+          handle=".drag-handle"
+          :disabled="!reorderable"
+          :animation="150"
+          @end="persistOrder"
+        >
+          <template #item="{ element: category }">
+            <tr>
+              <td class="w-8 text-center">
+                <span
+                  v-if="reorderable"
+                  class="drag-handle cursor-grab select-none touch-none text-base text-ink-faint active:cursor-grabbing"
+                  aria-hidden="true"
+                  title="Drag to reorder"
+                >⠿</span>
+              </td>
+              <td><strong>{{ category.name }}</strong></td>
+              <td><span class="order-date">{{ category.description ?? "—" }}</span></td>
+              <td><span class="order-total">{{ productCount(category.id) }}</span></td>
+              <td>
+                <div class="order-actions">
+                  <button type="button" class="sort-button" @click="openEdit(category)">
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="row-action row-delete"
+                    :aria-label="`Delete ${category.name}`"
+                    :disabled="busy"
+                    @click="deleteCategory(category)"
+                  >
+                    <Icon name="close" :size="14" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </draggable>
       </table>
       <p v-if="loading" class="empty-state">Loading categories...</p>
       <p v-else-if="loadError" class="empty-state">{{ loadError }}</p>
     </div>
 
-    <div class="pagination">
+    <!-- 單頁時整排分頁 UI 是雜訊（Page 1 of 1），只在多頁或搜尋中顯示。 -->
+    <div v-if="totalPages > 1 || appliedQuery" class="pagination">
       <p>
         Page <strong>{{ page }}</strong> of <strong>{{ totalPages }}</strong>
         <template v-if="appliedQuery"> · matching "{{ appliedQuery }}"</template>

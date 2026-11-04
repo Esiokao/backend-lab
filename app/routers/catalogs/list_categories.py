@@ -23,7 +23,9 @@ def list_categories(
 
     total = db.scalar(select(func.count()).select_from(base.subquery()))
     items = db.scalars(
-        base.order_by(Category.id).offset((page - 1) * page_size).limit(page_size)
+        base.order_by(Category.sort_order, Category.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     ).all()
 
     return {

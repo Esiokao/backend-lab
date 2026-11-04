@@ -20,6 +20,7 @@ export const CategorySchema = z.object({
   id: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
+  sort_order: z.number().int(),
 });
 export type Category = z.infer<typeof CategorySchema>;
 export const CategoryPageSchema = z.object({

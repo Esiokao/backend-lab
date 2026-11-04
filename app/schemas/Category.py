@@ -13,12 +13,19 @@ class CategoryPatch(BaseModel):
     description: str | None = None
 
 
+class CategoryReorderRequest(BaseModel):
+    """批次重排：完整分類 id 清單，依新順序排列。"""
+
+    category_ids: list[int] = Field(min_length=1)
+
+
 class CategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
     description: str | None
+    sort_order: int
     created_at: datetime
 
 
