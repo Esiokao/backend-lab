@@ -5,8 +5,8 @@ from datetime import timedelta
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.queue import get_task_publisher
 from app.core.task_publisher import TaskPublisher
+from app.core.task_queue import get_task_publisher
 from app.database import SessionLocal
 from app.models import NotificationOutbox
 

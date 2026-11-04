@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.core.queue import get_task_publisher
 from app.core.rq_publisher import TASK_REGISTRY, RQPublisher
+from app.core.task_queue import get_task_publisher
 
 
 def test_enqueue_unknown_task_raises():
