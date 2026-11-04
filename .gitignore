@@ -27,3 +27,5 @@ e2e/playwright-report/
 
 # 本地 compose 覆寫（nginx 改 8443，不進 git）
 docker-compose.override.yml
+
+.zcode/
