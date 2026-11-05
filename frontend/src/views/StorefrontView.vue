@@ -603,28 +603,32 @@ onMounted(() => {
 
       <div class="storefront-content">
         <section class="storefront-tools">
-          <div class="search-field">
-            <Icon name="search" :size="15" />
-            <input
-              v-model="query"
-              type="search"
-              placeholder="Search products…"
-              aria-label="Search products"
-              @keydown.enter="submitSearch"
-              @change="submitSearch"
-            />
+          <!-- 搜尋與排序是一組（左）；篩選註記獨立在右——三個元素時
+               space-between 才不會把 Sort 擠到中間。 -->
+          <div class="tools-primary">
+            <div class="search-field">
+              <Icon name="search" :size="15" />
+              <input
+                v-model="query"
+                type="search"
+                placeholder="Search products…"
+                aria-label="Search products"
+                @keydown.enter="submitSearch"
+                @change="submitSearch"
+              />
+            </div>
+            <select
+              class="filter-select"
+              aria-label="Sort products"
+              :value="sortBy"
+              @change="selectSort(($event.target as HTMLSelectElement).value as '' | 'newest' | 'price_asc' | 'price_desc')"
+            >
+              <option value="">Sort: Default</option>
+              <option value="newest">Newest first</option>
+              <option value="price_asc">Price: low to high</option>
+              <option value="price_desc">Price: high to low</option>
+            </select>
           </div>
-          <select
-            class="filter-select"
-            aria-label="Sort products"
-            :value="sortBy"
-            @change="selectSort(($event.target as HTMLSelectElement).value as '' | 'newest' | 'price_asc' | 'price_desc')"
-          >
-            <option value="">Sort: Default</option>
-            <option value="newest">Newest first</option>
-            <option value="price_asc">Price: low to high</option>
-            <option value="price_desc">Price: high to low</option>
-          </select>
           <span v-if="selectedCategory !== null" class="catalog-filter-note">
             {{ categoryName(selectedCategory) }}
             <button type="button" class="text-button" @click="selectCategory(null)">Clear ×</button>
