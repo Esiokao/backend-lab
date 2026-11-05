@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -156,7 +157,7 @@ def checkout(
     return order
 
 
-def _cart_response(items: list[CartItem]) -> dict:
+def _cart_response(items: Sequence[CartItem]) -> dict:
     response_items = [
         {
             "product_id": item.product_id,

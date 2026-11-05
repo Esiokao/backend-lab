@@ -35,6 +35,8 @@ def reorder_categories(
     # 單一交易：按清單位置寫 sort_order。
     for index, category_id in enumerate(ids):
         category = db.get(Category, category_id)
+        if category is None:  # 上面已驗證 id 全存在——防禦性縮限讓型別完整。
+            raise HTTPException(status_code=404, detail="Category not found")
         category.sort_order = index
 
     db.commit()

@@ -30,6 +30,7 @@ markers = [
 dev = [
     "httpx>=0.28.1",
     "httpx2>=2.13.0",
+    "pyrefly>=1.4.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "requests>=2.34.2",
@@ -41,3 +42,7 @@ dev = [
 "app/core/dependencies.py" = ["B008"]
 "app/routers/*.py" = ["B008"]
 "alembic/versions/*.py" = ["UP007", "UP035", "I001"]
+
+[tool.pyrefly]
+# 型別檢查只掃 app/：tests 的 mock 型別摩擦與 alembic 舊 migration 不擋 CI。
+project-includes = ["app/**/*"]

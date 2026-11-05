@@ -114,8 +114,8 @@ def _create_order_notification(
     notification_type: NotificationType,
     title: str,
     body: str,
-) -> None:
-    """從事件取得訂單並建立單筆通知；body 用 {order_id} 當佔位符。"""
+) -> int:
+    """建立單筆通知並回傳收件者 id；body 用 {order_id} 當佔位符。"""
     order_id = _event_payload_int(
         event,
         "order_id",
@@ -195,7 +195,7 @@ def notify_admin_notification(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: AdminNotificationJobPayload
-    ) -> None:
+    ) -> list[int]:
         session.add(
             Notification(
                 user_id=job.user_id,
@@ -226,7 +226,7 @@ def notify_product_restocked(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: ProductRestockJobPayload
-    ) -> None:
+    ) -> list[int]:
         product_id = _event_payload_int(
             event, "product_id", "outbox payload must contain an integer product_id"
         )
@@ -259,7 +259,7 @@ def notify_product_restocked(
             ]  # ← 對應你的 unique constraint
         )
         session.execute(stmt)
-        return follower_ids
+        return list(follower_ids)
 
     _run_notification_job(
         payload,
@@ -282,7 +282,7 @@ def notify_order_created(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCreatedJobPayload
-    ) -> None:
+    ) -> list[int]:
         order_user_id = _create_order_notification(
             session,
             event,
@@ -310,7 +310,7 @@ def notify_order_paid(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderPaidJobPayload
-    ) -> None:
+    ) -> list[int]:
         order_user_id = _create_order_notification(
             session,
             event,
@@ -338,7 +338,7 @@ def notify_order_completed(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCompletedJobPayload
-    ) -> None:
+    ) -> list[int]:
         order_user_id = _create_order_notification(
             session,
             event,
@@ -366,7 +366,7 @@ def notify_order_cancelled(
 
     def create_notifications(
         session: Session, event: NotificationOutbox, job: OrderCancelledJobPayload
-    ) -> None:
+    ) -> list[int]:
         order_user_id = _create_order_notification(
             session,
             event,

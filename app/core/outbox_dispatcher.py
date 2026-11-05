@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
@@ -25,7 +25,8 @@ def dispatch_once(
     # 時鐘一律以 DB 為準：available_at 是 server_default now()（DB 時鐘）寫的，
     # 若拿主機時鐘比較，容器時鐘差幾毫秒就會把「剛建立」的事件誤判為未到期
     # （間歇性 dispatched == 0 的 flaky 根因）。
-    now = session.scalar(select(func.now()))
+    # DB 時鐘（與 available_at 比較基準）；理論上不為 None——防禦性 fallback 到本機 UTC。
+    now = session.scalar(select(func.now())) or datetime.now(timezone.utc)
 
     # 同時處理新事件，以及已發布但逾時未完成的事件。
     stmt = (

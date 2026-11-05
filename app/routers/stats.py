@@ -58,8 +58,8 @@ def get_stats(
             "total_users": total_users,
             "total_orders": total_orders,
             "orders_today": orders_today,
-            "total_revenue": float(total_revenue),
-            "revenue_today": float(revenue_today),
+            "total_revenue": float(total_revenue or 0),
+            "revenue_today": float(revenue_today or 0),
             "visitors_today": visitors_today_count(redis_client),
             "visitors_total": visitors_total_count(redis_client),
         }

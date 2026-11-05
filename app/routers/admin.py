@@ -97,7 +97,7 @@ def update_order_status(
             detail="Order not found",
         )
 
-    if new_status not in ALLOWED_TRANSITIONS.get(order.status, set()):
+    if new_status not in ALLOWED_TRANSITIONS.get(order.status, set()):  # pyrefly: ignore[no-matching-overload]
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot change order status from {order.status} to {new_status}",

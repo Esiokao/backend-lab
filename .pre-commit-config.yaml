@@ -16,6 +16,16 @@ repos:
       - id: ruff-check
         args: [--fix]
 
+  # Python type-check（pyrefly）：範圍限 app/（見 pyproject [tool.pyrefly]）。
+  - repo: local
+    hooks:
+      - id: pyrefly
+        name: python typecheck (pyrefly)
+        entry: uv run pyrefly check app
+        language: system
+        files: ^app/.*\.py$
+        pass_filenames: false
+
   # Frontend type-check (vue-tsc) on frontend changes.
   - repo: local
     hooks:

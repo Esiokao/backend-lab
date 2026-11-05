@@ -78,7 +78,7 @@ def create_order(
             .values(stock=Product.stock - quantity)
         )
 
-        if stock_update.rowcount != 1:
+        if stock_update.rowcount != 1:  # pyrefly: ignore[missing-attribute]
             # 任一商品庫存不足 → rollback → 全部不扣。
             session.rollback()
             raise HTTPException(
@@ -135,7 +135,8 @@ def create_order_endpoint(
     request: Request,
     current_user: CurrentUser,
     session: DbSession,
-) -> OrderResponse:
+):
+    # 回傳 ORM 物件，由上方 response_model=OrderResponse 序列化（FastAPI 慣例）。
     return create_order(payload, current_user=current_user, session=session)
 
 

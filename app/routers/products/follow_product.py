@@ -41,12 +41,15 @@ def follow_product(
     # 重複呼叫 endpoint 會保持成功，不會產生 duplicate error。
     if existing is None:
         # 收藏數量上限：只在「新增」時檢查（取消收藏不受限）。
-        follow_count = db.scalar(
-            select(func.count())
-            .select_from(ProductFollow)
-            .where(
-                ProductFollow.user_id == current_user.id,
+        follow_count = (
+            db.scalar(
+                select(func.count())
+                .select_from(ProductFollow)
+                .where(
+                    ProductFollow.user_id == current_user.id,
+                )
             )
+            or 0
         )
         if follow_count >= MAX_FOLLOWS_PER_USER:
             raise HTTPException(

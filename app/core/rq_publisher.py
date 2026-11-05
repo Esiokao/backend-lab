@@ -42,7 +42,7 @@ class RQPublisher:
         payload: dict[str, object],
     ) -> str:
         # 拒絕未註冊的任務名稱。
-        task_path = TASK_REGISTRY.get(task_name)
+        task_path = TASK_REGISTRY.get(task_name)  # pyrefly: ignore[bad-argument-type]
         if task_path is None:
             raise ValueError(f"Unknown task: {task_name}")
 

@@ -73,7 +73,7 @@ def get_session_user_id(sid: str) -> int | None:
     if value is None:
         return None
 
-    user_id_str, _, remember = value.partition(":")
+    user_id_str, _, remember = value.partition(":")  # pyrefly: ignore[bad-argument-type]
     user_id = int(user_id_str)
 
     # 滑動過期：活躍使用者的 session 不會過期，閒置超過 TTL 才失效。

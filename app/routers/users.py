@@ -241,9 +241,10 @@ def login(
     db_user = result.scalar_one_or_none()
 
     # Email 不存在或密碼錯誤。
-    if db_user is None or not verify_password(
-        user.password,
-        db_user.password_hash,
+    if (
+        db_user is None
+        or db_user.password_hash is None
+        or not verify_password(user.password, db_user.password_hash)
     ):
         raise HTTPException(
             status_code=401,

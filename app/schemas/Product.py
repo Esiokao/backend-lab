@@ -9,7 +9,7 @@ class ProductCreate(BaseModel):
     description: str | None = None
     # v1 只存外部圖片 URL；上傳功能另開。
     image_url: str | None = None
-    price: Decimal = Field(ge=0, decimal_places=2)
+    price: Decimal = Field(ge=0, decimal_places=2)  # pyrefly: ignore[bad-argument-type]
     stock: int = Field(default=0, ge=0)
     category_id: int | None = Field(default=None, gt=0)
 
@@ -18,7 +18,7 @@ class ProductPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = None
     image_url: str | None = None
-    price: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    price: Decimal | None = Field(default=None, ge=0, decimal_places=2)  # pyrefly: ignore[bad-argument-type]
     stock: int | None = Field(default=None, ge=0)
     category_id: int | None = Field(default=None, gt=0)
 

@@ -44,7 +44,7 @@ def request_size_limit(max_size: int):
 
     def decorator(func: Callable):
         # 給 endpoint 加上 metadata。
-        func.max_request_size = max_size
+        func.max_request_size = max_size  # pyrefly: ignore[missing-attribute]
         return func
 
     return decorator
