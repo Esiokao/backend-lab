@@ -10,54 +10,40 @@ const backend = [
   ["ORM / Migrations", "SQLAlchemy · Alembic"],
   ["Database", "PostgreSQL 17"],
   ["Cache / Rate limit", "Redis 7"],
-  ["Background jobs", "RQ（outbox → notifications worker）"],
+  ["Background jobs", "RQ (outbox → notifications worker)"],
   ["Validation", "Pydantic"],
 ];
 
 const frontend = [
-  ["Framework", "Vue 3.5（Composition API + <script setup>）"],
-  ["Language", "TypeScript 6（vue-tsc，掛 pre-commit）"],
-  ["Build", "Vite 8"],
-  ["Routing", "vue-router 4（角色化守衛）"],
-  ["Styling", "Tailwind CSS v4（token @theme）＋ 純 CSS 設計系統"],
-  ["Validation", "zod（API 契約 runtime 驗證 ＋ 表單 inline errors）"],
-  ["API client", "手寫 fetch 包裝（ApiError / SchemaError）"],
-  ["State", "手寫 composable stores（無 Pinia）"],
+  ["Framework", "Vue 3.5 (Composition API + <script setup>)"],
+  ["Language", "TypeScript (vue-tsc in pre-commit)"],
+  ["Build", "Vite"],
+  ["Routing", "vue-router (role-based guards)"],
+  ["Styling", "Tailwind CSS v4 (token @theme)"],
+  ["Validation", "zod (runtime API contract + form errors)"],
+  ["State", "hand-rolled composable stores"],
 ];
 
 const infra = [
-  ["Cloud", "AWS EC2（docker compose 全套服務）"],
-  ["Edge / DNS", "nginx（TLS 終結、HSTS）· Cloudflare（DNS + 代理）"],
-  ["CI/CD", "GitHub Actions：test → build → GHCR → deploy"],
-  ["Deploy flow", "staging 自動（CI 全綠）→ production 手動審批 → smoke test"],
-  ["Rollback", "GHCR 保留每個 commit sha 的 immutable image，重跑即回滾"],
+  ["Cloud", "AWS EC2 (full stack on docker compose)"],
+  ["Edge / DNS", "nginx (TLS, HSTS) · Cloudflare (DNS + proxy)"],
+  ["CI/CD", "GitHub Actions: test → build → GHCR → deploy"],
+  ["Deploy flow", "staging auto on green CI → production manual approval → smoke test"],
+  ["Rollback", "immutable per-sha images on GHCR; redeploy old sha"],
 ];
 
 const testing = [
-  ["Backend", "pytest 整合測試（220+ cases）"],
-  ["E2E", "Playwright 使用者旅程 + admin 旅程（fixture 體系）"],
-  ["Load", "k6 壓測（in progress）"],
-  ["Post-deploy", "smoke tests 打正式環境，驗證公共入口"],
-];
-
-const agent = [
-  ["Frontend", "大部分功能由 AI agent 產出"],
-  ["Human role", "寫 spec · code review · e2e 驗收"],
-  ["This page's demo", "影片由 Playwright 腳本自動錄製，重錄即最新畫面"],
+  ["Backend", "pytest integration (220+ cases)"],
+  ["E2E", "Playwright journeys (shopper + admin)"],
+  ["Load", "k6 (in progress)"],
+  ["Post-deploy", "smoke tests against production"],
 ];
 
 const auth = [
   ["Session", "HttpOnly · Secure · SameSite=strict cookie"],
-  ["Expiry", "7 天滑動過期（Redis）"],
-  ["Revocation", "改密碼撤銷全部 session（含跨裝置演示）"],
-  ["Rate limit", "登入 5 次/60s（Redis Lua 原子化）"],
-];
-
-const design = [
-  ["World", "Engineering Vellum（圖紙標題塊 / 蓋章徽章 / 製圖網格）"],
-  ["Themes", "奶油紙 light ＋ 暖炭黑 dark（token 翻轉，零 dark: variant）"],
-  ["Type", "DM Sans ＋ JetBrains Mono（數據 tabular）"],
-  ["Tokens", "CSS custom properties 單一真相（DESIGN.md）"],
+  ["Expiry", "7-day sliding (Redis)"],
+  ["Revocation", "password change revokes all sessions"],
+  ["Rate limit", "login 5 per 60s (Redis, atomic Lua)"],
 ];
 </script>
 
@@ -88,17 +74,14 @@ const design = [
     </section>
 
     <section class="mb-7 rounded-xl border border-line bg-card px-[23px] py-5">
-      <p class="m-0 max-w-[75ch] text-[13px] leading-relaxed text-ink">
-        <strong class="text-ink-strong">Backend Lab</strong> is a fullstack engineering demo built
-        as a practice ground: a public storefront with cart &amp; checkout, a member center, and an
-        admin workspace — wired end-to-end to a FastAPI backend with session auth, RBAC, an order
-        state machine, and RQ-driven notifications. The point is the engineering around the app:
-        automated testing, a full CI/CD pipeline, and AI-agent collaboration. Every number on
-        screen comes from the real API; nothing is decorative.
+      <p class="m-0 text-[13px] leading-relaxed text-ink">
+        <strong class="text-ink-strong">Backend Lab</strong> is a fullstack e-commerce demo built
+        to practice engineering: a real API under everything you see, automated tests, and a full
+        CI/CD pipeline. Nothing on screen is decorative.
       </p>
     </section>
 
-    <div class="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+    <div class="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-2">
       <section
         v-for="section in [
           { title: 'Backend', rows: backend },
@@ -106,8 +89,6 @@ const design = [
           { title: 'Auth & security', rows: auth },
           { title: 'Testing', rows: testing },
           { title: 'Infrastructure & CI/CD', rows: infra },
-          { title: 'AI agent collaboration', rows: agent },
-          { title: 'Design system', rows: design },
         ]"
         :key="section.title"
         class="overflow-hidden rounded-xl border border-line bg-card"

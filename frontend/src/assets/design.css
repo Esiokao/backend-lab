@@ -451,9 +451,11 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 }
 /* 工具列：搜尋左、篩選註記右，底線收束——格線從圖紙的欄位線下開始。 */
 .storefront-tools { margin-bottom: var(--space-5); padding-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line-soft); }
-/* 搜尋 + Sort 是一組（左）；篩選註記獨立靠右——見 StorefrontView 的 tools-primary。 */
-.storefront-tools .tools-primary { display: flex; align-items: center; gap: 14px; }
-.storefront-tools .search-field { width: 320px; background: var(--card); }
+/* 搜尋 + Sort 是一組（左）；篩選註記獨立靠右——見 StorefrontView 的 tools-primary。
+   min-width:0 + flex-wrap：窄空間時搜尋可收縮、組內可換行，不再溢出工具列。 */
+.storefront-tools .tools-primary { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 420px; flex-wrap: wrap; }
+.storefront-tools .tools-primary .search-field { width: 320px; min-width: 180px; flex: 1 1 180px; }
+.storefront-tools .search-field { background: var(--card); }
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(264px, 1fr)); gap: 22px; }
 .product-card { overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--card); transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; animation: rise-in .4s ease backwards; }
 .product-card:nth-child(2) { animation-delay: .04s; }
