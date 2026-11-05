@@ -32,6 +32,7 @@ const navItems = computed<NavItem[]>(() =>
       ]
     : [
         { label: "Store", icon: "store", to: { name: "storefront" } },
+        { label: "Following", icon: "star", to: { name: "following" } },
         { label: "My Orders", icon: "box", to: { name: "orders" } },
         { label: "Account", icon: "users", to: { name: "account" } },
         { label: "Edit Profile", icon: "pencil", to: { name: "account-edit" } },

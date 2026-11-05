@@ -14,6 +14,7 @@ import {
 } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
+import { useFollows } from "@/stores/follows";
 import { useToast } from "@/stores/toast";
 
 // 商品詳情頁（v1.18）：修 P0「商品卡是死路」——公開 GET /products/{id}，
@@ -30,8 +31,9 @@ const loading = ref(true);
 const loadError = ref("");
 const brokenImage = ref(false);
 
-// Follow 為 session 內樂觀 UI（與店面同語彙）：後端尚無「查詢我是否已關注」端點。
-const followed = ref(false);
+// Follow 狀態：共用 follows store（mount 時 load /products/followed，重整後星星記得）。
+const { isFollowed, load: loadFollows, toggle: toggleFollowStore } = useFollows();
+const followed = computed(() => product.value !== null && isFollowed(product.value.id));
 
 const categories = ref<Category[]>([]);
 const categoryName = computed(() => {
@@ -57,21 +59,16 @@ async function toggleFollow(): Promise<void> {
     return;
   }
   try {
-    if (followed.value) {
-      await api.delete(`/products/${product.value.id}/follow`);
-      followed.value = false;
-      showToast(`Unfollowed "${product.value.name}".`);
-    } else {
-      await api.post(`/products/${product.value.id}/follow`);
-      followed.value = true;
-      showToast(
-        product.value.stock > 0
+    const nowFollowed = await toggleFollowStore(product.value.id);
+    showToast(
+      nowFollowed && product.value.stock === 0
+        ? `Following "${product.value.name}" — we'll notify you when it's back in stock.`
+        : nowFollowed
           ? `Following "${product.value.name}".`
-          : `Following "${product.value.name}" — we'll notify you when it's back in stock.`,
-      );
-    }
-  } catch {
-    showToast("Follow failed. Please try again.");
+          : `Unfollowed "${product.value.name}".`,
+    );
+  } catch (err) {
+    showToast(err instanceof ApiError ? err.message : "Follow failed. Please try again.");
   }
 }
 
@@ -119,6 +116,7 @@ async function handleAddToCart(): Promise<void> {
 }
 
 onMounted(async () => {
+  void loadFollows(); // 收藏狀態：進頁就 load（與商品請求並行）
   const id = Number(route.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     loadError.value = "Product not found.";

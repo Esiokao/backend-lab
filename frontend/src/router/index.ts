@@ -77,6 +77,13 @@ const router = createRouter({
           meta: { title: "My orders" },
         },
         {
+          // 收藏清單（Following）：看收藏商品、取消收藏、點入商品頁。
+          path: "following",
+          name: "following",
+          component: () => import("@/views/FollowingView.vue"),
+          meta: { title: "Following" },
+        },
+        {
           // 訂單詳情（後端允許擁有者或 admin 讀取）。
           path: "orders/:id",
           name: "order-detail",

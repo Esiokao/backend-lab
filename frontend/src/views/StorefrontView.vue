@@ -15,6 +15,7 @@ import {
 } from "@/lib/schemas";
 import { useAuth } from "@/stores/auth";
 import { useCart } from "@/stores/cart";
+import { useFollows } from "@/stores/follows";
 import { useToast } from "@/stores/toast";
 
 // 公開店面（v1.4）：訪客可瀏覽 GET /products；未登入按關注 → /login?redirect=（F12-7）。
@@ -223,7 +224,9 @@ function markImageBroken(product: Product): void {
 }
 
 // Follow 星星 toggle：點亮 = 已關注。後端 POST/DELETE follow 皆冂等。
-const followedIds = ref<Record<number, boolean>>({});
+// Follow 狀態：共用 follows store（mount 時 load /products/followed，
+// 重整後星星記得——之前 local ref 重整即失憶）。
+const { isFollowed, load: loadFollows, toggle: toggleFollowStore } = useFollows();
 
 async function toggleFollow(product: Product): Promise<void> {
   if (!user.value) {
@@ -232,25 +235,18 @@ async function toggleFollow(product: Product): Promise<void> {
     return;
   }
 
-  const wasFollowed = !!followedIds.value[product.id];
-
   try {
-    if (wasFollowed) {
-      await api.delete(`/products/${product.id}/follow`);
-      followedIds.value[product.id] = false;
-      showToast(`Unfollowed "${product.name}".`);
-    } else {
-      await api.post(`/products/${product.id}/follow`);
-      followedIds.value[product.id] = true;
-      // 到貨通知只發生在 0 → >0 的補貨；還有庫存的商品別開這張空頭支票。
-      showToast(
-        product.stock > 0
+    const nowFollowed = await toggleFollowStore(product.id);
+    // 到貨通知只發生在 0 → >0 的補貨；還有庫存的商品別開這張空頭支票。
+    showToast(
+      nowFollowed && product.stock === 0
+        ? `Following "${product.name}" — we'll notify you when it's back in stock.`
+        : nowFollowed
           ? `Following "${product.name}".`
-          : `Following "${product.name}" — we'll notify you when it's back in stock.`,
-      );
-    }
-  } catch {
-    showToast("Follow failed. Please try again.");
+          : `Unfollowed "${product.name}".`,
+    );
+  } catch (err) {
+    showToast(err instanceof ApiError ? err.message : "Follow failed. Please try again.");
   }
 }
 
@@ -549,6 +545,7 @@ onMounted(() => {
   void fetchProducts();
   void fetchCategories();
   void fetchAllForCounts();
+  void loadFollows();
 });
 </script>
 
@@ -700,11 +697,11 @@ onMounted(() => {
                 <button
                   v-if="user"
                   type="button"
-                  :class="['follow-star', { active: followedIds[product.id] }]"
+                  :class="['follow-star', { active: isFollowed(product.id) }]"
                   :aria-label="
-                    followedIds[product.id] ? `Unfollow ${product.name}` : `Follow ${product.name}`
+                    isFollowed(product.id) ? `Unfollow ${product.name}` : `Follow ${product.name}`
                   "
-                  :aria-pressed="!!followedIds[product.id]"
+                  :aria-pressed="!!isFollowed(product.id)"
                   @click.stop="toggleFollow(product)"
                 >
                   <Icon name="star" :size="15" />
@@ -787,7 +784,7 @@ onMounted(() => {
                 </button>
                 <!-- 零庫存：引導 follow 補貨通知（點擊=追蹤；已追蹤顯示狀態） -->
                 <button
-                  v-else-if="followedIds[product.id]"
+                  v-else-if="isFollowed(product.id)"
                   type="button"
                   class="ghost-button product-add-button following"
                   disabled

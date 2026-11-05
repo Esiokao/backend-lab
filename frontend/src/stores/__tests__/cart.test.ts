@@ -43,6 +43,7 @@ function sweater(qty = 1, stock = 12) {
   return {
     product_id: 1,
     product_name: "Sweater",
+    image_url: null,
     quantity: qty,
     unit_price: 89,
     subtotal: 89 * qty,
@@ -54,6 +55,7 @@ function mug(qty = 1, stock = 40) {
   return {
     product_id: 2,
     product_name: "Mug",
+    image_url: null,
     quantity: qty,
     unit_price: 34,
     subtotal: 34 * qty,

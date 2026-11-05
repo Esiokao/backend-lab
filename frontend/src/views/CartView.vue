@@ -1,13 +1,15 @@
 <script setup lang="ts">
-  import { onMounted, ref } from 'vue'
+  import { computed, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
 
   import Icon from '@/components/Icon.vue'
   import StorefrontHeader from '@/components/StorefrontHeader.vue'
   import StorefrontFooter from '@/components/StorefrontFooter.vue'
-  import { ApiError } from '@/lib/api'
+  import { ApiError, api } from '@/lib/api'
+  import { FollowedSchema, type Product } from '@/lib/schemas'
   import { useAuth } from '@/stores/auth'
   import { useCart } from '@/stores/cart'
+  import { useFollows } from '@/stores/follows'
   import { useToast } from '@/stores/toast'
 
   // 購物車（v1.8）：勾選式 —— 單選/全選，只結帳選中品；
@@ -30,7 +32,8 @@
     refresh,
     updateQty,
     remove,
-    clear
+    clear,
+    add: addToCart
   } = useCart()
 
   const loading = ref(true)
@@ -138,8 +141,40 @@
     void router.push({ name: 'checkout' })
   }
 
+  // ── Followed products（購物車裡的收藏快區）：讓 shopper 直接發現收藏的
+  // 商品、補齊下單動線。固定只露 4 個 in stock（全量列表在 /app/following）。
+  const { load: loadFollows } = useFollows()
+  const followedProducts = ref<Product[]>([])
+  const FOLLOWED_LIMIT = 4
+
+  // Cart 的收藏快區只顯示 in stock——out of stock 的留在 /app/following 等補貨通知。
+  const followedPreview = computed(() =>
+    followedProducts.value.filter((p) => p.stock > 0).slice(0, FOLLOWED_LIMIT),
+  )
+
+  // 收藏快區的一鍵加購（數量 1 + toast 回饋）。
+  async function quickAdd(product: Product): Promise<void> {
+    await addToCart(product.id, 1)
+    toast.show(`Added "${product.name}" to cart.`)
+  }
+
+  async function loadFollowedProducts(): Promise<void> {
+    if (!user.value) return
+    try {
+      const data = await api.get('/products/followed', FollowedSchema)
+      followedProducts.value = data.items
+    } catch (err) {
+      // 收藏區是加值內容，失敗不擋購物車主流程——但要留痕跡（silent catch 曾把 bug 藏死）。
+      console.warn('[cart] failed to load followed products:', err)
+    }
+  }
+
   onMounted(async () => {
-    if (user.value) await refresh()
+    if (user.value) {
+      await refresh()
+      void loadFollows()
+      void loadFollowedProducts()
+    }
     loading.value = false
   })
 </script>
@@ -262,7 +297,15 @@
                   />
                 </td>
                 <td class="cart-product">
-                  <strong>{{ item.product_name }}</strong>
+                  <div class="cart-product-info">
+                    <img
+                      v-if="item.image_url"
+                      :src="item.image_url"
+                      :alt="item.product_name"
+                      class="cart-thumb"
+                    >
+                    <strong>{{ item.product_name }}</strong>
+                  </div>
                   <p
                     v-if="!isSelectable(item) && item.stock > 0"
                     class="field-error"
@@ -351,6 +394,76 @@
         </div>
       </section>
 
+    <!-- 收藏快區：登入且有收藏時露出（上限 4 個），方便 shopper 發現並補下單。 -->
+    <section
+      v-if="user && followedPreview.length > 0"
+      class="data-panel"
+    >
+      <div class="panel-header">
+        <div>
+          <h2>Following</h2>
+          <p>Products you follow.</p>
+        </div>
+        <router-link
+          :to="{ name: 'following' }"
+          class="text-button"
+        >
+          See all ({{ followedProducts.length }})
+          <Icon
+            name="arrow"
+            :size="13"
+          />
+        </router-link>
+      </div>
+      <ul class="followed-list">
+        <li
+          v-for="product in followedPreview"
+          :key="product.id"
+          class="followed-row"
+        >
+          <router-link
+            class="followed-link"
+            :to="{ name: 'product-detail', params: { id: product.id } }"
+            :aria-label="`Open ${product.name}`"
+          >
+            <img
+              v-if="product.image_url"
+              :src="product.image_url"
+              :alt="product.name"
+              class="followed-thumb"
+            >
+            <span
+              v-else
+              class="followed-thumb followed-thumb-empty"
+              aria-hidden="true"
+            ></span>
+            <span class="followed-name">
+              <strong>{{ product.name }}</strong>
+              <small>{{ product.description ?? '' }}</small>
+            </span>
+            <span class="followed-price">${{ Number(product.price).toFixed(2) }}</span>
+            <span
+              :class="['stock-badge', product.stock > 0 ? 'in' : 'out']"
+            >
+              {{ product.stock > 0 ? `In stock · ${product.stock}` : 'Out of stock' }}
+            </span>
+          </router-link>
+          <button
+            v-if="product.stock > 0"
+            type="button"
+            class="primary-button"
+            :aria-label="`Add ${product.name} to cart`"
+            @click="quickAdd(product)"
+          >
+            <Icon
+              name="cart"
+              :size="14"
+            />
+            Add to cart
+          </button>
+        </li>
+      </ul>
+    </section>
       <section class="data-panel cart-summary">
         <div class="panel-header">
           <div>
@@ -404,6 +517,7 @@
         </router-link>
       </div>
     </section>
+
   </main>
 
   <StorefrontFooter />

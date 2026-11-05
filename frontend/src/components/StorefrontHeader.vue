@@ -137,6 +137,14 @@ async function handleLogout(): Promise<void> {
           <router-link
             class="user-menu-item"
             role="menuitem"
+            :to="{ name: 'following' }"
+            @click="menuOpen = false"
+          >
+            <Icon name="star" :size="14" /> Following
+          </router-link>
+          <router-link
+            class="user-menu-item"
+            role="menuitem"
             :to="{ name: 'orders' }"
             @click="menuOpen = false"
           >

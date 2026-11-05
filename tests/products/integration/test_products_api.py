@@ -605,3 +605,75 @@ def test_admin_update_product_ignores_null_fields(
 
     # null 不應該覆蓋原本的價格。
     assert product.price == Decimal("19.99")
+
+
+def test_list_followed_returns_items_newest_first(
+    test_db,
+    create_test_user,
+    test_user_data,
+    session_auth_client,
+):
+    # Following 頁契約：items 完整商品、按收藏時間新 → 舊；product_ids 向下相容。
+    create_test_user(**test_user_data)
+    products = [
+        Product(name="Beans", price=Decimal("10.00"), stock=5),
+        Product(name="Mug", price=Decimal("20.00"), stock=5),
+    ]
+    test_db.add_all(products)
+    test_db.commit()
+    for p in products:
+        test_db.refresh(p)
+
+    auth_client = session_auth_client(test_user_data)
+    auth_client.post(f"/products/{products[0].id}/follow")
+    auth_client.post(f"/products/{products[1].id}/follow")
+
+    response = auth_client.get("/products/followed")
+
+    assert response.status_code == 200
+    body = response.json()
+    # 新 → 舊：第二個 follow 的 Mug 在前。
+    assert body["product_ids"] == [products[1].id, products[0].id]
+    assert [item["name"] for item in body["items"]] == ["Mug", "Beans"]
+    assert body["count"] == 2
+    assert body["items"][0]["price"] == "20.00"
+
+
+def test_list_followed_requires_auth(test_client):
+    response = test_client.get("/products/followed")
+    assert response.status_code == 401
+
+
+def test_follow_limit_rejected_with_409(
+    test_db,
+    create_test_user,
+    test_user_data,
+    session_auth_client,
+):
+    # 收藏上限：第 21 個 follow → 409（取消收藏不受限）。
+    from app.routers.products.follow_product import MAX_FOLLOWS_PER_USER
+
+    create_test_user(**test_user_data)
+    products = [
+        Product(name=f"P{i}", price=Decimal("10.00"), stock=5)
+        for i in range(MAX_FOLLOWS_PER_USER + 1)
+    ]
+    test_db.add_all(products)
+    test_db.commit()
+    for p in products:
+        test_db.refresh(p)
+
+    auth_client = session_auth_client(test_user_data)
+
+    for p in products[:MAX_FOLLOWS_PER_USER]:
+        response = auth_client.post(f"/products/{p.id}/follow")
+        assert response.status_code == 200
+
+    response = auth_client.post(f"/products/{products[-1].id}/follow")
+    assert response.status_code == 409
+    assert "limit" in response.json()["detail"].lower()
+
+    # 取消一個之後可以再收新的。
+    auth_client.delete(f"/products/{products[0].id}/follow")
+    response = auth_client.post(f"/products/{products[-1].id}/follow")
+    assert response.status_code == 200

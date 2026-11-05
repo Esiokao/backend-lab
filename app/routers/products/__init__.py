@@ -8,6 +8,7 @@ from .get_product import router as get_product_router
 from .list_archived_products import (
     router as list_archived_products_router,
 )
+from .list_followed_products import router as list_followed_products_router
 from .list_products import router as list_products_router
 from .restore_product import router as restore_product_router
 from .update_product import router as update_product_router
@@ -18,6 +19,7 @@ router.include_router(list_archived_products_router)
 router.include_router(archive_product_router)
 router.include_router(restore_product_router)
 router.include_router(list_products_router)
+router.include_router(list_followed_products_router)
 router.include_router(get_product_router)
 router.include_router(create_product_router)
 router.include_router(update_product_router)

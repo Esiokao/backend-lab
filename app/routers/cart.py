@@ -161,6 +161,7 @@ def _cart_response(items: list[CartItem]) -> dict:
         {
             "product_id": item.product_id,
             "product_name": item.product.name,
+            "image_url": item.product.image_url,
             "quantity": item.quantity,
             "unit_price": item.product.price,
             "subtotal": item.product.price * item.quantity,

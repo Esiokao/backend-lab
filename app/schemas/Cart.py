@@ -15,6 +15,7 @@ class CartItemUpdate(BaseModel):
 class CartItemResponse(BaseModel):
     product_id: int
     product_name: str
+    image_url: str | None
     quantity: int
     unit_price: Decimal
     subtotal: Decimal

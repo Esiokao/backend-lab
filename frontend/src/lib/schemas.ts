@@ -44,10 +44,20 @@ export const ProductSchema = z.object({
 export type Product = z.infer<typeof ProductSchema>;
 export const ProductListSchema = z.array(ProductSchema);
 
+// ── Follows ──
+// GET /products/followed：ids（店面點星星用）+ items 完整商品（Following 頁）。
+export const FollowedSchema = z.object({
+  product_ids: z.array(z.number().int()),
+  count: z.number().int(),
+  items: z.array(ProductSchema),
+});
+export type Followed = z.infer<typeof FollowedSchema>;
+
 // ── Cart ──
 export const CartItemSchema = z.object({
   product_id: z.number().int(),
   product_name: z.string(),
+  image_url: z.string().nullable(),
   quantity: z.number().int(),
   unit_price: decimal,
   subtotal: decimal,
