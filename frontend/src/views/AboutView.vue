@@ -15,9 +15,7 @@ const backend = [
 ];
 
 const frontend = [
-  ["Framework", "Vue 3.5 (Composition API + <script setup>)"],
-  ["Language", "TypeScript (vue-tsc in pre-commit)"],
-  ["Build", "Vite"],
+  ["Stack", "Vue 3.5 · TypeScript · Vite"],
   ["Routing", "vue-router (role-based guards)"],
   ["Styling", "Tailwind CSS v4 (token @theme)"],
   ["Validation", "zod (runtime API contract + form errors)"],
