@@ -29,3 +29,6 @@ e2e/playwright-report/
 docker-compose.override.yml
 
 .zcode/
+
+# demo 影片/一次性工作檔（不進 repo）
+e2e/demo-out/
