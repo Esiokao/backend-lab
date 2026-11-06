@@ -1,7 +1,16 @@
 name: backend-lab-prod
 
+# 容器 log：持久在主機 + 有界（10MB × 3 = 每服務 30MB 封頂），
+# 防止 json-file 預設無上限吃滿磁碟；容器重建不影響主機上的舊檔。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
+    logging: *default-logging
     image: postgres:17
     restart: unless-stopped
 
@@ -24,6 +33,7 @@ services:
       retries: 10
 
   redis:
+    logging: *default-logging
     image: redis:7
     restart: unless-stopped
 
@@ -39,6 +49,7 @@ services:
       retries: 10
 
   db-roles:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: "no"
 
@@ -54,6 +65,7 @@ services:
         condition: service_healthy
 
   migration:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: "no"
 
@@ -70,6 +82,7 @@ services:
   # Outbox Dispatcher
   # =========================
   dispatcher:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -98,6 +111,7 @@ services:
   # Fulfillment Worker（模擬倉儲履約）
   # =========================
   fulfillment-worker:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -125,6 +139,7 @@ services:
   # Notifications Worker
   # =========================
   notifications-worker:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -150,6 +165,7 @@ services:
       disable: true
 
   api:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -180,6 +196,7 @@ services:
   # Order Expiry Worker（未付款訂單過期自動取消）
   # =========================
   order-expiry-worker:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -204,6 +221,7 @@ services:
   # Frontend（靜態站，由 edge nginx 反代）
   # =========================
   frontend:
+    logging: *default-logging
     image: ghcr.io/esiokao/backend-lab-frontend:${IMAGE_TAG}
     restart: unless-stopped
 
@@ -212,6 +230,7 @@ services:
         condition: service_healthy
 
   nginx:
+    logging: *default-logging
     image: nginx:alpine
     restart: unless-stopped
 
