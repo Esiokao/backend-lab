@@ -31,6 +31,7 @@ async def _event_stream(user_id: int):
     redis = aioredis.Redis(
         host=os.getenv("REDIS_HOST", "localhost"),
         port=int(os.getenv("REDIS_PORT", "6379")),
+        password=os.getenv("REDIS_PASSWORD") or None,
         decode_responses=True,
     )
     pubsub = redis.pubsub()

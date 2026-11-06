@@ -9,6 +9,7 @@ from app.core.events import EventType
 rq_redis = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
     port=int(os.getenv("REDIS_PORT", "6379")),
+    password=os.getenv("REDIS_PASSWORD") or None,
 )
 
 NOTIFICATION_QUEUE_NAME = "notifications"
