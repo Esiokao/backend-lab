@@ -278,7 +278,7 @@ jobs:
       - name: Build Frontend Docker image
         run: >-
           docker build
-          --build-arg VITE_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}
+          --build-arg VITE_TURNSTILE_SITE_KEY=${{ vars.TURNSTILE_SITE_KEY }}
           --tag backend-lab-frontend:${{ github.sha }}
           ./frontend
 
