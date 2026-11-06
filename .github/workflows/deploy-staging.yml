@@ -240,7 +240,7 @@ jobs:
       # 通知管線探針帳號：註冊（409 冪等）+ 升 admin，供 smoke 深探針使用。
       - name: Ensure deployment probe account
         env:
-          PROBE_EMAIL: deploy-probe@staging.local
+          PROBE_EMAIL: deploy-probe@esiokao.shop
           PROBE_PASSWORD: ${{ secrets.DEPLOY_PROBE_PASSWORD }}
         run: |
           curl -sk -o /dev/null -X POST "https://$DEPLOY_HOST/api/users" \
@@ -253,7 +253,7 @@ jobs:
       - name: Post-deploy smoke test
         env:
           DEPLOY_BASE_URL: https://${{ vars.DEPLOY_HOST }}
-          DEPLOY_PROBE_EMAIL: deploy-probe@staging.local
+          DEPLOY_PROBE_EMAIL: deploy-probe@esiokao.shop
           DEPLOY_PROBE_PASSWORD: ${{ secrets.DEPLOY_PROBE_PASSWORD }}
         run: |
           uv run pytest tests/deployment -m deployment --confcutdir=tests/deployment
