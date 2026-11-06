@@ -11,12 +11,18 @@ docs/       ADRs (0001 same-origin gateway · 0002 sessions over JWT)
 
 ## Quick Start
 
+Prereqs: Docker, uv, Node 22 + pnpm, openssl.
+
 ```bash
-docker compose up -d postgres redis
-uv sync && uv run alembic upgrade head
-uv run uvicorn app.main:app --port 8000     # workers: scripts/start-dev.ps1
-cd frontend && pnpm install && pnpm dev     # :5173 proxies /api
+# one-shot setup: .env with random secrets, self-signed certs,
+# deps, full compose stack, migrations, frontend deps
+./scripts/setup-dev.sh          # Windows: .\scripts\setup-dev.ps1
+
+cd frontend && pnpm run dev     # app: http://localhost:5173 (API: :8000)
 ```
+
+Secrets in `.env` are random local values (never commit yours);
+`.env.example` documents every variable.
 
 ## Testing
 
