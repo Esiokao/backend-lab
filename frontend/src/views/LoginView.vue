@@ -62,10 +62,12 @@ async function ensureTurnstileLoaded(): Promise<void> {
 }
 
 async function renderTurnstile(): Promise<void> {
-  if (!TURNSTILE_SITE_KEY || !window.turnstile || turnstileWidgetId !== null) return;
+  // 順序：先載腳本、再檢查——舊版把 !window.turnstile 放在載入之前，
+  // 第一次 mount 必然 return，widget 永遠不渲染。
+  if (!TURNSTILE_SITE_KEY || turnstileWidgetId !== null) return;
   await ensureTurnstileLoaded();
   const el = document.getElementById(TURNSTILE_CONTAINER_ID);
-  if (!el) return;
+  if (!el || !window.turnstile) return;
   turnstileWidgetId = window.turnstile.render(el, {
     sitekey: TURNSTILE_SITE_KEY,
     callback: (token: string) => {
