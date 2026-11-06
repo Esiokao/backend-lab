@@ -140,7 +140,6 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           PAYMENT_SECRET: ${{ secrets.PAYMENT_SECRET }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: |
           set -eu
           umask 077
@@ -160,7 +159,6 @@ jobs:
             "JWT_SECRET=$JWT_SECRET" \
             "PAYMENT_SECRET=$PAYMENT_SECRET" \
             "REDIS_PASSWORD=$REDIS_PASSWORD" \
-            "TURNSTILE_SECRET_KEY=$TURNSTILE_SECRET_KEY" \
             "IMAGE_TAG=$IMAGE_TAG" \
             "DEFAULT_RATE_LIMIT=5" \
             "DEFAULT_RATE_LIMIT_WINDOW=60" \
@@ -239,9 +237,23 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
+      # 通知管線探針帳號：註冊（409 冪等）+ 升 admin，供 smoke 深探針使用。
+      - name: Ensure deployment probe account
+        env:
+          PROBE_EMAIL: deploy-probe@staging.local
+          PROBE_PASSWORD: ${{ secrets.DEPLOY_PROBE_PASSWORD }}
+        run: |
+          curl -sk -o /dev/null -X POST "https://$DEPLOY_HOST/api/users" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"Deploy Probe\",\"email\":\"$PROBE_EMAIL\",\"password\":\"$PROBE_PASSWORD\"}"
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_DIR' && docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres psql -U admin -d backend_lab -c \"UPDATE users SET role='admin' WHERE email='$PROBE_EMAIL';\""
+
       # 執行 deployment smoke tests。
       - name: Post-deploy smoke test
         env:
           DEPLOY_BASE_URL: https://${{ vars.DEPLOY_HOST }}
+          DEPLOY_PROBE_EMAIL: deploy-probe@staging.local
+          DEPLOY_PROBE_PASSWORD: ${{ secrets.DEPLOY_PROBE_PASSWORD }}
         run: |
           uv run pytest tests/deployment -m deployment --confcutdir=tests/deployment
