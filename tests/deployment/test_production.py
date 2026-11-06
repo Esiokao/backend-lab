@@ -53,3 +53,25 @@ def test_home_serves_html():
 
     assert response.status_code == 200
     assert "text/html" in response.headers.get("content-type", "")
+
+
+@pytest.mark.deployment
+def test_login_reaches_redis():
+    """Redis 探針：故意錯密碼的登入應回 401（或 429 限流）。
+
+    /login 會先過 rate limit（Redis Lua eval）——Redis 壞掉時這條
+    會 500 而不是 401，deployment smoke 就能抓到「API 活著但
+    Redis 死了」的半殘狀態（staging 實錄）。
+    """
+    base_url = os.environ["DEPLOY_BASE_URL"]
+
+    response = requests.post(
+        f"{base_url}/api/login",
+        json={"email": "smoke-probe@example.com", "password": "wrong-password-123"},
+        verify=False,
+        timeout=10,
+    )
+
+    assert response.status_code in (401, 429), (
+        f"expected 401/429, got {response.status_code} — Redis pipeline may be broken"
+    )
