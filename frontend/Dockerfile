@@ -10,6 +10,10 @@ COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY . .
+
+# Turnstile site key（公開值）：build 期由 --build-arg 注入；沒給 = widget 不渲染。
+ARG VITE_TURNSTILE_SITE_KEY
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
 RUN pnpm run build
 
 FROM nginx:alpine

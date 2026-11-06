@@ -26,10 +26,16 @@ export function useAuth() {
     email: string,
     password: string,
     rememberMe = false,
+    turnstileToken?: string,
   ): Promise<void> {
     // 成功時 Set-Cookie 由瀏覽器自動保管，前端不碰任何 token。
     // rememberMe：後端把 session／cookie 的 TTL 從 7 天拉長到 30 天。
-    await api.post("/login", { email, password, remember_me: rememberMe });
+    await api.post("/login", {
+      email,
+      password,
+      remember_me: rememberMe,
+      ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+    });
     await me();
   }
 

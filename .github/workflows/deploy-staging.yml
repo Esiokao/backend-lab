@@ -140,6 +140,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           PAYMENT_SECRET: ${{ secrets.PAYMENT_SECRET }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: |
           set -eu
           umask 077
@@ -159,6 +160,7 @@ jobs:
             "JWT_SECRET=$JWT_SECRET" \
             "PAYMENT_SECRET=$PAYMENT_SECRET" \
             "REDIS_PASSWORD=$REDIS_PASSWORD" \
+            "TURNSTILE_SECRET_KEY=$TURNSTILE_SECRET_KEY" \
             "IMAGE_TAG=$IMAGE_TAG" \
             "DEFAULT_RATE_LIMIT=5" \
             "DEFAULT_RATE_LIMIT_WINDOW=60" \

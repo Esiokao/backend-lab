@@ -276,7 +276,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Frontend Docker image
-        run: docker build --tag backend-lab-frontend:${{ github.sha }} ./frontend
+        run: >-
+          docker build
+          --build-arg VITE_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}
+          --tag backend-lab-frontend:${{ github.sha }}
+          ./frontend
 
       - name: Save Docker image
         run: docker save backend-lab-frontend:${{ github.sha }} -o backend-lab-frontend.tar

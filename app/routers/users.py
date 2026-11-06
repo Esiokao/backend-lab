@@ -16,6 +16,7 @@ from app.core.session import (
     delete_session,
     revoke_all_user_sessions,
 )
+from app.core.turnstile import verify_turnstile_token
 from app.database import DbSession
 from app.models import User
 from app.schemas.Auth import UserLogin
@@ -229,12 +230,24 @@ def delete_user(
 # 用 DEFAULT_RATE_LIMIT（prod 5/min；e2e job 的 env 設 50）——
 # 寫死 5 會讓 e2e 的連續登入擠進配額樂透（fixture 沒檢查 429 → 下游 401 連環）。
 @rate_limit(window=60)
-def login(
+async def login(
     request: Request,
     response: Response,
     user: UserLogin,
     session: DbSession,
 ):
+    # Turnstile（env-gated）：TURNSTILE_SECRET_KEY 有設的環境（正式站）
+    # 才驗 token；dev / pytest / e2e 沒設 → 無感跳過。
+    import os
+
+    if os.getenv("TURNSTILE_SECRET_KEY"):
+        token = (user.turnstile_token or "").strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="Captcha token missing")
+        await verify_turnstile_token(
+            token, request.client.host if request.client else None
+        )
+
     # 查詢登入使用者。
     result = session.execute(select(User).where(User.email == user.email))
 

@@ -10,6 +10,9 @@ class UserLogin(BaseModel):
     # 密碼長度限制。
     password: str = Field(min_length=8, max_length=128)
 
+    # Turnstile token（正式環境必帶；dev/測試環境後端跳過驗證）。
+    turnstile_token: str | None = None
+
     # 「Keep me signed in」：勾選時 session 與 cookie 用 7 天 TTL（預設 30 分鐘）。
     remember_me: bool = False
 

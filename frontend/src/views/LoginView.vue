@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Icon from "@/components/Icon.vue";
@@ -33,6 +33,52 @@ const name = ref("");
 // 改密碼成功後被導回來（/login?changed=1）：顯示持久確認。
 const passwordChanged = route.query.changed === "1";
 
+// ── Turnstile（正式環境的 bot 防線）──
+// site key 由 build-arg 注入（VITE_TURNSTILE_SITE_KEY）；沒 key = 驗證關閉
+// （後端同樣 env-gated：TURNSTILE_SECRET_KEY 沒設就跳過——兩邊開關一致）。
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+const TURNSTILE_CONTAINER_ID = "turnstile-container";
+const turnstileToken = ref("");
+let turnstileWidgetId: string | null = null;
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+      reset: (id?: string) => void;
+    };
+  }
+}
+
+async function ensureTurnstileLoaded(): Promise<void> {
+  if (window.turnstile) return;
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Turnstile"));
+    document.head.appendChild(script);
+  });
+}
+
+async function renderTurnstile(): Promise<void> {
+  if (!TURNSTILE_SITE_KEY || !window.turnstile || turnstileWidgetId !== null) return;
+  await ensureTurnstileLoaded();
+  const el = document.getElementById(TURNSTILE_CONTAINER_ID);
+  if (!el) return;
+  turnstileWidgetId = window.turnstile.render(el, {
+    sitekey: TURNSTILE_SITE_KEY,
+    callback: (token: string) => {
+      turnstileToken.value = token;
+    },
+  });
+}
+
+// 有 key 才需要 widget；token 是單次性的——登入失敗後重置，下次提交拿新的。
+onMounted(() => {
+  if (TURNSTILE_SITE_KEY) void renderTurnstile();
+});
+
 async function handleSubmit(): Promise<void> {
   error.value = "";
 
@@ -54,7 +100,7 @@ async function handleSubmit(): Promise<void> {
   submitting.value = true;
 
   try {
-    await login(parsed.data.email, parsed.data.password, rememberMe.value);
+    await login(parsed.data.email, parsed.data.password, rememberMe.value, turnstileToken.value || undefined);
 
     // 登入成功 → 回到原本想去的頁面（守衛帶進來的 redirect）或店面（F2-1：進入 /）。
     const redirect = route.query.redirect;
@@ -73,6 +119,11 @@ async function handleSubmit(): Promise<void> {
         err instanceof Error && err.message.includes("Invalid")
           ? "Invalid email or password"
           : "Login failed. Please try again.";
+      // token 單次性：登入失敗後重置 widget，下次提交拿新 token。
+      if (TURNSTILE_SITE_KEY && window.turnstile && turnstileWidgetId !== null) {
+        window.turnstile.reset(turnstileWidgetId);
+        turnstileToken.value = "";
+      }
     }
   } finally {
     submitting.value = false;
@@ -253,6 +304,10 @@ function switchMode(next: "signin" | "signup"): void {
             />
             Keep me signed in for 7 days
           </label>
+
+          <!-- Turnstile（正式環境）：site key 由 build-arg 注入，沒注入不渲染
+               （dev / pytest / e2e 零改動）。token 由 handleSubmit 讀取。 -->
+          <div v-if="TURNSTILE_SITE_KEY" :id="TURNSTILE_CONTAINER_ID"></div>
 
           <button
             type="submit"
