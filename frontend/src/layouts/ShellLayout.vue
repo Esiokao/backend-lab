@@ -67,7 +67,7 @@ async function handleLogout(): Promise<void> {
   if (!window.confirm("Sign out of Backend Lab?")) return;
   menuOpen.value = false;
   await logout();
-  await router.push({ name: "login" });
+  await router.push({ name: "storefront" });
 }
 
 // 頭像下拉選單（會員資料 list）：點頭像展開、點外部或切頁收起。
