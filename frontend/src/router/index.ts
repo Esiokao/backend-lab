@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import { applySeo } from "@/composables/useSeo";
 import { useAuth } from "@/stores/auth";
 
 const router = createRouter({
@@ -201,6 +202,16 @@ router.beforeEach(async (to) => {
   // 分頁標題反映所在位置；店面（動態分類）由 StorefrontView 覆寫。
   const title = to.meta.title as string | undefined;
   if (title) document.title = `${title} · Backend Lab`;
+});
+
+// SEO 標籤（afterEach：導航確認後才寫——redirect 不會污染 head）。
+// description + canonical 一併寫入；動態頁（店面/商品詳情）可再覆寫。
+router.afterEach((to) => {
+  const title = (to.meta.title as string | undefined) ?? "Backend Lab";
+  const description =
+    (to.meta.description as string | undefined) ??
+    "Full-stack e-commerce demo — storefront, orders, and admin workspace.";
+  applySeo({ title, description, path: to.path });
 });
 
 export default router;
