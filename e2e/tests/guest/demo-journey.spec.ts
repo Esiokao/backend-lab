@@ -15,7 +15,7 @@ test.describe('demo journey (view-only admin)', () => {
     ).toBeVisible()
 
     // demo 帳號身分可見（header 帳戶區）。
-    await expect(page.getByText('Demo Viewer')).toBeVisible()
+    await expect(page.getByText('Demo Viewer').first()).toBeVisible()
   })
 
   test('demo session is read-only: backend rejects mutations with 403', async ({
@@ -43,6 +43,6 @@ test.describe('demo journey (view-only admin)', () => {
     await expect(
       page.getByRole('heading', { name: 'Order Management' })
     ).toBeVisible()
-    await expect(page.getByText('Demo Viewer')).toBeVisible()
+    await expect(page.getByText('Demo Viewer').first()).toBeVisible()
   })
 })
