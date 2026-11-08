@@ -43,10 +43,22 @@ onUnmounted(() => {
   scrollObserver?.disconnect();
 });
 
-// ?cat=<id> deep-link：header 分類導覽與側欄共用同一個過濾狀態。
+// ?cat=<id>&q=<搜尋>&sort=<排序> deep-link：分享/重整/上一頁都帶著瀏覽狀態。
 function categoryFromQuery(): number | null {
   const cat = Number(route.query.cat);
   return Number.isInteger(cat) && cat > 0 ? cat : null;
+}
+
+const SORT_VALUES = ["", "newest", "price_asc", "price_desc"] as const;
+function stateFromQuery(): void {
+  selectedCategory.value = categoryFromQuery();
+  const q = String(route.query.q ?? "");
+  appliedQuery.value = q;
+  query.value = q;
+  const sort = String(route.query.sort ?? "");
+  sortBy.value = (SORT_VALUES as readonly string[]).includes(sort)
+    ? (sort as "" | "newest" | "price_asc" | "price_desc")
+    : "";
 }
 
 const { user } = useAuth();
@@ -110,11 +122,22 @@ async function fetchAllForCounts(): Promise<void> {
   }
 }
 
+// 瀏覽狀態（分類/搜尋/排序）同步進 query string：
+// 分享網址、重新整理、上一頁都帶著狀態（replace 不灌爆歷史記錄）。
+function syncStateToUrl(): void {
+  const params: Record<string, string> = {};
+  if (selectedCategory.value !== null) params.cat = String(selectedCategory.value);
+  if (appliedQuery.value) params.q = appliedQuery.value;
+  if (sortBy.value) params.sort = sortBy.value;
+  router.replace({ query: Object.keys(params).length ? params : {} }).catch(() => {});
+}
+
 function selectCategory(id: number | null): void {
   selectedCategory.value = id;
   page.value = 1;
   invalidatePrefetch();
   void fetchProducts();
+  syncStateToUrl();
 }
 
 // 排序切換與切分類同一套重置：回第 1 頁 + 作廢在途預取（epoch 防護）。
@@ -124,6 +147,7 @@ function selectSort(value: "" | "newest" | "price_asc" | "price_desc"): void {
   page.value = 1;
   invalidatePrefetch();
   void fetchProducts();
+  syncStateToUrl();
 }
 
 // 後端商品列表無 total 欄位：回滿一頁視為還有下一頁（v1.16 無限滾動）。
@@ -343,6 +367,7 @@ function submitSearch(): void {
   appliedQuery.value = query.value.trim();
   invalidatePrefetch();
   void fetchProducts();
+  syncStateToUrl();
 }
 
 function formatPrice(price: string | number): string {
@@ -509,17 +534,34 @@ watch(
   },
   { immediate: true },
 );
-// 同頁切分類（header 連結）→ route.query 變化 → 重選分類。
+// 瀏覽狀態的唯一反向入口：route.query 變化（上一頁/分享連結/header 導覽）
+// → 還原狀態 → 只在狀態真的變了時才重新查詢。
+// （syncStateToUrl 的 router.replace 也會觸發這個 watcher——
+//   三值相同時跳過，避免雙重 fetch。）
 watch(
-  () => route.query.cat,
+  () => [route.query.cat, route.query.q, route.query.sort],
   () => {
-    const next = categoryFromQuery();
-    if (next !== selectedCategory.value) {
-      selectedCategory.value = next;
-      page.value = 1;
-      invalidatePrefetch();
-      void fetchProducts();
+    const prev = {
+      cat: selectedCategory.value,
+      q: appliedQuery.value,
+      sort: sortBy.value,
+    };
+    stateFromQuery();
+    const next = {
+      cat: selectedCategory.value,
+      q: appliedQuery.value,
+      sort: sortBy.value,
+    };
+    if (
+      next.cat === prev.cat &&
+      next.q === prev.q &&
+      next.sort === prev.sort
+    ) {
+      return; // 自己的 replace 觸發的——狀態相同，不重查
     }
+    page.value = 1;
+    invalidatePrefetch();
+    void fetchProducts();
   },
 );
 
@@ -541,7 +583,7 @@ watch(sentinelEl, (el) => {
 
 onMounted(() => {
   document.addEventListener("keydown", onModalKeydown);
-  selectedCategory.value = categoryFromQuery();
+  stateFromQuery();
   void fetchProducts();
   void fetchCategories();
   void fetchAllForCounts();
