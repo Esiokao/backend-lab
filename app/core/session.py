@@ -112,8 +112,10 @@ def delete_session(sid: str) -> None:
     redis_client.delete(key)
 
     # 索引內沒有該 sid 時 srem 只是回傳 0，不影響正確性。
+    # value 可能帶 :remember / :ro 後綴——取冒號前的 user_id 部分。
     if value is not None:
-        redis_client.srem(user_sessions_key(int(value)), sid)
+        user_id = int(str(value).split(":", 1)[0])
+        redis_client.srem(user_sessions_key(user_id), sid)
 
 
 def revoke_all_user_sessions(user_id: int) -> int:

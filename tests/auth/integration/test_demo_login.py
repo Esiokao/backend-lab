@@ -97,3 +97,13 @@ def test_demo_user_cannot_password_login(test_client, test_db):
         json={"email": "demo@demo.esiokao.shop", "password": "whatever-pass-123"},
     )
     assert response.status_code == 401
+
+
+def test_logout_of_suffixed_session(test_client):
+    # 回歸：session value 帶 :ro / :remember 後綴時，delete_session 的
+    # int(value) 會 ValueError → /logout 500（cookie 已刪但索引殘留）。
+    # demo（:ro）與 remember 登入都必須能正常登出。
+    test_client.post("/auth/demo-login")
+    response = test_client.post("/logout")
+    assert response.status_code == 200
+    assert test_client.get("/users/me").status_code == 401
