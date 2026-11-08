@@ -15,7 +15,7 @@ import { LoginFormSchema, SignupFormSchema } from "@/lib/schemas";
 const route = useRoute();
 const router = useRouter();
 
-const { login } = useAuth();
+const { login, demoLogin } = useAuth();
 const { theme, toggleTheme } = useTheme();
 
 const email = ref("");
@@ -80,6 +80,31 @@ async function renderTurnstile(): Promise<void> {
 onMounted(() => {
   if (TURNSTILE_SITE_KEY) void renderTurnstile();
 });
+
+// demo 探索登入：免帳密進入唯讀 admin workspace（面試官/訪客用）。
+const demoExploring = ref(false);
+async function handleDemoLogin(): Promise<void> {
+  error.value = "";
+  demoExploring.value = true;
+  try {
+    await demoLogin(turnstileToken.value || undefined);
+    const redirect = route.query.redirect;
+    const target =
+      typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//")
+        ? redirect
+        : "/admin/orders";
+    await router.push(target);
+  } catch {
+    error.value = "Demo login failed. Please try again.";
+    // token 單次性：失敗後重置 widget，下次提交拿新 token。
+    if (TURNSTILE_SITE_KEY && window.turnstile && turnstileWidgetId !== null) {
+      window.turnstile.reset(turnstileWidgetId);
+      turnstileToken.value = "";
+    }
+  } finally {
+    demoExploring.value = false;
+  }
+}
 
 async function handleSubmit(): Promise<void> {
   error.value = "";
@@ -324,6 +349,19 @@ function switchMode(next: "signin" | "signup"): void {
                 : mode === "signin"
                   ? "Sign in"
                   : "Create account"
+            }}
+          </button>
+
+          <button
+            type="button"
+            class="grid h-10 place-items-center rounded-lg border border-line bg-card text-xs font-semibold text-ink transition-colors hover:border-brand disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="demoExploring || submitting"
+            @click="handleDemoLogin"
+          >
+            {{
+              demoExploring
+                ? "Entering demo..."
+                : "Explore demo (view-only admin)"
             }}
           </button>
         </form>

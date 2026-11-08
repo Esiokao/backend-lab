@@ -1,5 +1,6 @@
 # tests/unit/test_auth.py
 
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -47,6 +48,7 @@ def test_get_current_user(test_db):
     ) as mock_decode:
         # 執行真正的 get_current_user。
         user = get_current_user(
+            request=SimpleNamespace(state=SimpleNamespace(session_read_only=False)),
             credentials=fake_credentials,
             session_cookie=None,
             session=fake_session,
@@ -75,6 +77,7 @@ def test_get_current_user_invalid_token(test_db):
         pytest.raises(HTTPException) as exc_info,
     ):
         get_current_user(
+            request=SimpleNamespace(state=SimpleNamespace(session_read_only=False)),
             credentials=credentials,
             session_cookie=None,
             session=test_db,
@@ -101,6 +104,7 @@ def test_get_current_user_missing_sub(test_db):
         pytest.raises(HTTPException) as exc_info,
     ):
         get_current_user(
+            request=SimpleNamespace(state=SimpleNamespace(session_read_only=False)),
             credentials=credentials,
             session_cookie=None,
             session=test_db,
@@ -132,6 +136,7 @@ def test_get_current_user_user_not_found(test_db):
         pytest.raises(HTTPException) as exc_info,
     ):
         get_current_user(
+            request=SimpleNamespace(state=SimpleNamespace(session_read_only=False)),
             credentials=credentials,
             session_cookie=None,
             session=test_db,

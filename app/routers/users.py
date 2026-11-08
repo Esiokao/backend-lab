@@ -19,7 +19,7 @@ from app.core.session import (
 from app.core.turnstile import verify_turnstile_token
 from app.database import DbSession
 from app.models import User
-from app.schemas.Auth import UserLogin
+from app.schemas.Auth import DemoLogin, UserLogin
 from app.schemas.User import UserCreate, UserPatch, UserResponse, UserUpdate
 
 # body 上限由 app.main 的全域 route_class（RequestSizeRoute）統一套用。
@@ -290,6 +290,67 @@ async def login(
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
+@router.post("/auth/demo-login")
+@rate_limit(window=60)
+async def demo_login(
+    request: Request,
+    response: Response,
+    payload: DemoLogin | None = None,
+    *,
+    db: DbSession,
+):
+    """demo 探索登入：免帳密發一個唯讀 admin session（面試官/訪客用）。
+
+    帳號 demo@demo.esiokao.shop 自動建立（role=admin、password_hash=None →
+    密碼登入永遠 401，這個帳號只能透過本端點進場）。
+    防線與 /login 同等：Turnstile（env-gated）+ rate limit；
+    唯讀性由 session 的 read_only 標記在 require_admin 強制執行。
+    """
+    import os
+
+    if os.getenv("TURNSTILE_SECRET_KEY"):
+        token = (payload.turnstile_token if payload else None) or ""
+        if not token:
+            raise HTTPException(status_code=401, detail="Captcha token missing")
+        await verify_turnstile_token(
+            token, request.client.host if request.client else None
+        )
+
+    demo_email = "demo@demo.esiokao.shop"
+    user = db.execute(select(User).where(User.email == demo_email)).scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            name="Demo Viewer",
+            email=demo_email,
+            role="admin",
+            password_hash=None,
+        )
+        db.add(user)
+        db.flush()
+    elif user.role != "admin":
+        # 防呆：被手動改掉 role 的話，demo-login 時自動修回。
+        user.role = "admin"
+
+    db.commit()
+    db.refresh(user)
+
+    # 唯讀 session：不發 access_token（Bearer 路徑無法繞過唯讀限制）。
+    sid = create_session(user.id, read_only=True)
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=sid,
+        max_age=SESSION_TTL_SECONDS,
+        path="/",
+        httponly=True,
+        secure=cookie_secure(),
+        samesite="strict",
+    )
+
+    return {"ok": True}
 
 
 @router.post("/logout")

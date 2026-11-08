@@ -27,7 +27,7 @@ class UserCreate(BaseModel):
 class AdminUserPatch(BaseModel):
     name: NameStr | None = None
     email: EmailStr | None = None
-    role: Literal["user", "admin"] | None = None
+    role: Literal["user", "admin", "demo"] | None = None
 
 
 # API 回傳 User 時，只回傳公開資訊，不回傳密碼

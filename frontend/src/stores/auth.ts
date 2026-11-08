@@ -51,10 +51,18 @@ export function useAuth() {
     }
   }
 
+  // demo 探索登入：免帳密取得唯讀 admin session（面試官/訪客用）。
+  async function demoLogin(turnstileToken?: string): Promise<void> {
+    await api.post("/auth/demo-login", {
+      ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+    });
+    await me();
+  }
+
   // 會員資料修改後同步整個 app 共享的使用者狀態（側欄、下拉選單即時更新）。
   function setUser(next: CurrentUser): void {
     user.value = next;
   }
 
-  return { user, loaded, me, login, logout, setUser };
+  return { user, loaded, me, login, demoLogin, logout, setUser };
 }

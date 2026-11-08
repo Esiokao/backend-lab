@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.jwt import decode_access_token
-from app.core.session import COOKIE_NAME, get_session_user_id
+from app.core.session import COOKIE_NAME, get_session_info
 from app.database import get_db
 from app.models import User
 
@@ -18,6 +18,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session_cookie: str | None = Cookie(None, alias=COOKIE_NAME),
     session: Session = Depends(get_db),
@@ -29,10 +30,15 @@ def get_current_user(
     兩條路最後都匯流到同一段 DB 查詢。
     """
     user_id: int | None = None
+    read_only = False
 
-    # 1. Cookie session：Redis 查 sid → user_id（含滑動續期）。
+    # 1. Cookie session：Redis 查 sid → (user_id, read_only)（含滑動續期）。
     if session_cookie:
-        user_id = get_session_user_id(session_cookie)
+        info = get_session_info(session_cookie)
+        if info is not None:
+            user_id, read_only = info
+        # 唯讀 session（demo 探索）：記在 request.state，require_admin 讀取。
+        request.state.session_read_only = read_only
 
     # 2. Bearer JWT：過渡期相容路徑。
     elif credentials is not None:
@@ -73,8 +79,19 @@ def get_current_user(
 
 
 def require_admin(
+    request: Request,
     current_user: User = Depends(get_current_user),
 ) -> User:
+    # 唯讀 session（demo 探索）：可以看（GET/HEAD），不能動——寫入 403。
+    if getattr(request.state, "session_read_only", False) and request.method not in (
+        "GET",
+        "HEAD",
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Demo session is read-only",
+        )
+
     # 只有 admin 可以通過
     if current_user.role != "admin":
         raise HTTPException(

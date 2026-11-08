@@ -28,3 +28,9 @@ class AccessTokenPayload(BaseModel):
 
     # JWT expiration timestamp。
     exp: int
+
+
+class DemoLogin(BaseModel):
+    """demo 探索登入：無帳密——Turnstile token（正式環境）由 widget 供應。"""
+
+    turnstile_token: str | None = None

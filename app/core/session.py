@@ -36,19 +36,28 @@ def user_sessions_key(user_id: int) -> str:
     return f"{USER_SESSIONS_PREFIX}{user_id}{USER_SESSIONS_SUFFIX}"
 
 
-def create_session(user_id: int, *, ttl_seconds: int = SESSION_TTL_SECONDS) -> str:
+def create_session(
+    user_id: int,
+    *,
+    ttl_seconds: int = SESSION_TTL_SECONDS,
+    read_only: bool = False,
+) -> str:
     """建立 session，回傳不透明 session id。
 
     id 由 secrets 產生（128-bit entropy），本身不含任何資料；
     真正的 user_id 存在 Redis，隨時可刪除 = 隨時可撤銷。
     remember 版 session 的 value 帶 :remember 後綴，讓滑動續期
     （get_session_user_id）知道要用加長 TTL，不會被縮回 7 天。
+    read_only 版（demo 探索）帶 :ro 後綴——該 session 內所有
+    admin 寫入操作會被 require_admin 拒絕（403）。
     """
     sid = secrets.token_urlsafe(32)
 
     value = str(user_id)
     if ttl_seconds == REMEMBER_TTL_SECONDS:
         value = f"{value}:remember"
+    if read_only:
+        value = f"{value}:ro"
 
     redis_client.set(
         f"{SESSION_PREFIX}{sid}",
@@ -64,8 +73,8 @@ def create_session(user_id: int, *, ttl_seconds: int = SESSION_TTL_SECONDS) -> s
     return sid
 
 
-def get_session_user_id(sid: str) -> int | None:
-    """用 sid 查 user_id；查到的同時滑動續期（含使用者 session 索引）。"""
+def get_session_info(sid: str) -> tuple[int, bool] | None:
+    """用 sid 查 (user_id, read_only)；查到的同時滑動續期（含索引）。"""
     key = f"{SESSION_PREFIX}{sid}"
 
     value = redis_client.get(key)
@@ -73,17 +82,24 @@ def get_session_user_id(sid: str) -> int | None:
     if value is None:
         return None
 
-    user_id_str, _, remember = value.partition(":")  # pyrefly: ignore[bad-argument-type]
-    user_id = int(user_id_str)
+    parts = value.split(":")  # pyrefly: ignore[bad-argument-type]
+    user_id = int(parts[0])
+    read_only = "ro" in parts[1:]
 
     # 滑動過期：活躍使用者的 session 不會過期，閒置超過 TTL 才失效。
     # remember 版用加長 TTL 續期；索引也要一起續期，否則活躍 session
     # 會因索引過期而躲過 revoke。
-    ttl = REMEMBER_TTL_SECONDS if remember == "remember" else SESSION_TTL_SECONDS
+    ttl = REMEMBER_TTL_SECONDS if "remember" in parts[1:] else SESSION_TTL_SECONDS
     redis_client.expire(key, ttl)
     redis_client.expire(user_sessions_key(user_id), ttl)
 
-    return user_id
+    return user_id, read_only
+
+
+def get_session_user_id(sid: str) -> int | None:
+    """用 sid 查 user_id；查到的同時滑動續期（含使用者 session 索引）。"""
+    info = get_session_info(sid)
+    return info[0] if info else None
 
 
 def delete_session(sid: str) -> None:

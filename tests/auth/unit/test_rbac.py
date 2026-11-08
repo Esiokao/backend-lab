@@ -10,6 +10,11 @@ from app.core.dependencies import require_admin
 from app.routers.orders import get_users_with_orders
 
 
+def fake_request(read_only: bool = False):
+    """require_admin 新簽名需要 request——讀 session_read_only 決定唯讀擋寫。"""
+    return SimpleNamespace(state=SimpleNamespace(session_read_only=read_only))
+
+
 def test_require_admin_forbidden(
     create_test_user,
     test_user_data,
@@ -19,7 +24,7 @@ def test_require_admin_forbidden(
 
     # 一般 User 不應該通過 admin 檢查。
     with pytest.raises(HTTPException) as exc_info:
-        require_admin(current_user=user)
+        require_admin(request=fake_request(), current_user=user)
 
     # 一般 User 應該收到 403。
     assert exc_info.value.status_code == 403
@@ -33,7 +38,7 @@ def test_require_admin_success(
     admin = create_test_user(**test_admin_user_data)
 
     # Admin 應該通過權限檢查。
-    user = require_admin(current_user=admin)
+    user = require_admin(request=fake_request(), current_user=admin)
 
     # 確認回傳的就是原本的 User。
     assert user is admin
