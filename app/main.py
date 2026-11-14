@@ -15,6 +15,7 @@ from app.routers.payments import router as payments_router
 from app.routers.products import router as products_router
 from app.routers.stats import router as stats_router
 from app.routers.users import router as users_router
+from app.routers.visitors import router as visitors_router
 
 app = FastAPI()
 
@@ -24,29 +25,10 @@ app = FastAPI()
 # app/core/request_size.py 的 SizeLimitedAPIRouter）。
 
 
-@app.middleware("http")
-async def track_visitors(request, call_next):
-    """匿名訪客計數：只計瀏覽器的文件導航（Accept: text/html）。
-
-    curl／SPA 的 fetch／健康探測都是 Accept: */*，不計入，
-    自動化與監控流量不會灌水訪客數。
-    """
-    from app.core.redis import redis_client
-    from app.core.visitors import VISITOR_COOKIE, is_document_request, track_visitor
-
-    response = await call_next(request)
-
-    if is_document_request(request.headers.get("accept"), request.url.path):
-        vid = track_visitor(redis_client, request.cookies.get(VISITOR_COOKIE))
-        if VISITOR_COOKIE not in request.cookies:
-            response.set_cookie(
-                VISITOR_COOKIE,
-                vid,
-                max_age=365 * 24 * 60 * 60,
-                samesite="lax",
-                httponly=True,
-            )
-    return response
+# 訪客追蹤（v2.6）：middleware 以「Accept: text/html 文件請求」定義訪客，
+# 但 frontend 拆成靜態容器後文件請求不經過 FastAPI——指標結構性歸零。
+# 改為前端 beacon：SPA mount 時主動 POST /visitors/track 報到
+# （見 app/routers/visitors.py；計數邏輯仍在 app/core/visitors.py）。
 
 
 app.add_middleware(
@@ -71,6 +53,7 @@ app.include_router(categories_router)
 app.include_router(cart_router)
 app.include_router(products_router)
 app.include_router(meta_router)
+app.include_router(visitors_router)
 app.include_router(stats_router)
 
 

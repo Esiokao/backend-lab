@@ -1,10 +1,9 @@
 # app/core/rate_limit.py
 
 import os
-from functools import wraps
 
 from dotenv import load_dotenv
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from app.core.redis import check_rate_limit
 
@@ -15,47 +14,20 @@ DEFAULT_RATE_LIMIT = int(os.getenv("DEFAULT_RATE_LIMIT", "5"))
 DEFAULT_RATE_LIMIT_WINDOW = int(os.getenv("DEFAULT_RATE_LIMIT_WINDOW", "60"))
 
 
-# 建立可設定限制次數與時間窗口的 decorator。
+# 建立限流 dependency：FastAPI 自己注入 Request，沒有 decorator 時代
+# 「endpoint 必須宣告 request: Request 否則第一個請求 KeyError」的隱形契約。
+# 用法：@router.post("/x", dependencies=[Depends(rate_limit(limit=30))])
+# key 以 URL path 為界（同一路徑同一桶），client IP 為輔。
 def rate_limit(
     limit: int = DEFAULT_RATE_LIMIT,
     window: int = DEFAULT_RATE_LIMIT_WINDOW,
 ):
-    # 接收真正要被包裝的 endpoint。
-    def decorator(func):
-        # 保留原本 endpoint 的名稱與 metadata。
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # 從 endpoint 的參數取得 Request。
-            request = kwargs["request"]
+    def check(request: Request) -> None:
+        client_ip = request.client.host if request.client else "unknown"
 
-            # 取得 client IP。
-            client_ip = request.client.host
+        rate_limit_key = f"rate_limit:{request.url.path}:{client_ip}"
 
-            # 取得目前 endpoint 的名稱。
-            endpoint_name = func.__name__
+        if not check_rate_limit(rate_limit_key, limit=limit, window=window):
+            raise HTTPException(status_code=429, detail="Too many requests")
 
-            # 建立 Redis 使用的 rate limit key。
-            rate_limit_key = f"rate_limit:{endpoint_name}:{client_ip}"
-
-            # 檢查目前 request 是否還在限制範圍內。
-            allowed = check_rate_limit(
-                rate_limit_key,
-                limit=limit,
-                window=window,
-            )
-
-            # 超過限制就直接回傳 429。
-            if not allowed:
-                raise HTTPException(
-                    status_code=429,
-                    detail="Too many requests",
-                )
-
-            # 沒超過限制，繼續執行原本的 endpoint。
-            return func(*args, **kwargs)
-
-        # 回傳包裝後的 endpoint。
-        return wrapper
-
-    # 回傳 decorator。
-    return decorator
+    return check

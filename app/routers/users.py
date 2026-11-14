@@ -1,4 +1,4 @@
-from fastapi import Cookie, HTTPException, Request, Response
+from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -226,10 +226,10 @@ def delete_user(
     responses={
         429: {"description": "Too Many Requests"},
     },
+    dependencies=[Depends(rate_limit(window=60))],
 )
-# 用 DEFAULT_RATE_LIMIT（prod 5/min；e2e job 的 env 設 50）——
+# 限流額度用 DEFAULT_RATE_LIMIT（prod 5/min；e2e job 的 env 設 50）——
 # 寫死 5 會讓 e2e 的連續登入擠進配額樂透（fixture 沒檢查 429 → 下游 401 連環）。
-@rate_limit(window=60)
 async def login(
     request: Request,
     response: Response,
@@ -292,8 +292,7 @@ async def login(
     }
 
 
-@router.post("/auth/demo-login")
-@rate_limit(window=60)
+@router.post("/auth/demo-login", dependencies=[Depends(rate_limit(window=60))])
 async def demo_login(
     request: Request,
     response: Response,

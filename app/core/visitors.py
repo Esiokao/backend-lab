@@ -1,9 +1,13 @@
-"""匿名訪客追蹤（v1.14）：
+"""匿名訪客追蹤（v2.6）：
 
-只計「真實訪客」＝瀏覽器的文件導航（Accept: text/html）。
-curl / fetch / XHR / 健康探測的 Accept 是 */*，一律不計，
-避免自動化與監控流量灌水。vid 存 bl_vid cookie（一年），
-計入 Redis 每日集合 visitors:<date>（SCARD = 唯一訪客數）。
+只計「真實訪客」＝SPA 成功啟動（前端 mount 時 POST /visitors/track 報到）。
+curl / 爬蟲 / 健康探測不執行 JS，天然不會報到。
+vid 存 bl_vid cookie（一年），計入 Redis 每日集合 visitors:<date>
+（SCARD = 唯一訪客數）與全量 HyperLogLog（PFCOUNT = 歷史總數）。
+
+歷史：v1.14 曾以「Accept: text/html 的文件請求」定義訪客（middleware
+判定），但 frontend 拆成靜態容器後文件請求不再經過 FastAPI，指標
+結構性歸零——v2.6 改為前端主動報到，本模組的計數邏輯不變。
 """
 
 import secrets
@@ -11,16 +15,6 @@ from datetime import date, datetime
 
 VISITOR_COOKIE = "bl_vid"
 VISITOR_TTL_SECONDS = 2 * 24 * 60 * 60  # 集合保留兩天，過期自動清
-
-# 不計入訪客的路徑（機器人／探測器）。
-_EXCLUDED_PATHS = {"/health", "/ready"}
-
-
-def is_document_request(accept_header: str | None, path: str) -> bool:
-    """真人導航＝瀏覽器要 HTML。API/fetch/curl 都帶 */*，直接排除。"""
-    if path in _EXCLUDED_PATHS or path.startswith("/api"):
-        return False
-    return accept_header is not None and "text/html" in accept_header
 
 
 TOTAL_HLL_KEY = "visitors:hll:total"

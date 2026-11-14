@@ -1,7 +1,7 @@
 import logging
 from typing import Literal
 
-from fastapi import HTTPException, Query, Request
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
@@ -122,14 +122,12 @@ def create_order(
 
 # 建單限流：堵「大量建單囤積庫存」的縱深防禦（30 次/分鐘/IP）。
 # 正常購買遠低於此；真正的庫存鎖死由過期 worker（order_expiry）根治，這裡是保險絲。
-# 限流掛在 HTTP 邊界的薄殼上——內部重用（cart.checkout）不受限流。
-# 順序：router.post 在上、rate_limit 在下——route 必須註冊「包過裝的」函式，
-# 反過來的話註冊到的是裸函式，限流永遠不會執行。
+# 限流掛在 HTTP 邊界的 dependency 上——內部重用（cart.checkout）不受限流。
 @router.post(
     "/orders",
     response_model=OrderResponse,
+    dependencies=[Depends(rate_limit(limit=30, window=60))],
 )
-@rate_limit(limit=30, window=60)
 def create_order_endpoint(
     payload: OrderCreate,
     request: Request,

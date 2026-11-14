@@ -24,10 +24,10 @@ def test_admin_stats_include_revenue_excluding_cancelled(
 
     client = session_auth_client(test_admin_user_data)
 
-    # 明確種一個訪客：帶 Accept: text/html 的文件導航請求（middleware 只計這種）。
-    # TestClient 預設 accept 是 */* → 不會被計入；沒有這步，全新 Redis 上
-    # visitors_total 恆為 0（本地會過是因為 Redis 有歷史訪客 —— 共享狀態依賴）。
-    client.get("/nonexistent", headers={"Accept": "text/html"})
+    # 明確種一個訪客：前端 beacon 報到（v2.6 起 SPA mount = 訪客）。
+    # 沒有這步，全新 Redis 上 visitors_total 恆為 0
+    # （本地會過是因為 Redis 有歷史訪客 —— 共享狀態依賴）。
+    client.post("/visitors/track")
 
     response = client.get("/stats")
 
@@ -95,29 +95,26 @@ def test_unauthenticated_cannot_read_stats(test_client):
     assert response.status_code == 401
 
 
-def test_visitor_tracking_only_counts_document_requests(test_client):
-    # v1.14：只計 Accept: text/html 的瀏覽器導航；curl/fetch 一律不計。
+def test_visitor_tracking_beacon_semantics(test_client):
+    # v2.6：SPA mount = 訪客（POST /visitors/track）。冪等去重靠
+    # bl_vid cookie：同一訪客重複報到，今日集合不增長。
     from app.core.redis import redis_client
-    from app.core.visitors import is_document_request
+    from app.core.visitors import _day_key, _today
 
-    # 單元：判定函數
-    assert is_document_request("text/html,application/xhtml+xml", "/") is True
-    assert is_document_request("*/*", "/") is False  # curl / fetch
-    assert is_document_request("text/html", "/api/products") is False  # API 路徑
-    assert is_document_request("text/html", "/health") is False  # 探測
-    assert is_document_request(None, "/") is False
+    day_key = _day_key(_today())
 
-    # 整合：瀏覽器導航會計入、curl 不會
-    before = int(
-        redis_client.scard(
-            f"visitors:{__import__('datetime').date.today().isoformat()}"
-        )
-    )
-    test_client.get("/", headers={"Accept": "text/html"})
-    test_client.get("/", headers={"Accept": "*/*"})  # 模擬 curl
-    after = int(
-        redis_client.scard(
-            f"visitors:{__import__('datetime').date.today().isoformat()}"
-        )
-    )
-    assert after == before + 1  # 只有 text/html 那次計入
+    before = int(redis_client.scard(day_key))
+
+    first = test_client.post("/visitors/track")
+    assert first.status_code == 200
+    assert first.json() == {"ok": True}
+
+    # 新訪客：cookie 下發，今日集合 +1
+    assert "bl_vid" in first.cookies
+    assert int(redis_client.scard(day_key)) == before + 1
+
+    # 回訪者帶同一證再報到：去重，集合不變
+    again = test_client.post("/visitors/track")
+    assert again.status_code == 200
+    assert "bl_vid" not in again.cookies  # 不重複發證
+    assert int(redis_client.scard(day_key)) == before + 1
