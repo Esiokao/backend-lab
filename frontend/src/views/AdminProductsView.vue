@@ -447,7 +447,7 @@ watch(activePage, () => void fetchActiveProducts());
             <th>Category</th>
             <th>Price</th>
             <th>Stock</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -576,7 +576,7 @@ watch(activePage, () => void fetchActiveProducts());
             <th>Category</th>
             <th>Price</th>
             <th>Stock</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>

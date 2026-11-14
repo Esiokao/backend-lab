@@ -367,7 +367,7 @@ onUnmounted(() => {
             <th>Scope</th>
             <th>Title</th>
             <th>Message</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -419,7 +419,7 @@ onUnmounted(() => {
             <th>Title</th>
             <th>Message</th>
             <th>Published</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>

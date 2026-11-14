@@ -246,7 +246,7 @@ function onStatusChange(order: AdminOrder, event: Event): void {
             <th>Order ID</th>
             <th>User</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>

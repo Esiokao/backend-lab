@@ -236,7 +236,7 @@ onMounted(() => {
             <th>Name</th>
             <th>Description</th>
             <th>Products</th>
-            <th>Actions</th>
+            <th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody v-if="categories.length === 0">
