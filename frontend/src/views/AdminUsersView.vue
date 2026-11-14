@@ -162,7 +162,7 @@ async function saveEdit(): Promise<void> {
             <td>
               <span :class="['role-badge', user.role]">{{ user.role }}</span>
             </td>
-            <td>
+            <td class="actions">
               <button
                 type="button"
                 class="sort-button"

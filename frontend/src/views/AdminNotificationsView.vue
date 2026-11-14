@@ -427,7 +427,7 @@ onUnmounted(() => {
             <td><strong>{{ broadcast.title }}</strong></td>
             <td><span class="broadcast-body">{{ broadcast.body }}</span></td>
             <td><span class="order-date">{{ formatTime(broadcast.created_at) }}</span></td>
-            <td>
+            <td class="actions">
               <button
                 type="button"
                 class="row-action row-delete"
