@@ -139,7 +139,7 @@ async function saveEdit(): Promise<void> {
             <th>User</th>
             <th>ID</th>
             <th>Role</th>
-            <th><span class="sr-only">Actions</span></th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
