@@ -16,6 +16,8 @@ const toast = useToast();
 const items = ref<Product[]>([]);
 const loading = ref(true);
 const loadError = ref("");
+// 圖片載入失敗的 product id：改用空佔位（與店面 brokenImages 同概念）。
+const brokenImages = ref<Record<number, boolean>>({});
 const busy = ref(false);
 
 function formatPrice(price: string | number): string {
@@ -85,10 +87,11 @@ onMounted(load);
           :aria-label="`Open ${product.name}`"
         >
           <img
-            v-if="product.image_url"
+            v-if="product.image_url && !brokenImages[product.id]"
             :src="product.image_url"
             :alt="product.name"
             class="followed-thumb"
+            @error="brokenImages[product.id] = true"
           />
           <span v-else class="followed-thumb followed-thumb-empty" aria-hidden="true"></span>
           <span class="followed-name">

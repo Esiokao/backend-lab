@@ -145,6 +145,8 @@
   // 商品、補齊下單動線。固定只露 4 個 in stock（全量列表在 /app/following）。
   const { load: loadFollows } = useFollows()
   const followedProducts = ref<Product[]>([])
+  // 圖片載入失敗的 product id：改用空佔位（與店面 brokenImages 同概念）。
+  const brokenImages = ref<Record<number, boolean>>({})
   const FOLLOWED_LIMIT = 4
 
   // Cart 的收藏快區只顯示 in stock——out of stock 的留在 /app/following 等補貨通知。
@@ -299,10 +301,11 @@
                 <td class="cart-product">
                   <div class="cart-product-info">
                     <img
-                      v-if="item.image_url"
+                      v-if="item.image_url && !brokenImages[item.product_id]"
                       :src="item.image_url"
                       :alt="item.product_name"
                       class="cart-thumb"
+                      @error="brokenImages[item.product_id] = true"
                     >
                     <strong>{{ item.product_name }}</strong>
                   </div>
@@ -427,10 +430,11 @@
             :aria-label="`Open ${product.name}`"
           >
             <img
-              v-if="product.image_url"
+              v-if="product.image_url && !brokenImages[product.id]"
               :src="product.image_url"
               :alt="product.name"
               class="followed-thumb"
+              @error="brokenImages[product.id] = true"
             >
             <span
               v-else
