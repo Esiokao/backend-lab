@@ -224,7 +224,7 @@ watch(
         </div>
         <p>Status</p>
         <strong><span :class="['status-badge', order.status]">{{ order.status }}</span></strong>
-        <small>Created {{ formatDate(order.created_at) }}</small>
+        <small>{{ order.paid_at ? `Paid ${formatDate(order.paid_at)}` : `Created ${formatDate(order.created_at)}` }}</small>
       </article>
       <article class="metric-card">
         <div class="metric-top">
@@ -233,14 +233,6 @@ watch(
         <p>Items</p>
         <strong>{{ order.items.length }}</strong>
         <small>{{ order.items.reduce((n, item) => n + item.quantity, 0) }} units total</small>
-      </article>
-      <article class="metric-card">
-        <div class="metric-top">
-          <span class="metric-icon green"><Icon name="activity" /></span>
-        </div>
-        <p>Total</p>
-        <strong>{{ orderTotal() }}</strong>
-        <small>{{ order.paid_at ? `Paid ${formatDate(order.paid_at)}` : "Not paid yet" }}</small>
       </article>
     </section>
 
@@ -290,6 +282,12 @@ watch(
               <td><span class="order-total">{{ lineTotal(item) }}</span></td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">Total</td>
+              <td><span class="order-total order-grand-total">{{ orderTotal() }}</span></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </section>
