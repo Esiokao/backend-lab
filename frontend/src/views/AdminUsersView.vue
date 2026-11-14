@@ -133,7 +133,7 @@ async function saveEdit(): Promise<void> {
     </div>
 
     <div class="table-scroll">
-      <table>
+      <table class="users-table">
         <thead>
           <tr>
             <th>User</th>

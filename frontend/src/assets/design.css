@@ -578,9 +578,10 @@ tr.blocked td .stock-badge.out { opacity: 1; }
 .status-badge.processing { color: var(--info); background: transparent; }
 .status-badge.completed { color: var(--success-ink); background: transparent; }
 .status-badge.cancelled { color: var(--danger-ink); background: transparent; }
+/* 角色徽章：一律 outline——user 一般色，admin outline 綠（success-ink），主題自動適配。 */
 .role-badge { padding: 2px 8px; border: 1.5px solid currentColor; border-radius: 2px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
-.role-badge.admin { color: var(--brand-deep); background: transparent; }
-.role-badge.user { color: var(--ink-soft); background: transparent; }
+.role-badge.admin { color: var(--success-ink); background: transparent; }
+.role-badge.user { color: var(--ink-faint); background: transparent; }
 .order-actions { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .pay-row-button { height: 30px; padding: 0 12px; font-size: 11px; border-radius: 6px; }
 .row-action.row-delete:hover { border-color: #e3c4ba; color: var(--danger-ink); background: var(--danger-bg); }
@@ -625,6 +626,10 @@ tfoot td:first-child { text-align: right; color: var(--ink-faint); font-size: 11
 /* 操作欄：內容置中，表頭與裸按鈕格一起對齊。
    按鈕須為 inline 級——display:flex 是塊級，text-align 管不到它（量過：按鈕偏左 49px）。 */
 th.actions, td.actions { text-align: center; }
+/* Users 表節奏：USER 獨佔彈性，資料欄緊湊固定寬——窄欄不被均分撐散。 */
+.users-table th:nth-child(2) { width: 72px; }
+.users-table th:nth-child(3) { width: 110px; }
+.users-table th:nth-child(4) { width: 110px; }
 td.actions .sort-button, td.actions .row-action { display: inline-flex; align-items: center; }
 .order-date { color: var(--ink-faint); font-size: 11.5px; white-space: nowrap; }
 .order-user { color: var(--ink); font-size: 12.5px; font-weight: 500; }
