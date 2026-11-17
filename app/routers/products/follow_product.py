@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 
 from app.core.dependencies import CurrentUser
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Product, ProductFollow
@@ -15,7 +16,7 @@ MAX_FOLLOWS_PER_USER = 20
 
 @router.post("/{product_id}/follow")
 def follow_product(
-    product_id: int,
+    product_id: DbId,
     current_user: CurrentUser,
     db: DbSession,
 ):
@@ -70,7 +71,7 @@ def follow_product(
 
 @router.delete("/{product_id}/follow")
 def unfollow_product(
-    product_id: int,
+    product_id: DbId,
     current_user: CurrentUser,
     db: DbSession,
 ):

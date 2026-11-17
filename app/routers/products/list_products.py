@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import Query
 from sqlalchemy import desc, select
 
+from app.core.params import CategoryIdParam, Page
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Product
@@ -17,10 +18,10 @@ router = SizeLimitedAPIRouter(prefix="/products")
 @router.get("", response_model=list[ProductResponse])
 def list_products(
     db: DbSession,
-    page: int = Query(default=1, ge=1),
+    page: Page = 1,
     page_size: int = Query(default=10, ge=1, le=100),
     q: str | None = Query(default=None),
-    category_id: int | None = Query(default=None, gt=0),
+    category_id: CategoryIdParam = None,
     sort: SortKey | None = Query(default=None),
 ):
     # 前台只顯示上架商品。

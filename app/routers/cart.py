@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import CurrentUser
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import CartItem, Product
@@ -79,7 +80,7 @@ def get_cart(current_user: CurrentUser, db: DbSession):
 
 @router.patch("/items/{product_id}", response_model=CartResponse)
 def update_cart_item(
-    product_id: int,
+    product_id: DbId,
     payload: CartItemUpdate,
     current_user: CurrentUser,
     db: DbSession,
@@ -102,7 +103,7 @@ def update_cart_item(
 
 @router.delete("/items/{product_id}", response_model=CartResponse)
 def remove_from_cart(
-    product_id: int,
+    product_id: DbId,
     current_user: CurrentUser,
     db: DbSession,
 ):

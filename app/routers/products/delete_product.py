@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 
 from app.core.dependencies import AdminUser
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import OrderItem, Product
@@ -14,7 +15,7 @@ router = SizeLimitedAPIRouter(prefix="/products")
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_product(
-    product_id: int,
+    product_id: DbId,
     db: DbSession,
     _: AdminUser,
 ):

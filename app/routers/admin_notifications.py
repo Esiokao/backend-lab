@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 
 from app.core.dependencies import AdminUser
 from app.core.events import BROADCAST_CHANNEL, EventType
+from app.core.params import DbId
 from app.core.redis import redis_client
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
@@ -86,7 +87,7 @@ def create_notification_broadcast(
 # 刪特定id的廣播通知, 讓admin可以刪除廣播訊息
 @router.delete("/broadcasts/{broadcast_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_notification_broadcast(
-    broadcast_id: int,
+    broadcast_id: DbId,
     db: DbSession,
     _: AdminUser,
 ):

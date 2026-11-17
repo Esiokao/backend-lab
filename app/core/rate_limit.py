@@ -1,17 +1,16 @@
 # app/core/rate_limit.py
 
-import os
 
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 
-from app.core.redis import check_rate_limit
+from app.core.redis import _safe_int, check_rate_limit
 
 load_dotenv()
 
 # Rate limit 的預設設定。
-DEFAULT_RATE_LIMIT = int(os.getenv("DEFAULT_RATE_LIMIT", "5"))
-DEFAULT_RATE_LIMIT_WINDOW = int(os.getenv("DEFAULT_RATE_LIMIT_WINDOW", "60"))
+DEFAULT_RATE_LIMIT = _safe_int("DEFAULT_RATE_LIMIT", 5)
+DEFAULT_RATE_LIMIT_WINDOW = _safe_int("DEFAULT_RATE_LIMIT_WINDOW", 60)
 
 
 # 建立限流 dependency：FastAPI 自己注入 Request，沒有 decorator 時代

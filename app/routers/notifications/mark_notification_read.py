@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.core.dependencies import CurrentUser
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Notification
@@ -15,7 +16,7 @@ router = SizeLimitedAPIRouter(prefix="/notifications")
 
 @router.patch("/{notification_id}/read")
 def mark_notification_read(
-    notification_id: int,
+    notification_id: DbId,
     current_user: CurrentUser,
     session: DbSession,
 ):

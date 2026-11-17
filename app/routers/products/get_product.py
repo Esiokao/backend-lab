@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Product
@@ -11,7 +12,7 @@ router = SizeLimitedAPIRouter(prefix="/products")
 
 @router.get("/{product_id}", response_model=ProductResponse)
 def get_product(
-    product_id: int,
+    product_id: DbId,
     db: DbSession,
 ):
     product = db.scalar(

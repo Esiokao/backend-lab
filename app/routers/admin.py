@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.dependencies import AdminUser
 from app.core.enums import ALLOWED_TRANSITIONS, OrderStatus
 from app.core.events import EventType
+from app.core.params import DbId, Page
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import NotificationOutbox, Order, User
@@ -31,7 +32,7 @@ _OUTBOX_EVENT_BY_STATUS = {
 def list_orders(
     db: DbSession,
     _: AdminUser,
-    page: int = Query(default=1, ge=1),
+    page: Page = 1,
     page_size: int = Query(default=10, ge=1, le=100),
     order_status: OrderStatus | None = Query(default=None, alias="status"),
     sort: Literal["newest", "oldest"] = Query(default="newest"),
@@ -83,7 +84,7 @@ def list_orders(
 
 @router.patch("/{order_id}/status")
 def update_order_status(
-    order_id: int,
+    order_id: DbId,
     new_status: OrderStatus,
     db: DbSession,
     _: AdminUser,
@@ -141,7 +142,7 @@ def update_order_status(
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_order(
-    order_id: int,
+    order_id: DbId,
     db: DbSession,
     _: AdminUser,
 ):
@@ -168,7 +169,7 @@ users_router = SizeLimitedAPIRouter(
 
 @users_router.patch("/{user_id}", response_model=UserResponse)
 def update_user_as_admin(
-    user_id: int,
+    user_id: DbId,
     payload: AdminUserPatch,
     db: DbSession,
     current_admin: AdminUser,
@@ -209,7 +210,7 @@ def update_user_as_admin(
 
 @users_router.get("/{user_id}")
 def get_user_detail(
-    user_id: int,
+    user_id: DbId,
     db: DbSession,
     _: AdminUser,
 ):

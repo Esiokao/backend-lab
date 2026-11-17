@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from app.core.dependencies import AdminUser
 from app.core.events import EventType
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Category, NotificationOutbox, Product
@@ -15,7 +16,7 @@ router = SizeLimitedAPIRouter(prefix="/products")
     response_model=ProductResponse,
 )
 def update_product(
-    product_id: int,
+    product_id: DbId,
     payload: ProductPatch,
     db: DbSession,
     _: AdminUser,

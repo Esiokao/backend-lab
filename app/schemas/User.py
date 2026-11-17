@@ -12,7 +12,9 @@ def _clean_name(v: str) -> str:
 
 
 # 共用：所有可寫入的 name 欄位一律 trim + 拒絕純空白，與前端 zod .trim() 同標準。
-NameStr = Annotated[str, AfterValidator(_clean_name), Field(max_length=100)]
+NameStr = Annotated[
+    str, AfterValidator(_clean_name), Field(min_length=1, max_length=100)
+]
 
 # 建立 User 時，API 會接收這些資料
 

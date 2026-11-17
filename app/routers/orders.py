@@ -11,6 +11,7 @@ from app.core.dependencies import (
 )
 from app.core.enums import OrderStatus
 from app.core.events import EventType
+from app.core.params import DbId, Page
 from app.core.rate_limit import rate_limit
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
@@ -140,7 +141,7 @@ def create_order_endpoint(
 
 @router.post("/orders/{order_id}/cancel", response_model=OrderResponse)
 def cancel_order(
-    order_id: int,
+    order_id: DbId,
     current_user: CurrentUser,
     session: DbSession,
 ):
@@ -186,7 +187,7 @@ def cancel_order(
 # 驗章 + nonce 單次 + 訂單綁定全部通過才轉 paid（付款邊界由收據構成）。
 @router.post("/orders/{order_id}/pay", response_model=PaymentResponse)
 def pay_order(
-    order_id: int,
+    order_id: DbId,
     data: PayWithReceipt,
     current_user: CurrentUser,
     session: DbSession,
@@ -229,7 +230,7 @@ def pay_order(
 
 @router.post("/orders/{order_id}/complete", response_model=OrderResponse)
 def complete_order(
-    order_id: int,
+    order_id: DbId,
     current_user: AdminUser,
     session: DbSession,
 ):
@@ -265,7 +266,7 @@ def complete_order(
 def get_orders(
     session: DbSession,
     current_user: CurrentUser,
-    page: int = Query(1, ge=1),
+    page: Page = 1,
     page_size: int = Query(10, ge=1, le=100),
     sort_by: Literal["id"] = "id",
     order: Literal["asc", "desc"] = "asc",
@@ -289,7 +290,7 @@ def get_orders(
     response_model=OrderResponse,
 )
 def get_order(
-    order_id: int,
+    order_id: DbId,
     current_user: CurrentUser,
     session: DbSession,
 ):
@@ -313,7 +314,7 @@ def get_order(
     response_model=list[OrderResponse],
 )
 def get_user_orders(
-    user_id: int,
+    user_id: DbId,
     current_user: CurrentUser,
     session: DbSession,
 ):

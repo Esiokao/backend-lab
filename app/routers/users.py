@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.dependencies import AdminUser, CurrentUser
 from app.core.jwt import create_access_token
+from app.core.params import DbId
 from app.core.rate_limit import rate_limit
 from app.core.request_size import SizeLimitedAPIRouter, request_size_limit
 from app.core.security import hash_password, verify_password
@@ -55,7 +56,7 @@ def get_current_user_info(
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(
-    user_id: int,
+    user_id: DbId,
     session: DbSession,
     current_user: CurrentUser,
 ):
@@ -102,7 +103,7 @@ def create_user(
 
 @router.put("/users/{user_id}", response_model=UserResponse)
 def update_user(
-    user_id: int,
+    user_id: DbId,
     user: UserUpdate,
     session: DbSession,
     current_user: CurrentUser,
@@ -139,7 +140,7 @@ def update_user(
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
 def patch_user(
-    user_id: int,
+    user_id: DbId,
     user: UserPatch,
     session: DbSession,
     current_user: CurrentUser,
@@ -193,7 +194,7 @@ def patch_user(
 
 @router.delete("/users/{user_id}")
 def delete_user(
-    user_id: int,
+    user_id: DbId,
     session: DbSession,
     _: AdminUser,
 ):

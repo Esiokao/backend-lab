@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 
 from app.core.dependencies import AdminUser
+from app.core.params import DbId
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Category
@@ -11,7 +12,7 @@ router = SizeLimitedAPIRouter(prefix="/categories")
 
 @router.patch("/{category_id}", response_model=CategoryResponse)
 def update_category(
-    category_id: int,
+    category_id: DbId,
     payload: CategoryPatch,
     db: DbSession,
     _: AdminUser,

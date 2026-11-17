@@ -1,6 +1,7 @@
 from fastapi import Query
 from sqlalchemy import func, select
 
+from app.core.params import Page
 from app.core.request_size import SizeLimitedAPIRouter
 from app.database import DbSession
 from app.models import Category
@@ -12,7 +13,7 @@ router = SizeLimitedAPIRouter(prefix="/categories")
 @router.get("", response_model=CategoryListResponse)
 def list_categories(
     db: DbSession,
-    page: int = Query(default=1, ge=1),
+    page: Page = 1,
     page_size: int = Query(default=100, ge=1, le=100),
     q: str | None = Query(default=None, max_length=100),
 ):
