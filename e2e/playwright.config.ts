@@ -18,6 +18,9 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   retries: process.env.CI ? 2 : 0,
+  // junit 落 results/e2e.xml——CI Summary 的 e2e 行靠它；junit 的 outputFile
+  // 只能從 config 給（CLI --reporter 給不了路徑，env var 這版不支援）。
+  reporter: [['list'], ['junit', { outputFile: 'results/e2e.xml' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
     // staging 用自簽憑證時也跑得動

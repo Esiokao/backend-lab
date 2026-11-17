@@ -259,9 +259,14 @@ jobs:
 
       - name: Run e2e journeys
         working-directory: e2e
-        run: pnpm exec playwright test --reporter=list,junit
-        env:
-          PLAYWRIGHT_JUNIT_OUTPUT_NAME: results/e2e.xml
+        # 退出碼是唯一真判決（retries 會讓 junit 的 errors>0）——狀態另存給 Summary。
+        run: |
+          if pnpm exec playwright test; then
+            echo PASS > results/status.txt
+          else
+            echo FAIL > results/status.txt
+            exit 1
+          fi
 
       - name: Append e2e summary
         if: always()
@@ -270,19 +275,18 @@ jobs:
         run: |
           node - <<'EOF'
           const fs = require("fs");
-          let row = "| e2e | （junit 缺失） | - |";
+          let row = "| e2e | （報告缺失） | - |";
           try {
-            const xml = fs.readFileSync("results/e2e.xml", "utf8");
-            const m = xml.match(/tests="(\d+)"(?:[^>]*failures="(\d+)")?[^>]*errors="(\d+)"[^>]*skipped="?(\d+)?"?[^>]*time="([\d.]+)"/);
-            if (m) {
-              const [, tests, fail, err, skip, time] = m;
-              const status = Number(fail) + Number(err) === 0 ? "PASS" : "FAIL";
-              row = `| e2e | ${status} ${tests} tests（${fail} failed, ${err} errors, ${skip} skipped）| ${time}s |`;
-            }
+            const root = fs.readFileSync("results/e2e.xml", "utf8").slice(0, 500);
+            const num = (k) => { const m = root.match(new RegExp(k + '="(\\d+)"')); return m ? Number(m[1]) : 0; };
+            const time = (root.match(/time="([\d.]+)"/) || [])[1] || "?";
+            const status = fs.readFileSync("results/status.txt", "utf8").trim();
+            const retried = num("errors");
+            const detail = retried > 0 && status === "PASS" ? "（" + retried + " 次重試後過）" : "（" + num("failures") + " failed, " + num("errors") + " errors）";
+            row = "| e2e | " + status + " " + num("tests") + " tests " + detail + " | " + time + "s |";
           } catch {}
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, row + "\n");
           EOF
-
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
