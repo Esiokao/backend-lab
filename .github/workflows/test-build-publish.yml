@@ -120,7 +120,35 @@ jobs:
         run: docker compose logs --no-color api nginx
 
       - name: Run tests
-        run: uv run pytest -q -m "not deployment"
+        # coverage 只量 in-process 的測試；打容器 API 的整合測試不在內——數字偏低，方向正確。
+        run: uv run pytest -q -m "not deployment" --junitxml=results/junit.xml --cov=app --cov-report=json:results/coverage.json --cov-report=term-missing
+
+      - name: Append pytest summary
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os, json
+          root = ET.parse("results/junit.xml").getroot()
+          ts = root if root.tag == "testsuite" else root.find("testsuite")
+          total, fail, err, skip = (int(ts.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
+          cov = ""
+          try:
+              cov = f"｜ cov {json.load(open('results/coverage.json'))['totals']['percent_covered']:.1f}% "
+          except Exception:
+              pass
+          status = "PASS" if fail + err == 0 else "FAIL"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("| pytest | %s %d tests（%d failed, %d errors, %d skipped）%s| %ss |\n" % (status, total, fail, err, skip, cov, ts.get("time", "?")))
+          EOF
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: results/
+          retention-days: 7
 
       - name: Stop Docker Compose
         if: always()
@@ -231,7 +259,29 @@ jobs:
 
       - name: Run e2e journeys
         working-directory: e2e
-        run: pnpm exec playwright test
+        run: pnpm exec playwright test --reporter=list,junit
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: results/e2e.xml
+
+      - name: Append e2e summary
+        if: always()
+        continue-on-error: true
+        working-directory: e2e
+        run: |
+          node - <<'EOF'
+          const fs = require("fs");
+          let row = "| e2e | （junit 缺失） | - |";
+          try {
+            const xml = fs.readFileSync("results/e2e.xml", "utf8");
+            const m = xml.match(/tests="(\d+)"(?:[^>]*failures="(\d+)")?[^>]*errors="(\d+)"[^>]*skipped="?(\d+)?"?[^>]*time="([\d.]+)"/);
+            if (m) {
+              const [, tests, fail, err, skip, time] = m;
+              const status = Number(fail) + Number(err) === 0 ? "PASS" : "FAIL";
+              row = `| e2e | ${status} ${tests} tests（${fail} failed, ${err} errors, ${skip} skipped）| ${time}s |`;
+            }
+          } catch {}
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, row + "\n");
+          EOF
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -246,6 +296,54 @@ jobs:
       - name: Stop Docker Compose
         if: always()
         run: docker compose down
+
+  vitest:
+    needs: code-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run vitest
+        working-directory: frontend
+        run: pnpm exec vitest run --reporter=junit --outputFile=results/vitest.xml
+
+      - name: Append vitest summary
+        if: always()
+        continue-on-error: true
+        working-directory: frontend
+        run: |
+          node - <<'EOF'
+          const fs = require("fs");
+          let row = "| vitest | （junit 缺失） | - |";
+          try {
+            const xml = fs.readFileSync("results/vitest.xml", "utf8");
+            const m = xml.match(/tests="(\d+)"(?:[^>]*failures="(\d+)")?[^>]*errors="(\d+)"[^>]*time="([\d.]+)"/);
+            if (m) {
+              const [, tests, fail, err, time] = m;
+              const status = Number(fail) + Number(err) === 0 ? "PASS" : "FAIL";
+              row = `| vitest | ${status} ${tests} tests（${fail} failed）| ${time}s |`;
+            }
+          } catch {}
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "|\n## CI Report @ " + (process.env.GITHUB_SHA || "").slice(0, 7) + "\n\n| Suite | Result | Time |\n|---|---|---|\n" + row + "\n");
+          EOF
 
   docker-build:
     needs: code-check
