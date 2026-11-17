@@ -159,6 +159,7 @@ describe("CartSchema (API contract)", () => {
   const validItem = {
     product_id: 1,
     product_name: "Sweater",
+    image_url: null,
     quantity: 2,
     unit_price: "89.00",
     subtotal: "178.00",
