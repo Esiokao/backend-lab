@@ -128,18 +128,37 @@ jobs:
         continue-on-error: true
         run: |
           python3 - <<'EOF'
-          import xml.etree.ElementTree as ET, os, json
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+
           root = ET.parse("results/junit.xml").getroot()
-          ts = root if root.tag == "testsuite" else root.find("testsuite")
-          total, fail, err, skip = (int(ts.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
-          cov = ""
+          suite = root if root.tag == "testsuite" else root
+
+          def number(name):
+              return int(suite.get(name, 0))
+
+          total = number("tests")
+          failed = number("failures")
+          errors = number("errors")
+          skipped = number("skipped")
+          status = "PASS" if failed + errors == 0 else "FAIL"
+          coverage = "—"
           try:
-              cov = f"｜ cov {json.load(open('results/coverage.json'))['totals']['percent_covered']:.1f}% "
+              coverage = f"{json.load(open('results/coverage.json'))['totals']['percent_covered']:.1f}%"
           except Exception:
               pass
-          status = "PASS" if fail + err == 0 else "FAIL"
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write("| pytest | %s %d tests（%d failed, %d errors, %d skipped）%s| %ss |\n" % (status, total, fail, err, skip, cov, ts.get("time", "?")))
+
+          lines = [
+              "## pytest",
+              "",
+              "| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |",
+              "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+              f"| pytest | {status} | {total} | {failed} | {errors} | {skipped} | 0 | {suite.get('time', '—')}s | {coverage} |",
+              "",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+              output.write("\n".join(lines))
           EOF
 
       - name: Upload test results
@@ -275,18 +294,18 @@ jobs:
         run: |
           node - <<'EOF'
           const fs = require("fs");
-          let row = "| e2e | （報告缺失） | - |";
+          let summary = "## e2e\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| e2e | FAIL | — | — | — | — | — | — | — |\\n";
           try {
             const root = fs.readFileSync("results/e2e.xml", "utf8").slice(0, 500);
-            const num = (k) => { const m = root.match(new RegExp(k + '="(\\d+)"')); return m ? Number(m[1]) : 0; };
-            const time = (root.match(/time="([\d.]+)"/) || [])[1] || "?";
+            const num = (key) => { const match = root.match(new RegExp(key + '="(\\\\d+)"')); return match ? Number(match[1]) : 0; };
+            const time = (root.match(/time="([\\d.]+)"/) || [])[1] || "—";
             const status = fs.readFileSync("results/status.txt", "utf8").trim();
-            const retried = num("errors");
-            const detail = retried > 0 && status === "PASS" ? "（" + retried + " 次重試後過）" : "（" + num("failures") + " failed, " + num("errors") + " errors）";
-            row = "| e2e | " + status + " " + num("tests") + " tests " + detail + " | " + time + "s |";
+            const retries = status === "PASS" ? num("errors") : 0;
+            summary = `## e2e\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| e2e | ${status} | ${num("tests")} | ${num("failures")} | ${status === "PASS" ? 0 : num("errors")} | ${num("skipped")} | ${retries} | ${time}s | — |\\n`;
           } catch {}
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, row + "\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           EOF
+
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
@@ -336,17 +355,17 @@ jobs:
         run: |
           node - <<'EOF'
           const fs = require("fs");
-          let row = "| vitest | （junit 缺失） | - |";
+          let summary = "## vitest\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| vitest | FAIL | — | — | — | — | — | — | — |\\n";
           try {
             const xml = fs.readFileSync("results/vitest.xml", "utf8");
-            const m = xml.match(/tests="(\d+)"(?:[^>]*failures="(\d+)")?[^>]*errors="(\d+)"[^>]*time="([\d.]+)"/);
-            if (m) {
-              const [, tests, fail, err, time] = m;
-              const status = Number(fail) + Number(err) === 0 ? "PASS" : "FAIL";
-              row = `| vitest | ${status} ${tests} tests（${fail} failed）| ${time}s |`;
-            }
+            const attr = (key) => { const match = xml.slice(0, 500).match(new RegExp(key + '="(\\\\d+)"')); return match ? Number(match[1]) : 0; };
+            const time = (xml.slice(0, 500).match(/time="([\\d.]+)"/) || [])[1] || "—";
+            const failed = attr("failures");
+            const errors = attr("errors");
+            const status = failed + errors === 0 ? "PASS" : "FAIL";
+            summary = `## vitest\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| vitest | ${status} | ${attr("tests")} | ${failed} | ${errors} | ${attr("skipped")} | 0 | ${time}s | — |\\n`;
           } catch {}
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "|\n## CI Report @ " + (process.env.GITHUB_SHA || "").slice(0, 7) + "\n\n| Suite | Result | Time |\n|---|---|---|\n" + row + "\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           EOF
 
   docker-build:

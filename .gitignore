@@ -34,3 +34,8 @@ docker-compose.override.yml
 e2e/demo-out/
 .coverage
 e2e/results/
+
+# 測試執行的本地產物（log 重定向、報告、junit）
+*.log
+st_report*
+frontend/results/
