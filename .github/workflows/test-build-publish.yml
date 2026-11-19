@@ -131,34 +131,31 @@ jobs:
           import json
           import os
           import xml.etree.ElementTree as ET
+          NL = chr(10)
 
-          root = ET.parse("results/junit.xml").getroot()
-          suite = root if root.tag == "testsuite" else root
+          root = ET.parse('results/junit.xml').getroot()
+          suite = root if root.tag == 'testsuite' else root.find('testsuite')
 
           def number(name):
               return int(suite.get(name, 0))
 
-          total = number("tests")
-          failed = number("failures")
-          errors = number("errors")
-          skipped = number("skipped")
-          status = "PASS" if failed + errors == 0 else "FAIL"
-          coverage = "—"
+          total = number('tests')
+          failed = number('failures')
+          errors = number('errors')
+          skipped = number('skipped')
+          status = 'PASS' if failed + errors == 0 else 'FAIL'
+          coverage = '—'
           try:
               coverage = f"{json.load(open('results/coverage.json'))['totals']['percent_covered']:.1f}%"
           except Exception:
               pass
 
-          lines = [
-              "## pytest",
-              "",
-              "| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |",
-              "|---|---|---:|---:|---:|---:|---:|---:|---:|",
-              f"| pytest | {status} | {total} | {failed} | {errors} | {skipped} | 0 | {suite.get('time', '—')}s | {coverage} |",
-              "",
-          ]
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
-              output.write("\n".join(lines))
+          head = '## pytest' + NL
+          table = '| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |' + NL
+          table += '|---|---|---:|---:|---:|---:|---:|---:|---:|' + NL
+          table += '| pytest | ' + status + ' | ' + str(total) + ' | ' + str(failed) + ' | ' + str(errors) + ' | ' + str(skipped) + ' | 0 | ' + str(suite.get('time', '—')) + 's | ' + coverage + ' |' + NL
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(head + table)
           EOF
 
       - name: Upload test results
@@ -293,15 +290,15 @@ jobs:
         working-directory: e2e
         run: |
           node - <<'EOF'
-          const fs = require("fs");
-          let summary = "## e2e\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| e2e | FAIL | — | — | — | — | — | — | — |\\n";
+          const fs = require('fs');
+          let summary = '## e2e' + '\n\n' + '| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |' + '\n' + '|---|---|---:|---:|---:|---:|---:|---:|---:|' + '\n' + '| e2e | FAIL | — | — | — | — | — | — | — |' + '\n';
           try {
-            const root = fs.readFileSync("results/e2e.xml", "utf8").slice(0, 500);
-            const num = (key) => { const match = root.match(new RegExp(key + '="(\\\\d+)"')); return match ? Number(match[1]) : 0; };
-            const time = (root.match(/time="([\\d.]+)"/) || [])[1] || "—";
-            const status = fs.readFileSync("results/status.txt", "utf8").trim();
-            const retries = status === "PASS" ? num("errors") : 0;
-            summary = `## e2e\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| e2e | ${status} | ${num("tests")} | ${num("failures")} | ${status === "PASS" ? 0 : num("errors")} | ${num("skipped")} | ${retries} | ${time}s | — |\\n`;
+            const root = fs.readFileSync('results/e2e.xml', 'utf8').slice(0, 500);
+            const num = (re) => { const m = root.match(re); return m ? Number(m[1]) : 0; };
+            const time = (root.match(/time="([\d.]+)"/) || [])[1] || '—';
+            const status = fs.readFileSync('results/status.txt', 'utf8').trim();
+            const retries = status === 'PASS' ? num(/errors="(\d+)"/) : 0;
+            summary = '## e2e' + '\n\n' + '| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |' + '\n' + '|---|---|---:|---:|---:|---:|---:|---:|---:|' + '\n' + '| e2e | ' + status + ' | ' + num(/tests="(\d+)"/) + ' | ' + num(/failures="(\d+)"/) + ' | ' + (status === 'PASS' ? 0 : num(/errors="(\d+)"/)) + ' | ' + num(/skipped="(\d+)"/) + ' | ' + retries + ' | ' + time + 's | — |' + '\n';
           } catch {}
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           EOF
@@ -354,16 +351,16 @@ jobs:
         working-directory: frontend
         run: |
           node - <<'EOF'
-          const fs = require("fs");
-          let summary = "## vitest\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| vitest | FAIL | — | — | — | — | — | — | — |\\n";
+          const fs = require('fs');
+          let summary = '## vitest' + '\n\n' + '| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |' + '\n' + '|---|---|---:|---:|---:|---:|---:|---:|---:|' + '\n' + '| vitest | FAIL | — | — | — | — | — | — | — |' + '\n';
           try {
-            const xml = fs.readFileSync("results/vitest.xml", "utf8");
-            const attr = (key) => { const match = xml.slice(0, 500).match(new RegExp(key + '="(\\\\d+)"')); return match ? Number(match[1]) : 0; };
-            const time = (xml.slice(0, 500).match(/time="([\\d.]+)"/) || [])[1] || "—";
-            const failed = attr("failures");
-            const errors = attr("errors");
-            const status = failed + errors === 0 ? "PASS" : "FAIL";
-            summary = `## vitest\\n\\n| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |\\n|---|---|---:|---:|---:|---:|---:|---:|---:|\\n| vitest | ${status} | ${attr("tests")} | ${failed} | ${errors} | ${attr("skipped")} | 0 | ${time}s | — |\\n`;
+            const head = fs.readFileSync('results/vitest.xml', 'utf8').slice(0, 500);
+            const num = (re) => { const m = head.match(re); return m ? Number(m[1]) : 0; };
+            const time = (head.match(/time="([\d.]+)"/) || [])[1] || '—';
+            const failed = num(/failures="(\d+)"/);
+            const errors = num(/errors="(\d+)"/);
+            const status = failed + errors === 0 ? 'PASS' : 'FAIL';
+            summary = '## vitest' + '\n\n' + '| Suite | Status | Tests | Failed | Errors | Skipped | Retries | Time | Coverage |' + '\n' + '|---|---|---:|---:|---:|---:|---:|---:|---:|' + '\n' + '| vitest | ' + status + ' | ' + num(/tests="(\d+)"/) + ' | ' + failed + ' | ' + errors + ' | ' + num(/skipped="(\d+)"/) + ' | 0 | ' + time + 's | — |' + '\n';
           } catch {}
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           EOF
