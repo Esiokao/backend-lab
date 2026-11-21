@@ -631,3 +631,15 @@ await expect(page.getByText(productName)).toBeVisible();  // 過了才掛 → �
 
 > 收尾：Playwright 的 flaky 十之八九不是工具問題，是測試在等錯東西。
 > 把「等什麼」寫清楚，它就比任何人都穩。
+
+## 已知覆蓋缺口（2026-11-19 盤點）
+
+- **正式路徑未覆蓋**：e2e 打 Vite HTTP（`localhost:5173`）+ `ignoreHTTPSErrors`，
+  不走 nginx TLS / 安全標頭 / Secure cookie 的正式路徑。
+  部分緩解：pytest deployment 測試（`test_https.py` / `test_headers.py`）對 stack 驗證。
+  不能由此推出「cookie 在 prod 必定失敗」——只是沒測過那條路。
+- **訂單詳情 pay strip 無 e2e**：checkout journey 走 CheckoutView 三步付款；
+  OrderDetailView 的 PayOrderModal 2026-11-19 才對齊同一路徑（此前直接 POST /pay
+  無 receipt = 必 422），e2e 待補（owner 寫）。
+- **fuzzer 對受保護端點是黑洞**：Schemathesis 無有效憑證，50 個操作只收到
+  401/403——auth 後的業務邏輯仍靠手寫測試。

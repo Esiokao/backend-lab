@@ -1,13 +1,15 @@
-import { expect, test } from '@playwright/test'
+import { expect } from '@playwright/test'
 
+import { test } from '../../fixtures/auth'
 import { createOrder, payOrder } from '../../api/orders'
 
 // 旅程 3：owner 取消自己的訂單 → 狀態變 cancelled（PRD F8）。
-// 身份：shopper（shopper/ 目錄的 storageState）。
+// 身份：freshShopperPage（fixtures/auth 的每測全新 shopper——會改狀態的測試
+// 不用共用 storageState，避免訂單/通知歷史跨測試污染）。
 // 資料：createOrder + payOrder 走到真實流程的終點 paid——取消不可逆，絕不碰別的測試的訂單。
 test.describe('Cancel order journey', () => {
   test('owner cancels their own paid order and sees it cancelled', async ({
-    page
+    freshShopperPage: page
   }) => {
     // create order
     const order = await createOrder(page.request)

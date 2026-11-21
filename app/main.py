@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import check_database_connection
@@ -29,17 +28,10 @@ app = FastAPI()
 # 但 frontend 拆成靜態容器後文件請求不經過 FastAPI——指標結構性歸零。
 # 改為前端 beacon：SPA mount 時主動 POST /visitors/track 報到
 # （見 app/routers/visitors.py；計數邏輯仍在 app/core/visitors.py）。
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+#
+# 無 CORS middleware：同源架構（ADR-0001）下瀏覽器只跟同源 nginx 說話；
+# dev 由 Vite proxy 轉發，同樣不需要。舊的 localhost:3000 允許清單是
+# 5173 之前的殘留，直接移除而非更新。
 
 
 app.include_router(users_router)

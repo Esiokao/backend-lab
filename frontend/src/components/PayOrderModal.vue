@@ -6,7 +6,8 @@ import { ApiError, api } from "@/lib/api";
 import { useToast } from "@/stores/toast";
 
 // 付款 Modal（v1.20）：與 checkout 付款頁同一語彙——明細、Backend Lab Pay、demo 聲明。
-// 按下 Pay 才真的 POST /orders/{id}/pay（後端僅允許 created → pending、限本人）；
+// 付款走與 CheckoutView 相同的三步：payment-intent → mock-provider 收款 → 收據付款
+// （後端 /orders/{id}/pay 只收 PayWithReceipt：unpaid → paid、限本人）；
 // 成功後由父層重載訂單。
 
 export type PayLine = { name: string; quantity: number; amount: number };
@@ -32,7 +33,16 @@ async function pay(): Promise<void> {
   paying.value = true;
   failed.value = "";
   try {
-    await api.post(`/orders/${props.orderId}/pay`);
+    // 付款三步流程（與 CheckoutView 相同）：intent → mock-provider 收款 → 收據付款
+    const intent = await api.post<{ token: string }>(
+      `/orders/${props.orderId}/payment-intent`
+    );
+    const provider = await api.post<{ receipt: string }>("/mock-provider/pay", {
+      token: intent.token,
+    });
+    await api.post(`/orders/${props.orderId}/pay`, {
+      receipt: provider.receipt,
+    });
     toast.show(`Order #${props.orderId} paid.`);
     emit("paid");
   } catch (err) {
