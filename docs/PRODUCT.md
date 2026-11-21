@@ -43,7 +43,7 @@ Used live in interviews (screen share, often one interviewer following along), a
 ## Evidence on Hand
 
 - PRD v1.5 (`docs/PRD.md`) — authoritative feature/contract spec.
-- DESIGN.md + `.impeccable/design.json` — the cream "Warm Paper & Ink" token world from the current implementation (owner rejected the UI composition built on it, palette stays).
+- `docs/DESIGN.md` — the cream "Warm Paper & Ink" token world from the current implementation (owner rejected the UI composition built on it, palette stays).
 - Live demo data: real users/orders/products/notifications in Postgres.
 
 ## Product Principles
