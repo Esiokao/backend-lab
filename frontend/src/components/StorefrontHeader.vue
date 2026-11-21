@@ -82,10 +82,10 @@ async function handleLogout(): Promise<void> {
       <span>Backend Lab</span>
     </router-link>
 
-    <!-- 導覽：All products ＋ About us（手機隱藏） -->
+    <!-- 導覽：All products ＋ About（手機隱藏） -->
     <nav class="sf-nav" aria-label="Catalog shortcuts">
       <router-link :to="{ name: 'storefront' }">All products</router-link>
-      <router-link :to="{ name: 'about' }">About us</router-link>
+      <router-link :to="{ name: 'about' }">About</router-link>
     </nav>
 
     <div class="storefront-actions">

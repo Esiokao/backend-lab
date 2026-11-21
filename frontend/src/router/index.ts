@@ -49,11 +49,11 @@ const router = createRouter({
       meta: { title: "Product" },
     },
     {
-      // About us：repo 的 tech stack（公開）。
+      // About：repo 的 tech stack（公開）。
       path: "/about",
       name: "about",
       component: () => import("@/views/AboutView.vue"),
-      meta: { title: "About us" },
+      meta: { title: "About" },
     },
     {
       // 登入後應用區（v1.4 自 / 前綴遷入）。

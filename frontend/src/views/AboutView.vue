@@ -2,7 +2,7 @@
 import StorefrontHeader from "@/components/StorefrontHeader.vue";
 import StorefrontFooter from "@/components/StorefrontFooter.vue";
 
-// About us（/about）：這個 repo 的技術棧與工程實踐。
+// About（/about）：這個 repo 的技術棧與工程實踐。
 // 新頁面慣例：Tailwind utilities + token 主題（dark mode 隨 [data-theme] 自動翻）。
 
 const backend = [
@@ -54,7 +54,7 @@ const auth = [
       class="mb-7 flex items-stretch overflow-hidden rounded-sm border-[1.5px] border-brand bg-card"
     >
       <div class="flex-1 px-[22px] pb-3.5 pt-4">
-        <h1 class="m-0 text-[28px] font-bold tracking-tight text-ink-strong">About us</h1>
+        <h1 class="m-0 text-[28px] font-bold tracking-tight text-ink-strong">About</h1>
         <p class="mt-1.5 text-[13px] text-ink-soft">
           What this repo is built with — the whole stack, honestly listed.
         </p>

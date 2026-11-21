@@ -14,7 +14,7 @@
       <nav class="footer-nav" aria-label="Footer">
         <router-link :to="{ name: 'storefront' }">Store</router-link>
         <router-link :to="{ name: 'cart' }">Cart</router-link>
-        <router-link :to="{ name: 'about' }">About us</router-link>
+        <router-link :to="{ name: 'about' }">About</router-link>
       </nav>
       <span class="footer-colophon">Sheet 01 · Backend Lab · drawn 2026</span>
     </div>
